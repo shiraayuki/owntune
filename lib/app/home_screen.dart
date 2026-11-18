@@ -28,7 +28,8 @@ class HomeScreen extends StatelessWidget {
     return Scaffold(
       body: SafeArea(
         child: Center(
-          child: Padding(
+          // Scrollbar, damit lange Fehlermeldungen auf dem iPhone lesbar bleiben.
+          child: SingleChildScrollView(
             padding: const EdgeInsets.all(24),
             child: Column(
               mainAxisSize: MainAxisSize.min,
