@@ -6,6 +6,12 @@ on:
   push:
     tags: ["v*"]
   workflow_dispatch:
+    inputs:
+      runner:
+        description: "macOS-Runner (arm64-Runner sind oft ausgelastet)"
+        type: choice
+        default: macos-15-intel
+        options: [macos-15-intel, macos-latest]
 
 concurrency:
   group: ios-${{ github.ref }}
@@ -16,7 +22,7 @@ env:
 
 jobs:
   ios:
-    runs-on: macos-latest
+    runs-on: ${{ inputs.runner || 'macos-15-intel' }}
     steps:
       - uses: actions/checkout@v7
 
