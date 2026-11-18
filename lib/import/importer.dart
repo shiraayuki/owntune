@@ -70,11 +70,31 @@ class Importer {
   final TrackReader _read;
   final Set<String> _supported;
   final _random = Random.secure();
+  bool _running = false;
 
+  /// Imports [paths] one after another and reports a summary.
+  ///
+  /// Only one import may run at a time: a call made while another is still
+  /// pending fails with a [StateError] and leaves the running import
+  /// undisturbed. Concurrent imports could race on the same content hash and
+  /// on shared cover files.
   Future<ImportSummary> importFiles(
     List<String> paths, {
     void Function(ImportProgress)? onProgress,
   }) async {
+    if (_running) throw StateError('An import is already running');
+    _running = true;
+    try {
+      return await _importAll(paths, onProgress);
+    } finally {
+      _running = false;
+    }
+  }
+
+  Future<ImportSummary> _importAll(
+    List<String> paths,
+    void Function(ImportProgress)? onProgress,
+  ) async {
     await _storage.ensure();
 
     var added = 0;
@@ -126,6 +146,7 @@ class Importer {
     // The reader picks the parser by file extension, so the temporary copy
     // keeps the real one: `<random>.part.<ext>`.
     final part = _storage.audioFile('${_randomHex()}.part.$ext');
+    String? hash; // set once the reader succeeded
     File? finalFile; // set only once this attempt has renamed the part file
     File? newCover; // set only if this attempt wrote the cover file
     try {
@@ -137,6 +158,7 @@ class Importer {
         return (_Outcome.unsupported, null);
       }
 
+      hash = info.contentHash;
       if (await _repo.hasHash(info.contentHash)) {
         return (_Outcome.duplicate, null);
       }
@@ -177,16 +199,33 @@ class Importer {
       );
       return (_Outcome.added, info);
     } catch (_) {
-      await _deleteQuietly(finalFile);
-      final cover = newCover;
-      if (cover != null &&
-          !await _repo.isCoverReferenced(p.basename(cover.path))) {
-        await _deleteQuietly(cover);
-      }
+      await _rollback(hash: hash, finalFile: finalFile, newCover: newCover);
       return (_Outcome.unsupported, null);
     } finally {
       // Gone after a successful rename; a leftover otherwise.
       await _deleteQuietly(part);
+    }
+  }
+
+  /// Removes what a failed attempt created, but never a file a row owns: the
+  /// audio file only if no row has its hash (another attempt may have won the
+  /// race for it), the cover only if no row references it. If a check itself
+  /// fails, the file is kept; startup cleanup removes true orphans.
+  Future<void> _rollback({
+    required String? hash,
+    required File? finalFile,
+    required File? newCover,
+  }) async {
+    try {
+      if (finalFile != null && hash != null && !await _repo.hasHash(hash)) {
+        await _deleteQuietly(finalFile);
+      }
+      if (newCover != null &&
+          !await _repo.isCoverReferenced(p.basename(newCover.path))) {
+        await _deleteQuietly(newCover);
+      }
+    } catch (_) {
+      // Keep the files; see above.
     }
   }
 

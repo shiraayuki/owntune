@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
@@ -282,6 +283,46 @@ void main() {
     expect(summary.artists, 4); // Ann, Bob, Cy, Unknown Artist
   });
 
+  test('a second importFiles while one is pending throws StateError', () async {
+    final gate = Completer<void>();
+    final started = Completer<void>();
+    final slow = Importer(
+      repo: repo,
+      storage: storage,
+      read: (path) async {
+        if (!started.isCompleted) started.complete();
+        await gate.future;
+        return fakeRead(path);
+      },
+      supportedExtensions: supported,
+    );
+    results['a.mp3'] = ok('h1');
+    results['b.mp3'] = ok('h2');
+
+    final first = slow.importFiles([pick('a.mp3')]);
+    await started.future;
+
+    await expectLater(
+      slow.importFiles([pick('b.mp3')]),
+      throwsA(
+        isA<StateError>().having(
+          (e) => e.message,
+          'message',
+          'An import is already running',
+        ),
+      ),
+    );
+
+    gate.complete();
+    final summary = await first;
+    expect(summary.added, 1);
+    expect(audioFiles(), ['h1.mp3']);
+
+    // The importer is usable again afterwards.
+    results['b.mp3'] = ok('h2');
+    expect((await slow.importFiles([pick('b.mp3')])).added, 1);
+  });
+
   group('rollback', () {
     test('failed insert removes only what this attempt created', () async {
       // Existing row owns the cover c1 and audio h1.mp3.
@@ -330,6 +371,31 @@ void main() {
       },
     );
 
+    test(
+      'insert losing a race keeps the audio file of the existing row',
+      () async {
+        results['a.mp3'] = ok('h1');
+        await importer().importFiles([pick('a.mp3')]);
+
+        // hasHash reports "free" although a row with this hash exists, as if
+        // that row had been inserted by a concurrent attempt after the check.
+        final racing = _FailingRepo(db, storage, hasHashFalseOnce: true);
+        results['b.mp3'] = ok('h1');
+        final summary = await Importer(
+          repo: racing,
+          storage: storage,
+          read: fakeRead,
+          supportedExtensions: supported,
+        ).importFiles([pick('b.mp3')]);
+
+        expect(summary.added, 0);
+        expect(summary.unsupported, ['b.mp3']);
+        expect(audioFiles(), ['h1.mp3']);
+        expect(storage.audioFile('h1.mp3').existsSync(), isTrue);
+        expect(await repo.count(), 1);
+      },
+    );
+
     test('hasHash throwing does not touch existing library files', () async {
       results['a.mp3'] = ok('h1');
       await importer().importFiles([pick('a.mp3')]);
@@ -355,14 +421,20 @@ class _FailingRepo extends TrackRepository {
     super.storage, {
     this.failOn,
     this.failHasHash = false,
+    this.hasHashFalseOnce = false,
   });
 
   final String? failOn;
   final bool failHasHash;
+  bool hasHashFalseOnce;
 
   @override
   Future<bool> hasHash(String hash) async {
     if (failHasHash) throw StateError('hasHash failed');
+    if (hasHashFalseOnce) {
+      hasHashFalseOnce = false;
+      return false;
+    }
     return super.hasHash(hash);
   }
 
