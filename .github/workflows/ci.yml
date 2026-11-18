@@ -1,0 +1,82 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  FLUTTER_VERSION: "3.50.0"
+  FRB_VERSION: "2.13.0"
+
+jobs:
+  linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          cache: true
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+          targets: aarch64-linux-android, armv7-linux-androideabi, x86_64-linux-android
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: rust
+
+      - name: Linux-Abhängigkeiten
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev xvfb
+
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - run: flutter pub get
+
+      - name: Dart analysieren
+        run: flutter analyze
+
+      - name: Dart-Tests
+        run: flutter test
+
+      - name: Rust prüfen
+        working-directory: rust
+        run: |
+          cargo fmt --check
+          cargo clippy -- -D warnings
+          cargo test
+
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: flutter_rust_bridge_codegen@${{ env.FRB_VERSION }}
+
+      - name: Generierter Brückencode ist aktuell
+        run: |
+          flutter_rust_bridge_codegen generate
+          git status --porcelain
+          git diff --exit-code
+          test -z "$(git status --porcelain)"
+
+      - name: Integrationstest mit echtem Rust-Kern
+        run: xvfb-run flutter test integration_test -d linux
+
+      - name: Android-APK bauen
+        run: flutter build apk --release
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: owntune-apk
+          path: build/app/outputs/flutter-apk/app-release.apk
+          if-no-files-found: error
