@@ -39,7 +39,7 @@ class TrackRepository {
     await _deleteIfExists(_storage.audioFile(track.fileName));
 
     final cover = track.coverFile;
-    if (cover != null && !await _coverReferenced(cover)) {
+    if (cover != null && !await isCoverReferenced(cover)) {
       await _deleteIfExists(_storage.coverFile(cover));
     }
   }
@@ -87,7 +87,8 @@ class TrackRepository {
     }
   }
 
-  Future<bool> _coverReferenced(String cover) async {
+  /// Whether any row uses [cover] as its cover file name.
+  Future<bool> isCoverReferenced(String cover) async {
     final row = await (_db.select(_db.tracks)
           ..where((t) => t.coverFile.equals(cover))
           ..limit(1))
