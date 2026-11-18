@@ -8,6 +8,6 @@ void main() {
   testWidgets('real Rust core returns the M1 formats', (t) async {
     final s = await loadCoreStatus();
     expect(s, isA<CoreReady>());
-    expect((s as CoreReady).formats, ['mp3', 'm4a', 'flac', 'ogg', 'wav']);
+    expect((s as CoreReady).formats, ['mp3', 'm4a', 'aac', 'flac', 'wav']);
   });
 }
