@@ -6,80 +6,84 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 owntune ist ein mobiler Musikplayer für **lokale Dateien** (iOS & Android): importieren, abspielen, Metadaten/Cover/Alben/Playlists verwalten. Kein Streaming, kein Account, komplett offline.
 
-**Stand:** Noch kein Code – das Repo steht vor Meilenstein M0. Abschnitte unten beschreiben die *geplante* Struktur; sobald Code existiert, hat der Code Vorrang und diese Datei sollte angepasst werden.
+**Stand:** M0 (Grundgerüst) ist abgeschlossen und auf dem iPhone abgenommen. Die App ist ein einziger Bildschirm, der den Status des Rust-Kerns zeigt. Nächster Meilenstein: M1 (Import & Bibliothek). Designs und Pläne liegen unter `docs/superpowers/`.
 
 ## Rahmenbedingungen, die jede Entscheidung prägen
 
-- Entwicklung auf **Linux, ohne Mac**. Täglicher Loop: Flutter als **Linux-Desktop-App** oder im **Android-Emulator** mit Hot Reload.
-- **iOS wird nie lokal gebaut.** iOS-Builds laufen in GitHub Actions auf einem macOS-Runner (`flutter build ios --no-codesign` → unsignierte `.ipa` als Artifact), Installation per Sideload (SideStore/iloader).
-- iOS-spezifisches Verhalten (Hintergrundwiedergabe, Sperrbildschirm/Kontrollzentrum, Dateien-App) ist **nur auf dem echten iPhone** testbar. Plattformcode deshalb klein halten und hinter klaren Schnittstellen kapseln; Logik muss unter Linux testbar bleiben.
-- Linux-Ziel ist (vorerst) nur Entwicklungshilfe, kein Produkt.
+- Entwicklung auf **Linux, ohne Mac**. Täglicher Loop: Flutter als **Linux-Desktop-App** (`flutter run -d linux`) oder im **Android-Emulator**, mit Hot Reload.
+- **iOS wird nie lokal gebaut.** Die `.ipa` entsteht nur in GitHub Actions (`.github/workflows/ios.yml`) und wird per SideStore auf das iPhone geladen (kostenlose Apple-ID, App läuft nach 7 Tagen ab).
+- Der iOS-Workflow läuft **nur bei Versions-Tags `v*` oder manuell** (`gh workflow run iOS`), nicht bei jedem Push – macOS-Runner haben oft lange Wartezeiten. Standard ist der Intel-Runner `macos-15-intel`, weil arm64-Runner (`macos-latest`) zeitweise gar nicht zugeteilt wurden; per Dispatch-Input umschaltbar.
+- iOS-spezifisches Verhalten (Hintergrundwiedergabe, Sperrbildschirm, Dateien-App) ist **nur auf dem echten iPhone** testbar. Plattformcode klein halten und hinter Schnittstellen kapseln; Logik muss unter Linux testbar bleiben. Bei iOS-sensibler Arbeit zwischendurch manuell einen iOS-Build anstoßen.
+- Ohne Mac gibt es auf dem iPhone keine Logs. Fehler beim Start müssen deshalb **in der UI sichtbar** sein statt die App abstürzen zu lassen (Muster: `loadCoreStatus` → `CoreFailed` mit kopierbarem Text).
+- Linux-Ziel ist nur Entwicklungshilfe, kein Produkt.
 
-## Tech-Stack
+## Tech-Stack und gepinnte Versionen
 
-Flutter (Dart) · Riverpod · just_audio + audio_service (unter Linux `just_audio_media_kit`) · drift (SQLite) · file_picker · Tag-Lesen/-Schreiben über Rust-Kern mit `lofty` via flutter_rust_bridge **oder** zunächst ein Dart-Paket (noch offen, s. u.).
+Flutter **3.50.0** (gepinnt in beiden Workflows über `FLUTTER_VERSION`) · Dart 3.14 · Rust stable · flutter_rust_bridge **2.13.0** · lofty **0.25.5**.
+
+- flutter_rust_bridge muss an **drei Stellen exakt gleich** sein: `pubspec.yaml`, `rust/Cargo.toml` (`=2.13.0`) und das installierte `flutter_rust_bridge_codegen` (in `ci.yml` als `FRB_VERSION`). Sonst schlägt `RustLib.init()` zur Laufzeit fehl.
+- Seit Flutter 3.47 ist `package:flutter/material.dart` veraltet → **`package:material_ui/material_ui.dart`** importieren (sonst meldet `flutter analyze` Infos und die CI schlägt fehl).
+- Geplant für spätere Meilensteine (noch nicht eingebunden): Riverpod, just_audio + audio_service (Linux: `just_audio_media_kit`), drift, file_picker. Pakete erst mit dem Meilenstein hinzufügen, der sie braucht.
 
 ## Befehle
 
+Lokale Werkzeuge: Flutter in `~/.local/share/flutter`, Cargo-Binaries in `~/.cargo/bin` (beide im `PATH` über `~/.bashrc`).
+
 ```bash
 flutter pub get
-flutter run -d linux                     # Haupt-Entwicklungsziel
-flutter run -d <android-emulator-id>     # flutter devices zeigt die IDs
-flutter analyze
-flutter test
-flutter test test/pfad/zur_datei_test.dart          # einzelne Testdatei
-flutter test --plain-name "Testname"                # einzelner Test
-dart run build_runner build --delete-conflicting-outputs   # Codegen (drift, ggf. Riverpod)
+flutter run -d linux                                # Haupt-Entwicklungsziel
+flutter analyze                                     # muss "No issues found!" melden
+flutter test                                        # Unit- und Widget-Tests (ohne Rust)
+flutter test test/app/core_status_test.dart         # einzelne Testdatei
+flutter test --plain-name "zeigt App-Namen"         # einzelner Test
+flutter test integration_test -d linux              # Integrationstests mit echtem Rust-Kern
+(cd rust && cargo test && cargo clippy -- -D warnings && cargo fmt --check)
+flutter_rust_bridge_codegen generate                # nach JEDER Änderung an rust/src/api/
 ```
 
-Nach Änderungen an drift-Tabellen/DAOs (oder annotierten Riverpod-Providern) muss `build_runner` neu laufen.
+iOS-Release: `git tag vX.Y.Z && git push --tags` (oder `gh workflow run iOS`), danach `.ipa` aus dem Artifact `owntune-ipa` laden.
 
-## Geplante Architektur
+## Architektur
 
 ```
 lib/
-  app/            # Routing, Theme, App-Start
-  features/       # library, player, editor, playlists, import (UI + Feature-Logik)
-  data/
-    db/           # drift-Schema und DAOs
-    repositories/
-    sources/      # Abstraktion "Quelle" – jetzt nur lokal, später Download
-  services/
-    audio/        # audio_service-Handler
-    metadata/     # Schnittstelle zum Tag-Backend (Rust oder Dart)
-rust/             # optional: Rust-Kern (lofty, Scannen, Hashing)
+  main.dart            # lädt den Rust-Kern (loadCoreStatus) und startet OwntuneApp
+  app/                 # App-Start, Startbildschirm, CoreStatus
+  src/rust/            # GENERIERT von flutter_rust_bridge – nicht von Hand ändern
+rust/                  # Rust-Crate rust_lib_owntune
+  src/api/             # alles hier wird nach Dart exportiert (init.rs, metadata.rs)
+  src/frb_generated.rs # GENERIERT
+rust_builder/          # cargokit-Glue: baut Rust bei jedem `flutter build` für die Zielplattform mit
+integration_test/      # Tests gegen die echte native Bibliothek
 ```
 
-Kernprinzipien, die über mehrere Teile hinweg gelten:
+Geplante Ordner für spätere Meilensteine: `lib/features/` (library, player, editor, playlists, import), `lib/data/` (db, repositories, `sources/` als Abstraktion „Quelle“ für ein späteres Download-Feature), `lib/services/` (audio, metadata).
 
-- **Dateiablage:** Importierte Dateien werden in einen app-eigenen Bibliotheksordner kopiert (z. B. `Documents/Library/`), weil iOS keinen dauerhaften Zugriff auf fremde Ordner erlaubt. Duplikaterkennung per Datei-Hash. Auf iOS soll der Ordner in der Dateien-App sichtbar sein (`UIFileSharingEnabled`, `LSSupportsOpeningDocumentsInPlace`).
-- **Metadaten:** Die Datenbank ist die Quelle der Wahrheit für die Anzeige; Änderungen werden **zusätzlich in die Datei-Tags zurückgeschrieben** (ID3, Vorbis, MP4). Cover liegen als Thumbnails im Cache.
-- **Quellen-Abstraktion:** Ein Download-Feature kommt später und ist ausdrücklich nicht im Umfang. Nur die Abstraktion in `data/sources/` vorbereiten, keine Download-Logik bauen.
-- `services/metadata/` ist eine Schnittstelle, damit das Tag-Backend (Dart ↔ Rust) austauschbar bleibt.
+**Rust-Brücke:** Funktionen in `rust/src/api/*.rs` werden per `flutter_rust_bridge_codegen generate` nach `lib/src/rust/api/*.dart` übersetzt (z. B. `supported_formats()` → `supportedFormats()`; `#[frb(sync)]` = synchroner Aufruf). Generierter Code ist eingecheckt; die CI generiert neu und schlägt fehl, wenn sich dabei etwas ändert. Der Codegen löscht keine veralteten Dateien – nach dem Entfernen eines Rust-Moduls die zugehörige `.dart`-Datei von Hand löschen.
 
-## Datenmodell (Entwurf)
+**Testbarkeit:** Code, der Rust aufruft, bekommt die Rust-Funktionen als optionale Parameter (siehe `loadCoreStatus({init, formats})`), damit Unit-/Widget-Tests ohne native Bibliothek laufen. Echte Rust-Aufrufe werden in `integration_test/` geprüft.
 
-- **Track:** id, filePath, fileHash, title, artist, albumId, trackNumber, discNumber, duration, year, genre, coverPath, addedAt, playCount, lastPlayedAt
-- **Album:** id, title, albumArtist, year, coverPath, isUserCreated
-- **Playlist:** id, name, coverPath, createdAt
-- **PlaylistEntry:** playlistId, trackId, position
+## Grundsätze für kommende Meilensteine
+
+- **Dateiablage:** Importierte Dateien werden in einen app-eigenen Bibliotheksordner kopiert (z. B. `Documents/Library/`), weil iOS keinen dauerhaften Zugriff auf fremde Ordner erlaubt. Duplikaterkennung per Hash. Auf iOS soll der Ordner in der Dateien-App sichtbar sein (`UIFileSharingEnabled`, `LSSupportsOpeningDocumentsInPlace`).
+- **Metadaten:** Die Datenbank ist die Quelle der Wahrheit für die Anzeige; Änderungen werden zusätzlich über `lofty` in die Datei-Tags zurückgeschrieben (ID3, Vorbis, MP4). Cover als Thumbnails im Cache.
+- **Download-Feature ist nicht im Umfang** – nur die Abstraktion in `data/sources/` vorbereiten.
+
+**Datenmodell (Entwurf):** Track (id, filePath, fileHash, title, artist, albumId, trackNumber, discNumber, duration, year, genre, coverPath, addedAt, playCount, lastPlayedAt) · Album (id, title, albumArtist, year, coverPath, isUserCreated) · Playlist (id, name, coverPath, createdAt) · PlaylistEntry (playlistId, trackId, position).
 
 ## Meilensteine
 
-- **M0 Grundgerüst** – Flutter-Projekt (iOS/Android/Linux), CI (Lint+Test auf Linux, unsignierte `.ipa` auf macOS), optional flutter_rust_bridge. *Fertig:* leere App läuft unter Linux und per Sideload auf dem iPhone.
-- **M1 Import & Bibliothek** – MP3, M4A/AAC, FLAC, OGG, WAV; Mehrfachimport, Kopieren, Hash-Duplikate, Tags+Cover auslesen; Ansichten Songs/Alben/Interpreten mit Suche und Sortierung.
-- **M2 Player** – Steuerung, Warteschlange, Shuffle/Repeat, Mini-/Vollbild-Player, Hintergrund + Sperrbildschirm (`UIBackgroundModes: audio`), Zustand nach Neustart wiederherstellen.
+- **M0 Grundgerüst** – ✅ erledigt.
+- **M1 Import & Bibliothek** – MP3, M4A/AAC, FLAC, OGG, WAV; Mehrfachimport, Kopieren, Hash-Duplikate, Tags+Cover auslesen; Ansichten Songs/Alben/Interpreten mit Suche und Sortierung. *Fertig:* 50 Dateien importiert und korrekt gruppiert.
+- **M2 Player** – Steuerung, Warteschlange, Shuffle/Repeat, Mini-/Vollbild-Player, Hintergrund + Sperrbildschirm (`UIBackgroundModes: audio`), Zustand nach Neustart. *Fertig:* läuft auf dem iPhone bei gesperrtem Bildschirm und lässt sich steuern.
 - **M3 Metadaten-Editor** – Felder bearbeiten, Cover wählen/zuschneiden/entfernen, Mehrfachbearbeitung, Rückschreiben in Tags.
 - **M4 Alben & Playlists** – eigene Alben, Playlists mit Drag & Drop und eigenem Cover.
 - **M5 Feinschliff** – Teilen-Menü/„Öffnen mit …“, dynamische Farben aus dem Cover, Dark Mode, Statistiken.
 
 Nicht im Umfang: Download/Suche externer Quellen, Cloud-Sync, Accounts, Streaming, Store-Veröffentlichung.
 
-## Offene Entscheidungen (nicht eigenmächtig festlegen)
+## Entscheidungen und offene Fragen
 
-1. Rust/`lofty` von Anfang an oder zunächst Dart-Paket?
-2. Sideloading oder TestFlight (99 $/Jahr)?
-3. Dateien kopieren oder (unter Android) verlinken?
-4. Welche Dateiformate sind wirklich Pflicht?
-5. Design-Richtung?
-6. Linux nur als Entwicklungshilfe oder später echte Desktop-Version?
+Entschieden: Rust/`lofty` von Anfang an (M0) · Repo öffentlich · iOS-Builds nur für Releases. Aktuell genutzt: Sideloading per SideStore (TestFlight bleibt als Option offen).
+
+Offen (nicht eigenmächtig festlegen): Dateien kopieren oder (unter Android) verlinken? · Welche Formate sind Pflicht? · Design-Richtung? · Linux später als echte Desktop-Version?
