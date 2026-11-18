@@ -1,0 +1,140 @@
+import 'dart:io';
+
+import 'package:drift/drift.dart' show Value;
+import 'package:drift/native.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:owntune/data/db/database.dart';
+import 'package:owntune/data/library_storage.dart';
+import 'package:owntune/data/track_repository.dart';
+
+TracksCompanion row(
+  String hash, {
+  String ext = 'mp3',
+  String? cover,
+  String title = 'Song',
+}) {
+  return TracksCompanion.insert(
+    fileName: '$hash.$ext',
+    originalName: '$title.$ext',
+    contentHash: hash,
+    durationMs: 1000,
+    addedAt: DateTime(2026, 1, 1),
+    title: Value(title),
+    coverFile: Value(cover),
+  );
+}
+
+void main() {
+  late Directory tmp;
+  late LibraryStorage storage;
+  late AppDatabase db;
+  late TrackRepository repo;
+
+  setUp(() async {
+    tmp = Directory.systemTemp.createTempSync('owntune_repo_test');
+    storage = LibraryStorage(Directory('${tmp.path}/library'));
+    await storage.ensure();
+    db = AppDatabase(NativeDatabase.memory());
+    repo = TrackRepository(db, storage);
+  });
+
+  tearDown(() async {
+    await db.close();
+    tmp.deleteSync(recursive: true);
+  });
+
+  void writeAudio(String name, [int bytes = 10]) =>
+      storage.audioFile(name).writeAsBytesSync(List.filled(bytes, 1));
+  void writeCover(String name, [int bytes = 5]) =>
+      storage.coverFile(name).writeAsBytesSync(List.filled(bytes, 2));
+
+  test('insert then watchAll emits the track', () async {
+    await repo.insert(row('h1'));
+
+    final tracks = await repo.watchAll().first;
+
+    expect(tracks, hasLength(1));
+    expect(tracks.single.fileName, 'h1.mp3');
+    expect(tracks.single.title, 'Song');
+    expect(tracks.single.playCount, 0);
+    expect(await repo.count(), 1);
+  });
+
+  test('hasHash is true only for inserted hashes', () async {
+    await repo.insert(row('h1'));
+
+    expect(await repo.hasHash('h1'), isTrue);
+    expect(await repo.hasHash('other'), isFalse);
+  });
+
+  test('delete removes row, audio file and unshared cover', () async {
+    writeAudio('h1.mp3');
+    writeAudio('h2.mp3');
+    writeCover('c1.jpg');
+    await repo.insert(row('h1', cover: 'c1.jpg'));
+    await repo.insert(row('h2', cover: 'c1.jpg'));
+    final tracks = await repo.watchAll().first;
+    final first = tracks.firstWhere((t) => t.fileName == 'h1.mp3');
+    final second = tracks.firstWhere((t) => t.fileName == 'h2.mp3');
+
+    await repo.delete(first.id);
+
+    expect(await repo.count(), 1);
+    expect(storage.audioFile('h1.mp3').existsSync(), isFalse);
+    expect(storage.audioFile('h2.mp3').existsSync(), isTrue);
+    expect(storage.coverFile('c1.jpg').existsSync(), isTrue);
+
+    await repo.delete(second.id);
+
+    expect(await repo.count(), 0);
+    expect(storage.audioFile('h2.mp3').existsSync(), isFalse);
+    expect(storage.coverFile('c1.jpg').existsSync(), isFalse);
+  });
+
+  test('delete of a missing id and missing files does not throw', () async {
+    await repo.insert(row('h1', cover: 'c1.jpg'));
+    final id = (await repo.watchAll().first).single.id;
+
+    await repo.delete(id);
+    await repo.delete(id);
+
+    expect(await repo.count(), 0);
+  });
+
+  test('cleanupOrphans removes part files and files without rows, '
+      'keeps referenced files', () async {
+    writeAudio('h1.mp3');
+    writeCover('c1.jpg');
+    await repo.insert(row('h1', cover: 'c1.jpg'));
+    writeAudio('h1.mp3.part');
+    writeAudio('stray.flac');
+    writeCover('stray.jpg');
+
+    await repo.cleanupOrphans();
+
+    expect(storage.audioFile('h1.mp3').existsSync(), isTrue);
+    expect(storage.coverFile('c1.jpg').existsSync(), isTrue);
+    expect(storage.audioFile('h1.mp3.part').existsSync(), isFalse);
+    expect(storage.audioFile('stray.flac').existsSync(), isFalse);
+    expect(storage.coverFile('stray.jpg').existsSync(), isFalse);
+  });
+
+  test('storageBytes sums audio and cover files', () async {
+    writeAudio('a.mp3', 100);
+    writeAudio('b.flac', 50);
+    writeCover('c.jpg', 7);
+
+    expect(await repo.storageBytes(), 157);
+  });
+
+  test('rows hold names only', () async {
+    await repo.insert(row('h1', cover: 'c1.jpg'));
+
+    final track = (await repo.watchAll().first).single;
+
+    expect(track.fileName, isNot(contains('/')));
+    expect(track.coverFile, isNot(contains('/')));
+    expect(storage.audioFile(track.fileName).path,
+        startsWith(storage.root.path));
+  });
+}

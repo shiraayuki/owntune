@@ -36,7 +36,7 @@ jobs:
       - name: Linux dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev xvfb
+          sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev libsqlite3-dev xvfb
 
       - uses: actions/setup-java@v6
         with:
@@ -65,6 +65,13 @@ jobs:
       - name: Generated bridge code is up to date
         run: |
           flutter_rust_bridge_codegen generate
+          git status --porcelain
+          git diff --exit-code
+          test -z "$(git status --porcelain)"
+
+      - name: Generated Dart code is up to date
+        run: |
+          dart run build_runner build --delete-conflicting-outputs
           git status --porcelain
           git diff --exit-code
           test -z "$(git status --porcelain)"
