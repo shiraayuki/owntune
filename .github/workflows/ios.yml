@@ -1,8 +1,10 @@
 name: iOS
 
+# Nur für Releases: macOS-Runner haben oft lange Wartezeiten.
+# Auslösen per Versions-Tag (git tag v0.1.0 && git push --tags) oder manuell.
 on:
   push:
-    branches: [main]
+    tags: ["v*"]
   workflow_dispatch:
 
 concurrency:

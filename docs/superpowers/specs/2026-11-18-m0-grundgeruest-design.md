@@ -14,7 +14,7 @@ Rust (flutter_rust_bridge + `lofty`) kommt bereits in M0 dazu. Grund: Tags zuver
 - Rust-Kern in `rust/`, angebunden über flutter_rust_bridge v2, inklusive eines einfachen Aufrufs, dessen Ergebnis in der App sichtbar ist.
 - Öffentliches GitHub-Repo mit Actions-Workflows:
   - **Linux-Job** (bei jedem Push/PR): `flutter analyze`, `flutter test`, `cargo test` und `cargo clippy` für den Rust-Kern, Android-APK bauen.
-  - **macOS-Job** (bei jedem Push auf `main` und manuell auslösbar): `flutter build ios --release --no-codesign`, daraus eine unsignierte `.ipa` packen (`Payload/Runner.app` → zip) und als Artifact hochladen.
+  - **macOS-Job** (nur bei Versions-Tags `v*` und manuell auslösbar – geändert am 2026-11-18, weil die Wartezeit auf macOS-Runner den Entwicklungsfluss bremst; täglich wird unter Linux bzw. im Android-Emulator entwickelt): `flutter build ios --release --no-codesign`, daraus eine unsignierte `.ipa` packen (`Payload/Runner.app` → zip) und als Artifact hochladen.
 - Lokale Entwicklungsumgebung auf dem Laptop: Flutter, Rust (rustup), CMake und Ninja, sodass `flutter run -d linux` funktioniert.
 - `CLAUDE.md` an den echten Stand anpassen (Befehle, Ordner, Codegen-Schritte).
 
