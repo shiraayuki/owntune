@@ -71,7 +71,7 @@ My calls (please check):
 - **Artists** are derived from the track artist field (no separate table); "feat." credits are not split in M1.
 - **Settings defaults:** appearance "System", accent Coral.
 - **Settings storage:** a key-value table in the same drift database (no extra package).
-- **Interrupted imports:** each file is copied to a temporary name and renamed only after its DB row is written; leftovers without a row are deleted at startup. There is no "Stop" button (per mockup v3, only "Hide – keep importing").
+- **Interrupted imports:** each file is copied to a temporary `.part` name, renamed to its final `<hash>.<ext>` name, and only then gets its DB row — so a row never points at a missing file. At startup, `.part` files and files without a row are deleted. There is no "Stop" button (per mockup v3, only "Hide – keep importing").
 - **State management:** Riverpod (as planned); drift streams feed providers so views update live while an import runs.
 
 ## Left to the implementer
