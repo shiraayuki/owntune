@@ -41,7 +41,7 @@ flutter test integration_test -d linux              # Integrationstests mit echt
 flutter_rust_bridge_codegen generate                # nach JEDER Änderung an rust/src/api/
 ```
 
-iOS-Release: `git tag vX.Y.Z && git push --tags` (oder `gh workflow run iOS`), danach `.ipa` aus dem Artifact `owntune-ipa` laden.
+iOS-Release: `git tag vX.Y.Z && git push --tags` → der iOS-Workflow baut die `.ipa` mit dieser Version (`--build-name`, Build-Nummer = Run-Nummer) und legt ein GitHub-Release mit `owntune.ipa` und `source.json` an. SideStore-Quelle (einmal in SideStore hinzufügen): `https://github.com/shiraayuki/owntune/releases/latest/download/source.json`; erzeugt von `tool/sidestore_source.dart` (Test: `test/tool/`). `gh workflow run iOS` baut nur ein Artifact ohne Release.
 
 ## Architektur
 

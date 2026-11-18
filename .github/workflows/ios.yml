@@ -1,7 +1,9 @@
 name: iOS
 
 # Nur für Releases: macOS-Runner haben oft lange Wartezeiten.
-# Auslösen per Versions-Tag (git tag v0.1.0 && git push --tags) oder manuell.
+# Versions-Tag (git tag v0.1.0 && git push --tags) → .ipa + GitHub-Release mit
+# SideStore-Quelle (releases/latest/download/source.json).
+# Manuell (gh workflow run iOS) → nur .ipa als Artifact, kein Release.
 on:
   push:
     tags: ["v*"]
@@ -23,6 +25,8 @@ env:
 jobs:
   ios:
     runs-on: ${{ inputs.runner || 'macos-15-intel' }}
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v7
 
@@ -43,7 +47,12 @@ jobs:
       - run: flutter pub get
 
       - name: iOS-App bauen (unsigniert)
-        run: flutter build ios --release --no-codesign
+        run: |
+          ARGS=()
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            ARGS=(--build-name="${GITHUB_REF_NAME#v}" --build-number="$GITHUB_RUN_NUMBER")
+          fi
+          flutter build ios --release --no-codesign "${ARGS[@]}"
 
       - name: .ipa packen
         run: |
@@ -56,3 +65,12 @@ jobs:
           name: owntune-ipa
           path: owntune.ipa
           if-no-files-found: error
+
+      - name: GitHub-Release mit SideStore-Quelle
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          dart run tool/sidestore_source.dart "$GITHUB_REPOSITORY" "$GITHUB_REF_NAME" "$GITHUB_RUN_NUMBER" owntune.ipa > source.json
+          gh release create "$GITHUB_REF_NAME" owntune.ipa source.json \
+            --title "owntune $GITHUB_REF_NAME" --generate-notes
