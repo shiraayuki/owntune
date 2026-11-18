@@ -51,6 +51,21 @@ void main() {
     expect(orphan.existsSync(), isFalse);
   });
 
+  test('startUp is ready even if an orphan cannot be deleted', () async {
+    await storage.ensure();
+    final stuck = storage.audioFile('stuck.part.mp3')..writeAsStringSync('x');
+    final orphan = storage.coverFile('dead.png')..writeAsStringSync('x');
+    await Process.run('chmod', ['0555', storage.audioDir.path]);
+    addTearDown(() => Process.run('chmod', ['0755', storage.audioDir.path]));
+
+    final result = await run();
+
+    expect(result, isA<StartupReady>(), reason: '$result');
+    addTearDown((result as StartupReady).db.close);
+    expect(stuck.existsSync(), isTrue);
+    expect(orphan.existsSync(), isFalse);
+  });
+
   test('startUp loads the stored settings', () async {
     final db = AppDatabase(NativeDatabase.memory());
     await SettingsRepository(db).save(

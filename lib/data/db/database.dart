@@ -1,5 +1,6 @@
 import 'package:drift/drift.dart';
 import 'package:drift_flutter/drift_flutter.dart';
+import 'package:path_provider/path_provider.dart';
 
 part 'database.g.dart';
 
@@ -38,7 +39,18 @@ class SettingsEntries extends Table {
 class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
-  static AppDatabase open() => AppDatabase(driftDatabase(name: 'owntune'));
+  /// Opens `<Application Support>/owntune.sqlite`. drift_flutter defaults to
+  /// the Documents directory, which is user-visible on desktop and meant for
+  /// user documents on iOS; the database is app-internal state. It sits next
+  /// to the `library/` folder, never inside it.
+  static AppDatabase open() => AppDatabase(
+    driftDatabase(
+      name: 'owntune',
+      native: const DriftNativeOptions(
+        databaseDirectory: getApplicationSupportDirectory,
+      ),
+    ),
+  );
 
   @override
   int get schemaVersion => 1;

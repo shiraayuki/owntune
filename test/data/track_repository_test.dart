@@ -101,6 +101,37 @@ void main() {
     expect(await repo.count(), 0);
   });
 
+  test(
+    'cleanupOrphans skips files it cannot delete and removes the rest',
+    () async {
+      writeAudio('stuck.part.mp3');
+      writeAudio('orphan.mp3');
+      writeCover('orphan.png');
+      writeCover('abc.part');
+      // A read-only directory makes every delete inside it fail.
+      await Process.run('chmod', ['0555', storage.audioDir.path]);
+      addTearDown(() => Process.run('chmod', ['0755', storage.audioDir.path]));
+
+      await repo.cleanupOrphans();
+
+      expect(storage.audioFile('stuck.part.mp3').existsSync(), isTrue);
+      expect(storage.audioFile('orphan.mp3').existsSync(), isTrue);
+      expect(storage.coverFile('orphan.png').existsSync(), isFalse);
+      expect(storage.coverFile('abc.part').existsSync(), isFalse);
+    },
+  );
+
+  test('cleanupOrphans skips a directory it cannot list', () async {
+    writeAudio('orphan.mp3');
+    writeCover('orphan.png');
+    await Process.run('chmod', ['0000', storage.audioDir.path]);
+    addTearDown(() => Process.run('chmod', ['0755', storage.audioDir.path]));
+
+    await repo.cleanupOrphans();
+
+    expect(storage.coverFile('orphan.png').existsSync(), isFalse);
+  });
+
   test('cleanupOrphans removes part files and files without rows, '
       'keeps referenced files', () async {
     writeAudio('h1.mp3');

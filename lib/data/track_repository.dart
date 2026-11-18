@@ -64,6 +64,10 @@ class TrackRepository {
 
   /// Deletes leftovers of interrupted imports: every `*.part` file, every
   /// audio file without a row and every cover without a referencing row.
+  ///
+  /// Startup-only and best-effort: a file that cannot be deleted (or a folder
+  /// that cannot be listed) is skipped and retried on the next start. Database
+  /// errors still propagate.
   Future<void> cleanupOrphans() async {
     final tracks = await _db.select(_db.tracks).get();
     final audioNames = {for (final t in tracks) t.fileName};
@@ -77,12 +81,22 @@ class TrackRepository {
   }
 
   Future<void> _deleteUnreferenced(Directory dir, Set<String> keep) async {
-    if (!await dir.exists()) return;
-    await for (final entity in dir.list()) {
+    final List<FileSystemEntity> entries;
+    try {
+      if (!await dir.exists()) return;
+      entries = await dir.list().toList();
+    } on FileSystemException {
+      return;
+    }
+    for (final entity in entries) {
       if (entity is! File) continue;
       final name = p.basename(entity.path);
       if (name.endsWith('.part') || !keep.contains(name)) {
-        await _deleteIfExists(entity);
+        try {
+          await entity.delete();
+        } on FileSystemException {
+          // Gone already or not deletable now; the next start tries again.
+        }
       }
     }
   }
