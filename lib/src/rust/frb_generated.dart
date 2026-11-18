@@ -206,7 +206,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       throw Exception('unexpected arr length: expect 3 but see ${arr.length}');
     return CoverArt(
       data: dco_decode_list_prim_u_8_strict(arr[0]),
-      extension_: dco_decode_String(arr[1]),
+      fileExtension: dco_decode_String(arr[1]),
       hash: dco_decode_String(arr[2]),
     );
   }
@@ -287,7 +287,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       trackNumber: dco_decode_opt_box_autoadd_u_32(arr[5]),
       discNumber: dco_decode_opt_box_autoadd_u_32(arr[6]),
       year: dco_decode_opt_box_autoadd_u_32(arr[7]),
-      durationMs: dco_decode_u_64(arr[8]),
+      durationMs: dco_decode_u_32(arr[8]),
       contentHash: dco_decode_String(arr[9]),
       cover: dco_decode_opt_box_autoadd_cover_art(arr[10]),
     );
@@ -297,12 +297,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   int dco_decode_u_32(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return raw as int;
-  }
-
-  @protected
-  BigInt dco_decode_u_64(dynamic raw) {
-    // Codec=Dco (DartCObject based), see doc to use other codecs
-    return dcoDecodeU64(raw);
   }
 
   @protected
@@ -346,9 +340,13 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   CoverArt sse_decode_cover_art(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     var var_data = sse_decode_list_prim_u_8_strict(deserializer);
-    var var_extension_ = sse_decode_String(deserializer);
+    var var_fileExtension = sse_decode_String(deserializer);
     var var_hash = sse_decode_String(deserializer);
-    return CoverArt(data: var_data, extension_: var_extension_, hash: var_hash);
+    return CoverArt(
+      data: var_data,
+      fileExtension: var_fileExtension,
+      hash: var_hash,
+    );
   }
 
   @protected
@@ -453,7 +451,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     var var_trackNumber = sse_decode_opt_box_autoadd_u_32(deserializer);
     var var_discNumber = sse_decode_opt_box_autoadd_u_32(deserializer);
     var var_year = sse_decode_opt_box_autoadd_u_32(deserializer);
-    var var_durationMs = sse_decode_u_64(deserializer);
+    var var_durationMs = sse_decode_u_32(deserializer);
     var var_contentHash = sse_decode_String(deserializer);
     var var_cover = sse_decode_opt_box_autoadd_cover_art(deserializer);
     return TrackInfo(
@@ -475,12 +473,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   int sse_decode_u_32(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     return deserializer.buffer.getUint32();
-  }
-
-  @protected
-  BigInt sse_decode_u_64(SseDeserializer deserializer) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    return deserializer.buffer.getBigUint64();
   }
 
   @protected
@@ -534,7 +526,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   void sse_encode_cover_art(CoverArt self, SseSerializer serializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     sse_encode_list_prim_u_8_strict(self.data, serializer);
-    sse_encode_String(self.extension_, serializer);
+    sse_encode_String(self.fileExtension, serializer);
     sse_encode_String(self.hash, serializer);
   }
 
@@ -634,7 +626,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     sse_encode_opt_box_autoadd_u_32(self.trackNumber, serializer);
     sse_encode_opt_box_autoadd_u_32(self.discNumber, serializer);
     sse_encode_opt_box_autoadd_u_32(self.year, serializer);
-    sse_encode_u_64(self.durationMs, serializer);
+    sse_encode_u_32(self.durationMs, serializer);
     sse_encode_String(self.contentHash, serializer);
     sse_encode_opt_box_autoadd_cover_art(self.cover, serializer);
   }
@@ -643,12 +635,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   void sse_encode_u_32(int self, SseSerializer serializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     serializer.buffer.putUint32(self);
-  }
-
-  @protected
-  void sse_encode_u_64(BigInt self, SseSerializer serializer) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    serializer.buffer.putBigUint64(self);
   }
 
   @protected

@@ -158,11 +158,11 @@ impl SseDecode for crate::api::library::CoverArt {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
         let mut var_data = <Vec<u8>>::sse_decode(deserializer);
-        let mut var_extension_ = <String>::sse_decode(deserializer);
+        let mut var_fileExtension = <String>::sse_decode(deserializer);
         let mut var_hash = <String>::sse_decode(deserializer);
         return crate::api::library::CoverArt {
             data: var_data,
-            extension: var_extension_,
+            file_extension: var_fileExtension,
             hash: var_hash,
         };
     }
@@ -281,7 +281,7 @@ impl SseDecode for crate::api::library::TrackInfo {
         let mut var_trackNumber = <Option<u32>>::sse_decode(deserializer);
         let mut var_discNumber = <Option<u32>>::sse_decode(deserializer);
         let mut var_year = <Option<u32>>::sse_decode(deserializer);
-        let mut var_durationMs = <u64>::sse_decode(deserializer);
+        let mut var_durationMs = <u32>::sse_decode(deserializer);
         let mut var_contentHash = <String>::sse_decode(deserializer);
         let mut var_cover = <Option<crate::api::library::CoverArt>>::sse_decode(deserializer);
         return crate::api::library::TrackInfo {
@@ -304,13 +304,6 @@ impl SseDecode for u32 {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
         deserializer.cursor.read_u32::<NativeEndian>().unwrap()
-    }
-}
-
-impl SseDecode for u64 {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
-        deserializer.cursor.read_u64::<NativeEndian>().unwrap()
     }
 }
 
@@ -368,7 +361,7 @@ impl flutter_rust_bridge::IntoDart for crate::api::library::CoverArt {
     fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
         [
             self.data.into_into_dart().into_dart(),
-            self.extension.into_into_dart().into_dart(),
+            self.file_extension.into_into_dart().into_dart(),
             self.hash.into_into_dart().into_dart(),
         ]
         .into_dart()
@@ -468,7 +461,7 @@ impl SseEncode for crate::api::library::CoverArt {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
         <Vec<u8>>::sse_encode(self.data, serializer);
-        <String>::sse_encode(self.extension, serializer);
+        <String>::sse_encode(self.file_extension, serializer);
         <String>::sse_encode(self.hash, serializer);
     }
 }
@@ -577,7 +570,7 @@ impl SseEncode for crate::api::library::TrackInfo {
         <Option<u32>>::sse_encode(self.track_number, serializer);
         <Option<u32>>::sse_encode(self.disc_number, serializer);
         <Option<u32>>::sse_encode(self.year, serializer);
-        <u64>::sse_encode(self.duration_ms, serializer);
+        <u32>::sse_encode(self.duration_ms, serializer);
         <String>::sse_encode(self.content_hash, serializer);
         <Option<crate::api::library::CoverArt>>::sse_encode(self.cover, serializer);
     }
@@ -587,13 +580,6 @@ impl SseEncode for u32 {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
         serializer.cursor.write_u32::<NativeEndian>(self).unwrap();
-    }
-}
-
-impl SseEncode for u64 {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
-        serializer.cursor.write_u64::<NativeEndian>(self).unwrap();
     }
 }
 

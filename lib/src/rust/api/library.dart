@@ -20,19 +20,19 @@ class CoverArt {
   final Uint8List data;
 
   /// `"jpg"` or `"png"`.
-  final String extension_;
+  final String fileExtension;
 
   /// BLAKE3 hash of `data`, hex encoded.
   final String hash;
 
   const CoverArt({
     required this.data,
-    required this.extension_,
+    required this.fileExtension,
     required this.hash,
   });
 
   @override
-  int get hashCode => data.hashCode ^ extension_.hashCode ^ hash.hashCode;
+  int get hashCode => data.hashCode ^ fileExtension.hashCode ^ hash.hashCode;
 
   @override
   bool operator ==(Object other) =>
@@ -40,7 +40,7 @@ class CoverArt {
       other is CoverArt &&
           runtimeType == other.runtimeType &&
           data == other.data &&
-          extension_ == other.extension_ &&
+          fileExtension == other.fileExtension &&
           hash == other.hash;
 }
 
@@ -84,7 +84,7 @@ class TrackInfo {
   final int? trackNumber;
   final int? discNumber;
   final int? year;
-  final BigInt durationMs;
+  final int durationMs;
 
   /// BLAKE3 hash of the whole file, hex encoded.
   final String contentHash;

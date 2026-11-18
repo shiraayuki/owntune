@@ -22,7 +22,7 @@ void main() {
     final r = await readTrack(path: fixture('tagged.mp3'));
     expect(r.status, ReadStatus.ok);
     expect(r.track!.title, 'After the Rain');
-    expect(r.track!.cover!.extension_, 'png');
+    expect(r.track!.cover!.fileExtension, 'png');
   });
 
   testWidgets('readTrack reports OGG as unsupported', (t) async {

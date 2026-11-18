@@ -21,7 +21,7 @@ pub enum ReadStatus {
 pub struct CoverArt {
     pub data: Vec<u8>,
     /// `"jpg"` or `"png"`.
-    pub extension: String,
+    pub file_extension: String,
     /// BLAKE3 hash of `data`, hex encoded.
     pub hash: String,
 }
@@ -36,7 +36,7 @@ pub struct TrackInfo {
     pub track_number: Option<u32>,
     pub disc_number: Option<u32>,
     pub year: Option<u32>,
-    pub duration_ms: u64,
+    pub duration_ms: u32,
     /// BLAKE3 hash of the whole file, hex encoded.
     pub content_hash: String,
     pub cover: Option<CoverArt>,
@@ -84,7 +84,7 @@ pub fn read_track(path: String) -> ReadResult {
     };
 
     let tag = tagged.primary_tag().or_else(|| tagged.first_tag());
-    let duration_ms = u64::try_from(tagged.properties().duration().as_millis()).unwrap_or(u64::MAX);
+    let duration_ms = u32::try_from(tagged.properties().duration().as_millis()).unwrap_or(u32::MAX);
 
     let track = TrackInfo {
         title: tag.and_then(|t| clean(t.title())),
@@ -148,7 +148,7 @@ fn cover_from(picture: &Picture) -> Option<CoverArt> {
     let hash = blake3::hash(&data).to_hex().to_string();
     Some(CoverArt {
         data,
-        extension: extension.to_owned(),
+        file_extension: extension.to_owned(),
         hash,
     })
 }
@@ -185,7 +185,7 @@ mod tests {
         assert!((900..=1200).contains(&t.duration_ms), "{}", t.duration_ms);
         assert_eq!(t.content_hash.len(), 64);
         let cover = t.cover.expect("cover");
-        assert_eq!(cover.extension, "png");
+        assert_eq!(cover.file_extension, "png");
         assert!(!cover.data.is_empty());
         assert_eq!(cover.hash.len(), 64);
     }
@@ -194,7 +194,7 @@ mod tests {
     fn flac_cover_is_jpeg() {
         let t = track("tagged.flac");
         assert_eq!(t.title.as_deref(), Some("Blue Hour"));
-        assert_eq!(t.cover.expect("cover").extension, "jpg");
+        assert_eq!(t.cover.expect("cover").file_extension, "jpg");
     }
 
     #[test]
