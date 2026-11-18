@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>owntune M1 Mockups</title>
+<style>
+  :root { --bg: #ecebe8; --card: #ffffff; --text: #1b1b1f; --muted: #6c6b72; --line: #d9d7d1; --accent: #ff7a59; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #111114; --card: #1b1b20; --text: #efeee9; --muted: #9b99a3; --line: #2c2c34; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  header { position: sticky; top: 0; z-index: 10; background: color-mix(in srgb, var(--bg) 92%, transparent); backdrop-filter: blur(10px); border-bottom: 1px solid var(--line); padding: 14px 24px; display: flex; flex-wrap: wrap; gap: 12px 24px; align-items: center; }
+  header h1 { font-size: 18px; margin: 0; }
+  header .sub { color: var(--muted); font-size: 13px; }
+  .themes { display: flex; gap: 6px; margin-left: auto; flex-wrap: wrap; }
+  .themes button { font: inherit; font-size: 13px; font-weight: 600; padding: 7px 14px; border-radius: 999px; border: 1px solid var(--line); background: var(--card); color: var(--text); cursor: pointer; }
+  .themes button[aria-pressed="true"] { background: var(--text); color: var(--bg); border-color: var(--text); }
+  main { padding: 8px 24px 64px; max-width: 1500px; margin: 0 auto; }
+  section { margin-top: 28px; }
+  section > h2 { font-size: 20px; margin: 0 0 4px; }
+  section > p { color: var(--muted); margin: 0 0 16px; max-width: 70ch; }
+  .row { display: flex; flex-wrap: wrap; gap: 28px; }
+  figure { margin: 0; width: 324px; }
+  .phone { width: 324px; height: 687px; border-radius: 36px; overflow: hidden; border: 6px solid #0b0b0d; box-shadow: 0 10px 30px rgba(0,0,0,.18); background: #000; }
+  .phone iframe { width: 390px; height: 844px; border: 0; transform: scale(0.8); transform-origin: 0 0; display: block; }
+  figcaption { margin-top: 10px; }
+  figcaption b { display: block; }
+  figcaption span { color: var(--muted); font-size: 13px; }
+  .questions { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 16px 20px; margin-top: 18px; max-width: 900px; }
+  .questions h2 { font-size: 16px; margin: 0 0 6px; }
+  .questions ol { margin: 0; padding-left: 20px; }
+  .questions li { margin: 4px 0; }
+  .styles { color: var(--muted); font-size: 13px; }
+  @media (max-width: 700px) { header, main { padding-left: 16px; padding-right: 16px; } .themes { margin-left: 0; } }
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>owntune · M1 mockups</h1>
+    <div class="sub">Import &amp; library · fictional data · static, not clickable</div>
+  </div>
+  <div class="themes" role="group" aria-label="Visual style">
+    <button data-theme="midnight" aria-pressed="true">A · Midnight (dark, cover-first)</button>
+    <button data-theme="paper" aria-pressed="false">B · Paper (light, minimal)</button>
+    <button data-theme="pop" aria-pressed="false">C · Pop (playful, rounded)</button>
+  </div>
+</header>
+<main>
+  <div class="questions">
+    <h2>What to give feedback on</h2>
+    <ol>
+      <li><b>Visual style:</b> A, B or C (switch at the top right) — or a mix?</li>
+      <li><b>Navigation:</b> three tabs at the bottom (Songs / Albums / Artists), search and import in the top bar.</li>
+      <li><b>Import flow:</b> system file picker → progress sheet → summary with duplicates and unsupported files.</li>
+      <li><b>Missing tags:</b> file name as title, "Unknown artist", placeholder cover (see "demo_3").</li>
+      <li>Anything missing, too much, or in the wrong place.</li>
+    </ol>
+    <p class="styles">Playback (Play/Shuffle buttons, mini player) arrives in M2; the buttons are shown so the layout already leaves room for them.</p>
+  </div>
+
+  <section>
+    <h2>1 · First launch &amp; import</h2>
+    <p>The native file picker (multi-select) opens between screens 1 and 2; it is not mocked.</p>
+    <div class="row">
+      <figure><div class="phone"><iframe src="01-empty.html" title="Empty library"></iframe></div><figcaption><b>01 · Empty library</b><span>First launch: one clear action.</span></figcaption></figure>
+      <figure><div class="phone"><iframe src="02-import-progress.html" title="Import in progress"></iframe></div><figcaption><b>02 · Import in progress</b><span>Songs appear in the list while importing; the sheet can be hidden.</span></figcaption></figure>
+      <figure><div class="phone"><iframe src="03-import-summary.html" title="Import summary"></iframe></div><figcaption><b>03 · Import summary</b><span>Added / duplicates skipped / unsupported (e.g. OGG).</span></figcaption></figure>
+    </div>
+  </section>
+
+  <section>
+    <h2>2 · Library</h2>
+    <p>Three tabs. Albums are grouped by album artist + album title (falls back to the track artist).</p>
+    <div class="row">
+      <figure><div class="phone"><iframe src="04-songs.html" title="Songs"></iframe></div><figcaption><b>04 · Songs</b><span>Letter sections and an A–Z scrubber; "demo_3" shows a file without tags.</span></figcaption></figure>
+      <figure><div class="phone"><iframe src="05-sort.html" title="Sort songs"></iframe></div><figcaption><b>05 · Sort</b><span>Title, artist, album, recently added; ascending/descending.</span></figcaption></figure>
+      <figure><div class="phone"><iframe src="06-albums.html" title="Albums"></iframe></div><figcaption><b>06 · Albums</b><span>Two-column cover grid.</span></figcaption></figure>
+      <figure><div class="phone"><iframe src="07-album-detail.html" title="Album detail"></iframe></div><figcaption><b>07 · Album detail</b><span>Large cover, track numbers, featured artists as a subtitle.</span></figcaption></figure>
+      <figure><div class="phone"><iframe src="08-artists.html" title="Artists"></iframe></div><figcaption><b>08 · Artists</b><span>Avatar = cover of the newest album.</span></figcaption></figure>
+      <figure><div class="phone"><iframe src="09-artist-detail.html" title="Artist detail"></iframe></div><figcaption><b>09 · Artist detail</b><span>Albums as a horizontal row, then songs.</span></figcaption></figure>
+    </div>
+  </section>
+
+  <section>
+    <h2>3 · Search</h2>
+    <p>One search across songs, albums and artists, grouped by type; matches highlighted.</p>
+    <div class="row">
+      <figure><div class="phone"><iframe src="10-search.html" title="Search"></iframe></div><figcaption><b>10 · Search</b><span>Opened from the search icon in any tab.</span></figcaption></figure>
+    </div>
+  </section>
+</main>
+<script>
+  const buttons = document.querySelectorAll('.themes button');
+  const frames = document.querySelectorAll('iframe');
+  function applyTheme(theme) {
+    buttons.forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.theme === theme)));
+    frames.forEach((f) => {
+      const url = new URL(f.getAttribute('src'), location.href);
+      url.searchParams.set('theme', theme);
+      f.src = url.href;
+    });
+    try { localStorage.setItem('owntune-mockup-theme', theme); } catch (e) {}
+  }
+  buttons.forEach((b) => b.addEventListener('click', () => applyTheme(b.dataset.theme)));
+  let saved = null;
+  try { saved = localStorage.getItem('owntune-mockup-theme'); } catch (e) {}
+  if (saved && saved !== 'midnight') applyTheme(saved);
+</script>
+</body>
+</html>
