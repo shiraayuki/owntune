@@ -1,7 +1,7 @@
-// Erzeugt die SideStore-/AltStore-Quelle (source.json) für ein Release.
+// Generates the SideStore/AltStore source (source.json) for a release.
 //
-// Aufruf (im iOS-Workflow):
-//   dart run tool/sidestore_source.dart <owner/repo> <tag> <build-nummer> <pfad/zur.ipa>
+// Usage (in the iOS workflow):
+//   dart run tool/sidestore_source.dart <owner/repo> <tag> <build-number> <path/to.ipa>
 import 'dart:convert';
 import 'dart:io';
 
@@ -19,7 +19,7 @@ Map<String, dynamic> buildSidestoreSource({
 }) {
   final match = RegExp(r'^v(\d+\.\d+\.\d+)$').firstMatch(tag);
   if (match == null) {
-    throw ArgumentError.value(tag, 'tag', 'erwartet vX.Y.Z');
+    throw ArgumentError.value(tag, 'tag', 'expected vX.Y.Z');
   }
   final releases = 'https://github.com/$repo/releases';
   return {
@@ -31,9 +31,9 @@ Map<String, dynamic> buildSidestoreSource({
         'name': 'owntune',
         'bundleIdentifier': _bundleId,
         'developerName': 'owntune',
-        'subtitle': 'Lokaler Musikplayer',
+        'subtitle': 'Local music player',
         'localizedDescription':
-            'Musikplayer für lokale Dateien – offline, ohne Account.',
+            'Music player for local files – offline, no account.',
         'iconURL': 'https://raw.githubusercontent.com/$repo/main/$_iconPath',
         'versions': [
           {
@@ -55,7 +55,7 @@ Map<String, dynamic> buildSidestoreSource({
 void main(List<String> args) {
   if (args.length != 4) {
     stderr.writeln(
-      'Aufruf: dart run tool/sidestore_source.dart <owner/repo> <tag> <build> <ipa>',
+      'usage: dart run tool/sidestore_source.dart <owner/repo> <tag> <build> <ipa>',
     );
     exit(64);
   }

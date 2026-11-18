@@ -33,7 +33,7 @@ jobs:
         with:
           workspaces: rust
 
-      - name: Linux-Abhängigkeiten
+      - name: Linux dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev xvfb
@@ -45,13 +45,13 @@ jobs:
 
       - run: flutter pub get
 
-      - name: Dart analysieren
+      - name: Analyze Dart
         run: flutter analyze
 
-      - name: Dart-Tests
+      - name: Dart tests
         run: flutter test
 
-      - name: Rust prüfen
+      - name: Check Rust
         working-directory: rust
         run: |
           cargo fmt --check
@@ -62,17 +62,17 @@ jobs:
         with:
           tool: flutter_rust_bridge_codegen@${{ env.FRB_VERSION }}
 
-      - name: Generierter Brückencode ist aktuell
+      - name: Generated bridge code is up to date
         run: |
           flutter_rust_bridge_codegen generate
           git status --porcelain
           git diff --exit-code
           test -z "$(git status --porcelain)"
 
-      - name: Integrationstest mit echtem Rust-Kern
+      - name: Integration test with real Rust core
         run: xvfb-run flutter test integration_test -d linux
 
-      - name: Android-APK bauen
+      - name: Build Android APK
         run: flutter build apk --release
 
       - uses: actions/upload-artifact@v7

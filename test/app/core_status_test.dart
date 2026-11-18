@@ -2,7 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:owntune/app/core_status.dart';
 
 void main() {
-  test('loadCoreStatus liefert Formate, wenn Rust lädt', () async {
+  test('loadCoreStatus returns the formats when Rust loads', () async {
     final s = await loadCoreStatus(
       init: () async {},
       formats: () => ['mp3', 'flac'],
@@ -12,22 +12,23 @@ void main() {
   });
 
   test(
-    'loadCoreStatus liefert Fehler statt Absturz, wenn init wirft',
+    'loadCoreStatus returns an error instead of crashing when init throws',
     () async {
       final s = await loadCoreStatus(
-        init: () async => throw StateError('lib fehlt'),
+        init: () async => throw StateError('lib missing'),
         formats: () => [],
       );
       expect(s, isA<CoreFailed>());
-      expect((s as CoreFailed).message, contains('lib fehlt'));
+      expect((s as CoreFailed).message, contains('lib missing'));
     },
   );
 
-  test('loadCoreStatus liefert Fehler, wenn der Rust-Aufruf wirft', () async {
+  test('loadCoreStatus returns an error when the Rust call throws', () async {
     final s = await loadCoreStatus(
       init: () async {},
       formats: () => throw Exception('panic'),
     );
     expect(s, isA<CoreFailed>());
+    expect((s as CoreFailed).message, contains('panic'));
   });
 }

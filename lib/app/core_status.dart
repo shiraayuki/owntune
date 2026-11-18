@@ -1,7 +1,7 @@
 import 'package:owntune/src/rust/api/metadata.dart';
 import 'package:owntune/src/rust/frb_generated.dart';
 
-/// Ergebnis des Starts des Rust-Kerns.
+/// Result of starting the Rust core.
 sealed class CoreStatus {
   const CoreStatus();
 }
@@ -18,10 +18,10 @@ final class CoreFailed extends CoreStatus {
   final String message;
 }
 
-/// Lädt den Rust-Kern und fragt die unterstützten Formate ab.
+/// Loads the Rust core and queries the supported formats.
 ///
-/// Wirft nie: Jeder Fehler wird als [CoreFailed] zurückgegeben, damit die App
-/// ihn anzeigen kann. Auf dem iPhone gibt es ohne Mac keine andere Diagnose.
+/// Never throws: every error is returned as [CoreFailed] so the app can show
+/// it. Without a Mac there is no other way to diagnose failures on the iPhone.
 Future<CoreStatus> loadCoreStatus({
   Future<void> Function()? init,
   List<String> Function()? formats,

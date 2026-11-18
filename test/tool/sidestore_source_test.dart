@@ -13,7 +13,7 @@ void main() {
   final app = (source['apps'] as List).single as Map<String, dynamic>;
   final version = (app['versions'] as List).single as Map<String, dynamic>;
 
-  test('Quelle zeigt auf das neueste Release', () {
+  test('source points to the latest release', () {
     expect(source['identifier'], 'dev.owntune.source');
     expect(
       source['sourceURL'],
@@ -21,7 +21,7 @@ void main() {
     );
   });
 
-  test('App passt zur Bundle-ID und nennt keinen Personennamen', () {
+  test('app matches the bundle ID and names no person', () {
     expect(app['bundleIdentifier'], 'dev.owntune.app');
     expect(app['developerName'], 'owntune');
     expect(
@@ -30,7 +30,7 @@ void main() {
     );
   });
 
-  test('Version ohne v-Präfix, mit Download-Link auf genau dieses Release', () {
+  test('version without v prefix, download link to exactly this release', () {
     expect(version['version'], '0.2.0');
     expect(version['buildVersion'], '17');
     expect(version['date'], '2026-11-18');
@@ -42,7 +42,7 @@ void main() {
     );
   });
 
-  test('lehnt Tags ohne vX.Y.Z-Format ab', () {
+  test('rejects tags not in vX.Y.Z format', () {
     expect(
       () => buildSidestoreSource(
         repo: 'a/b',

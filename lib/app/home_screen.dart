@@ -28,7 +28,7 @@ class HomeScreen extends StatelessWidget {
     return Scaffold(
       body: SafeArea(
         child: Center(
-          // Scrollbar, damit lange Fehlermeldungen auf dem iPhone lesbar bleiben.
+          // Scrollable so long error messages stay readable on the iPhone.
           child: SingleChildScrollView(
             padding: const EdgeInsets.all(24),
             child: Column(
@@ -38,12 +38,12 @@ class HomeScreen extends StatelessWidget {
                 const SizedBox(height: 16),
                 ...switch (status) {
                   CoreReady(:final formats) => [
-                    Text('Rust-Kern: OK', style: text.titleMedium),
+                    Text('Rust core: OK', style: text.titleMedium),
                     const SizedBox(height: 8),
                     Text(formats.join(', ')),
                   ],
                   CoreFailed(:final message) => [
-                    Text('Rust-Kern: Fehler', style: text.titleMedium),
+                    Text('Rust core: error', style: text.titleMedium),
                     const SizedBox(height: 8),
                     SelectableText(message, textAlign: TextAlign.center),
                   ],

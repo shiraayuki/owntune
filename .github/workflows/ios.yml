@@ -1,16 +1,16 @@
 name: iOS
 
-# Nur für Releases: macOS-Runner haben oft lange Wartezeiten.
-# Versions-Tag (git tag v0.1.0 && git push --tags) → .ipa + GitHub-Release mit
-# SideStore-Quelle (releases/latest/download/source.json).
-# Manuell (gh workflow run iOS) → nur .ipa als Artifact, kein Release.
+# Releases only: macOS runners often have long queue times.
+# Version tag (git tag v0.1.0 && git push --tags) → .ipa + GitHub release with
+# SideStore source (releases/latest/download/source.json).
+# Manual (gh workflow run iOS) → .ipa as artifact only, no release.
 on:
   push:
     tags: ["v*"]
   workflow_dispatch:
     inputs:
       runner:
-        description: "macOS-Runner (arm64-Runner sind oft ausgelastet)"
+        description: "macOS runner (arm64 runners are often at capacity)"
         type: choice
         default: macos-15-intel
         options: [macos-15-intel, macos-latest]
@@ -46,7 +46,7 @@ jobs:
 
       - run: flutter pub get
 
-      - name: iOS-App bauen (unsigniert)
+      - name: Build iOS app (unsigned)
         run: |
           ARGS=()
           if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
@@ -54,7 +54,7 @@ jobs:
           fi
           flutter build ios --release --no-codesign "${ARGS[@]}"
 
-      - name: .ipa packen
+      - name: Package .ipa
         run: |
           mkdir Payload
           cp -R build/ios/iphoneos/Runner.app Payload/
@@ -66,7 +66,7 @@ jobs:
           path: owntune.ipa
           if-no-files-found: error
 
-      - name: GitHub-Release mit SideStore-Quelle
+      - name: GitHub release with SideStore source
         if: startsWith(github.ref, 'refs/tags/v')
         env:
           GH_TOKEN: ${{ github.token }}

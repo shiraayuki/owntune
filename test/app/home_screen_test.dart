@@ -4,14 +4,14 @@ import 'package:owntune/app/core_status.dart';
 import 'package:owntune/app/home_screen.dart';
 
 void main() {
-  testWidgets('zeigt App-Namen und Formate', (t) async {
+  testWidgets('shows app name and formats', (t) async {
     await t.pumpWidget(const OwntuneApp(status: CoreReady(['mp3', 'flac'])));
     expect(find.text('owntune'), findsOneWidget);
-    expect(find.text('Rust-Kern: OK'), findsOneWidget);
+    expect(find.text('Rust core: OK'), findsOneWidget);
     expect(find.text('mp3, flac'), findsOneWidget);
   });
 
-  testWidgets('lange Fehlermeldung passt auf ein kleines iPhone', (t) async {
+  testWidgets('long error message fits on a small iPhone', (t) async {
     t.view.physicalSize = const Size(375, 667);
     t.view.devicePixelRatio = 1;
     addTearDown(t.view.reset);
@@ -26,9 +26,9 @@ void main() {
     );
   });
 
-  testWidgets('zeigt Fehlermeldung, wenn Rust nicht lädt', (t) async {
-    await t.pumpWidget(const OwntuneApp(status: CoreFailed('lib fehlt')));
-    expect(find.text('Rust-Kern: Fehler'), findsOneWidget);
-    expect(find.textContaining('lib fehlt'), findsOneWidget);
+  testWidgets('shows the error message when Rust fails to load', (t) async {
+    await t.pumpWidget(const OwntuneApp(status: CoreFailed('lib missing')));
+    expect(find.text('Rust core: error'), findsOneWidget);
+    expect(find.textContaining('lib missing'), findsOneWidget);
   });
 }

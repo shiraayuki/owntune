@@ -2,88 +2,95 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Projekt
+## Project
 
-owntune ist ein mobiler Musikplayer für **lokale Dateien** (iOS & Android): importieren, abspielen, Metadaten/Cover/Alben/Playlists verwalten. Kein Streaming, kein Account, komplett offline.
+owntune is a mobile music player for **local files** (iOS & Android): import, play, and manage metadata/covers/albums/playlists. No streaming, no account, fully offline.
 
-**Stand:** M0 (Grundgerüst) ist abgeschlossen und auf dem iPhone abgenommen. Die App ist ein einziger Bildschirm, der den Status des Rust-Kerns zeigt. Nächster Meilenstein: M1 (Import & Bibliothek). Designs und Pläne liegen unter `docs/superpowers/`.
+**Status:** M0 (skeleton) is done and accepted on the iPhone. The app is a single screen showing the status of the Rust core. Next milestone: M1 (import & library). Designs and plans live in `docs/superpowers/`.
 
-## Rahmenbedingungen, die jede Entscheidung prägen
+**Language:** Everything in the repo — code, comments, tests, docs, commit messages, CI step names, UI strings — is in English. (Commits before 2026-11-18 are partly German; history is not rewritten.)
 
-- Entwicklung auf **Linux, ohne Mac**. Täglicher Loop: Flutter als **Linux-Desktop-App** (`flutter run -d linux`) oder im **Android-Emulator**, mit Hot Reload.
-- **iOS wird nie lokal gebaut.** Die `.ipa` entsteht nur in GitHub Actions (`.github/workflows/ios.yml`) und wird per SideStore auf das iPhone geladen (kostenlose Apple-ID, App läuft nach 7 Tagen ab).
-- Der iOS-Workflow läuft **nur bei Versions-Tags `v*` oder manuell** (`gh workflow run iOS`), nicht bei jedem Push – macOS-Runner haben oft lange Wartezeiten. Standard ist der Intel-Runner `macos-15-intel`, weil arm64-Runner (`macos-latest`) zeitweise gar nicht zugeteilt wurden; per Dispatch-Input umschaltbar.
-- iOS-spezifisches Verhalten (Hintergrundwiedergabe, Sperrbildschirm, Dateien-App) ist **nur auf dem echten iPhone** testbar. Plattformcode klein halten und hinter Schnittstellen kapseln; Logik muss unter Linux testbar bleiben. Bei iOS-sensibler Arbeit zwischendurch manuell einen iOS-Build anstoßen.
-- Ohne Mac gibt es auf dem iPhone keine Logs. Fehler beim Start müssen deshalb **in der UI sichtbar** sein statt die App abstürzen zu lassen (Muster: `loadCoreStatus` → `CoreFailed` mit kopierbarem Text).
-- Linux-Ziel ist nur Entwicklungshilfe, kein Produkt.
+## Constraints that shape every decision
 
-## Tech-Stack und gepinnte Versionen
+- Development happens on **Linux, without a Mac**. Daily loop: Flutter as a **Linux desktop app** (`flutter run -d linux`) or in the **Android emulator**, with hot reload.
+- **iOS is never built locally.** The `.ipa` is produced only by GitHub Actions (`.github/workflows/ios.yml`) and sideloaded with SideStore (free Apple ID; the app expires after 7 days).
+- The iOS workflow runs **only on version tags `v*` or manually** (`gh workflow run iOS`), not on every push — macOS runners often have long queues. Default runner is the Intel `macos-15-intel`, because arm64 runners (`macos-latest`) at times were not assigned at all; switchable via a dispatch input.
+- iOS-specific behavior (background playback, lock screen, Files app) is **only testable on the real iPhone**. Keep platform code small and behind interfaces; logic must stay testable on Linux. For iOS-sensitive work, trigger an iOS build manually in between.
+- Without a Mac there are no logs on the iPhone. Startup failures must therefore be **visible in the UI** instead of crashing the app (pattern: `loadCoreStatus` → `CoreFailed` with selectable text, inside a scroll view).
+- The Linux target is a development aid only, not a product.
 
-Flutter **3.50.0** (gepinnt in beiden Workflows über `FLUTTER_VERSION`) · Dart 3.14 · Rust stable · flutter_rust_bridge **2.13.0** · lofty **0.25.5**.
+## Tech stack and pinned versions
 
-- flutter_rust_bridge muss an **drei Stellen exakt gleich** sein: `pubspec.yaml`, `rust/Cargo.toml` (`=2.13.0`) und das installierte `flutter_rust_bridge_codegen` (in `ci.yml` als `FRB_VERSION`). Sonst schlägt `RustLib.init()` zur Laufzeit fehl.
-- Seit Flutter 3.47 ist `package:flutter/material.dart` veraltet → **`package:material_ui/material_ui.dart`** importieren (sonst meldet `flutter analyze` Infos und die CI schlägt fehl).
-- Geplant für spätere Meilensteine (noch nicht eingebunden): Riverpod, just_audio + audio_service (Linux: `just_audio_media_kit`), drift, file_picker. Pakete erst mit dem Meilenstein hinzufügen, der sie braucht.
+Flutter **3.50.0** (pinned in both workflows via `FLUTTER_VERSION`) · Dart 3.14 · Rust stable · flutter_rust_bridge **2.13.0** · lofty **0.25.5**.
 
-## Befehle
+- flutter_rust_bridge must be **exactly equal in three places**: `pubspec.yaml`, `rust/Cargo.toml` (`=2.13.0`), and the installed `flutter_rust_bridge_codegen` (`FRB_VERSION` in `ci.yml`). Otherwise `RustLib.init()` fails at runtime.
+- Since Flutter 3.47, `package:flutter/material.dart` is deprecated → import **`package:material_ui/material_ui.dart`** (otherwise `flutter analyze` reports infos and CI fails).
+- Planned for later milestones (not added yet): Riverpod, just_audio + audio_service (Linux: `just_audio_media_kit`), drift, file_picker. Add packages only with the milestone that needs them.
 
-Lokale Werkzeuge: Flutter in `~/.local/share/flutter`, Cargo-Binaries in `~/.cargo/bin` (beide im `PATH` über `~/.bashrc`).
+## Commands
+
+Local tools (all installed without sudo, on `PATH` via `~/.bashrc`): Flutter in `~/.local/share/flutter`, cargo binaries in `~/.cargo/bin`, Android SDK in `~/Android/Sdk` (`ANDROID_HOME`; platform 36, NDK 28.2.13676358), JDK 17 in `~/.local/share/jdk-17` (`JAVA_HOME`, also set via `flutter config --jdk-dir`). Android emulator AVD: `owntune_pixel` (Pixel 6, API 36, x86_64, KVM).
 
 ```bash
 flutter pub get
-flutter run -d linux                                # Haupt-Entwicklungsziel
-flutter analyze                                     # muss "No issues found!" melden
-flutter test                                        # Unit- und Widget-Tests (ohne Rust)
-flutter test test/app/core_status_test.dart         # einzelne Testdatei
-flutter test --plain-name "zeigt App-Namen"         # einzelner Test
-flutter test integration_test -d linux              # Integrationstests mit echtem Rust-Kern
+flutter run -d linux                                # main development target
+flutter analyze                                     # must report "No issues found!"
+flutter test                                        # unit and widget tests (no Rust)
+flutter test test/app/core_status_test.dart         # single test file
+flutter test --plain-name "shows app name"          # single test
+flutter test integration_test -d linux              # integration tests with the real Rust core
 (cd rust && cargo test && cargo clippy -- -D warnings && cargo fmt --check)
-flutter_rust_bridge_codegen generate                # nach JEDER Änderung an rust/src/api/
+flutter_rust_bridge_codegen generate                # after EVERY change in rust/src/api/
+
+emulator -avd owntune_pixel &                       # start the Android emulator (boots in ~30 s)
+flutter run -d emulator-5554                        # run on the emulator with hot reload
+flutter test integration_test -d emulator-5554      # integration tests with real Rust on Android
 ```
 
-iOS-Release: `git tag vX.Y.Z && git push --tags` → der iOS-Workflow baut die `.ipa` mit dieser Version (`--build-name`, Build-Nummer = Run-Nummer) und legt ein GitHub-Release mit `owntune.ipa` und `source.json` an. SideStore-Quelle (einmal in SideStore hinzufügen): `https://github.com/shiraayuki/owntune/releases/latest/download/source.json`; erzeugt von `tool/sidestore_source.dart` (Test: `test/tool/`). `gh workflow run iOS` baut nur ein Artifact ohne Release.
+**iOS release:** `git tag vX.Y.Z && git push --tags` → the iOS workflow builds the `.ipa` with that version (`--build-name`, build number = run number) and creates a GitHub release with `owntune.ipa` and `source.json`. SideStore source (add once in SideStore): `https://github.com/shiraayuki/owntune/releases/latest/download/source.json`; generated by `tool/sidestore_source.dart` (tests in `test/tool/`). `gh workflow run iOS` builds an artifact only, no release.
 
-## Architektur
+## Architecture
 
 ```
 lib/
-  main.dart            # lädt den Rust-Kern (loadCoreStatus) und startet OwntuneApp
-  app/                 # App-Start, Startbildschirm, CoreStatus
-  src/rust/            # GENERIERT von flutter_rust_bridge – nicht von Hand ändern
-rust/                  # Rust-Crate rust_lib_owntune
-  src/api/             # alles hier wird nach Dart exportiert (init.rs, metadata.rs)
-  src/frb_generated.rs # GENERIERT
-rust_builder/          # cargokit-Glue: baut Rust bei jedem `flutter build` für die Zielplattform mit
-integration_test/      # Tests gegen die echte native Bibliothek
+  main.dart            # loads the Rust core (loadCoreStatus) and starts OwntuneApp
+  app/                 # app startup, home screen, CoreStatus
+  src/rust/            # GENERATED by flutter_rust_bridge – do not edit by hand
+rust/                  # Rust crate rust_lib_owntune
+  src/api/             # everything here is exported to Dart (init.rs, metadata.rs)
+  src/frb_generated.rs # GENERATED
+rust_builder/          # cargokit glue: builds Rust for the target platform on every `flutter build`
+integration_test/      # tests against the real native library
+tool/                  # build/release scripts (Dart)
 ```
 
-Geplante Ordner für spätere Meilensteine: `lib/features/` (library, player, editor, playlists, import), `lib/data/` (db, repositories, `sources/` als Abstraktion „Quelle“ für ein späteres Download-Feature), `lib/services/` (audio, metadata).
+Planned folders for later milestones: `lib/features/` (library, player, editor, playlists, import), `lib/data/` (db, repositories, `sources/` as a "source" abstraction for a later download feature), `lib/services/` (audio, metadata).
 
-**Rust-Brücke:** Funktionen in `rust/src/api/*.rs` werden per `flutter_rust_bridge_codegen generate` nach `lib/src/rust/api/*.dart` übersetzt (z. B. `supported_formats()` → `supportedFormats()`; `#[frb(sync)]` = synchroner Aufruf). Generierter Code ist eingecheckt; die CI generiert neu und schlägt fehl, wenn sich dabei etwas ändert. Der Codegen löscht keine veralteten Dateien – nach dem Entfernen eines Rust-Moduls die zugehörige `.dart`-Datei von Hand löschen.
+**Rust bridge:** Functions in `rust/src/api/*.rs` are translated to `lib/src/rust/api/*.dart` by `flutter_rust_bridge_codegen generate` (e.g. `supported_formats()` → `supportedFormats()`; `#[frb(sync)]` = synchronous call). Generated code is committed; CI regenerates it and fails if anything changes. The codegen does not delete stale files — after removing a Rust module, delete the matching `.dart` file by hand.
 
-**Testbarkeit:** Code, der Rust aufruft, bekommt die Rust-Funktionen als optionale Parameter (siehe `loadCoreStatus({init, formats})`), damit Unit-/Widget-Tests ohne native Bibliothek laufen. Echte Rust-Aufrufe werden in `integration_test/` geprüft.
+**Testability:** Code that calls Rust takes the Rust functions as optional parameters (see `loadCoreStatus({init, formats})`), so unit/widget tests run without the native library. Real Rust calls are tested in `integration_test/`.
 
-## Grundsätze für kommende Meilensteine
+## Principles for upcoming milestones
 
-- **Dateiablage:** Importierte Dateien werden in einen app-eigenen Bibliotheksordner kopiert (z. B. `Documents/Library/`), weil iOS keinen dauerhaften Zugriff auf fremde Ordner erlaubt. Duplikaterkennung per Hash. Auf iOS soll der Ordner in der Dateien-App sichtbar sein (`UIFileSharingEnabled`, `LSSupportsOpeningDocumentsInPlace`).
-- **Metadaten:** Die Datenbank ist die Quelle der Wahrheit für die Anzeige; Änderungen werden zusätzlich über `lofty` in die Datei-Tags zurückgeschrieben (ID3, Vorbis, MP4). Cover als Thumbnails im Cache.
-- **Download-Feature ist nicht im Umfang** – nur die Abstraktion in `data/sources/` vorbereiten.
+- **File storage:** Imported files are copied into an app-owned library folder (e.g. `Documents/Library/`), because iOS does not allow persistent access to foreign folders. Duplicate detection by hash. On iOS the folder should be visible in the Files app (`UIFileSharingEnabled`, `LSSupportsOpeningDocumentsInPlace`).
+- **Metadata:** The database is the source of truth for display; changes are additionally written back into the file tags via `lofty` (ID3, Vorbis, MP4). Covers are cached as thumbnails.
+- **Download feature is out of scope** — only prepare the abstraction in `data/sources/`.
 
-**Datenmodell (Entwurf):** Track (id, filePath, fileHash, title, artist, albumId, trackNumber, discNumber, duration, year, genre, coverPath, addedAt, playCount, lastPlayedAt) · Album (id, title, albumArtist, year, coverPath, isUserCreated) · Playlist (id, name, coverPath, createdAt) · PlaylistEntry (playlistId, trackId, position).
+**Data model (draft):** Track (id, filePath, fileHash, title, artist, albumId, trackNumber, discNumber, duration, year, genre, coverPath, addedAt, playCount, lastPlayedAt) · Album (id, title, albumArtist, year, coverPath, isUserCreated) · Playlist (id, name, coverPath, createdAt) · PlaylistEntry (playlistId, trackId, position).
 
-## Meilensteine
+## Milestones
 
-- **M0 Grundgerüst** – ✅ erledigt.
-- **M1 Import & Bibliothek** – MP3, M4A/AAC, FLAC, OGG, WAV; Mehrfachimport, Kopieren, Hash-Duplikate, Tags+Cover auslesen; Ansichten Songs/Alben/Interpreten mit Suche und Sortierung. *Fertig:* 50 Dateien importiert und korrekt gruppiert.
-- **M2 Player** – Steuerung, Warteschlange, Shuffle/Repeat, Mini-/Vollbild-Player, Hintergrund + Sperrbildschirm (`UIBackgroundModes: audio`), Zustand nach Neustart. *Fertig:* läuft auf dem iPhone bei gesperrtem Bildschirm und lässt sich steuern.
-- **M3 Metadaten-Editor** – Felder bearbeiten, Cover wählen/zuschneiden/entfernen, Mehrfachbearbeitung, Rückschreiben in Tags.
-- **M4 Alben & Playlists** – eigene Alben, Playlists mit Drag & Drop und eigenem Cover.
-- **M5 Feinschliff** – Teilen-Menü/„Öffnen mit …“, dynamische Farben aus dem Cover, Dark Mode, Statistiken.
+- **M0 Skeleton** – ✅ done (release `v0.1.0`).
+- **M1 Import & library** – MP3, M4A/AAC, FLAC, OGG, WAV; multi-file import, copying, hash duplicates, read tags + cover; Songs/Albums/Artists views with search and sorting. *Done when:* 50 files imported and grouped correctly.
+- **M2 Player** – controls, queue, shuffle/repeat, mini and full-screen player, background + lock screen (`UIBackgroundModes: audio`), restore state after restart. *Done when:* plays on the iPhone with the screen locked and can be controlled.
+- **M3 Metadata editor** – edit fields, pick/crop/remove covers, bulk editing, write back to tags.
+- **M4 Albums & playlists** – custom albums, playlists with drag & drop and custom cover.
+- **M5 Polish** – share sheet / "Open with …", dynamic colors from the cover, dark mode, statistics.
 
-Nicht im Umfang: Download/Suche externer Quellen, Cloud-Sync, Accounts, Streaming, Store-Veröffentlichung.
+Out of scope: download/search of external sources, cloud sync, accounts, streaming, store publishing.
 
-## Entscheidungen und offene Fragen
+## Decisions and open questions
 
-Entschieden: Rust/`lofty` von Anfang an (M0) · Repo öffentlich · iOS-Builds nur für Releases. Aktuell genutzt: Sideloading per SideStore (TestFlight bleibt als Option offen).
+Decided: Rust/`lofty` from the start (M0) · public repo · iOS builds only for releases · UI in English. Currently used: sideloading via SideStore (TestFlight remains an option).
 
-Offen (nicht eigenmächtig festlegen): Dateien kopieren oder (unter Android) verlinken? · Welche Formate sind Pflicht? · Design-Richtung? · Linux später als echte Desktop-Version?
+Open (do not decide unilaterally): copy files or (on Android) link them? · Which formats are mandatory? · Design direction? · Linux later as a real desktop version?
