@@ -1,0 +1,305 @@
+import 'dart:ui' show ImageFilter;
+
+import 'package:cupertino_ui/cupertino_ui.dart' show CupertinoIcons;
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:material_ui/material_ui.dart';
+import 'package:owntune/app/buttons.dart';
+import 'package:owntune/app/providers.dart';
+import 'package:owntune/app/theme.dart';
+import 'package:owntune/import/import_controller.dart';
+import 'package:owntune/import/import_sheets.dart';
+import 'package:owntune/library/placeholder_tab.dart';
+import 'package:owntune/library/songs_screen.dart';
+import 'package:owntune/settings/settings.dart';
+
+/// Opens the settings; gets a context below the app's navigator.
+typedef OpenSettings = void Function(BuildContext context);
+
+class OwntuneApp extends ConsumerWidget {
+  const OwntuneApp({super.key, this.onOpenSettings});
+
+  final OpenSettings? onOpenSettings;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final settings = ref.watch(settingsProvider);
+    return MaterialApp(
+      title: 'owntune',
+      theme: buildTheme(Brightness.light, settings.accent),
+      darkTheme: buildTheme(Brightness.dark, settings.accent),
+      themeMode: switch (settings.mode) {
+        AppearanceMode.system => ThemeMode.system,
+        AppearanceMode.light => ThemeMode.light,
+        AppearanceMode.dark => ThemeMode.dark,
+      },
+      home: AppShell(onOpenSettings: onOpenSettings),
+    );
+  }
+}
+
+class _Tab {
+  const _Tab(this.label, this.icon, this.selectedIcon);
+
+  final String label;
+  final IconData icon;
+  final IconData selectedIcon;
+}
+
+const _tabs = [
+  // The note glyph is already solid; there is no separate fill variant.
+  _Tab('Songs', CupertinoIcons.music_note, CupertinoIcons.music_note),
+  _Tab('Albums', CupertinoIcons.square_stack, CupertinoIcons.square_stack_fill),
+  _Tab('Artists', CupertinoIcons.person, CupertinoIcons.person_fill),
+];
+
+/// Title row with the "…" menu and "+", the three tabs, the tab bar and the
+/// import sheets on top.
+class AppShell extends ConsumerStatefulWidget {
+  const AppShell({super.key, this.onOpenSettings});
+
+  final OpenSettings? onOpenSettings;
+
+  @override
+  ConsumerState<AppShell> createState() => _AppShellState();
+}
+
+class _AppShellState extends ConsumerState<AppShell> {
+  var _index = 0;
+
+  @override
+  Widget build(BuildContext context) {
+    final running = ref.watch(importControllerProvider) is ImportRunning;
+    return Stack(
+      children: [
+        Scaffold(
+          extendBody: true,
+          body: Column(
+            children: [
+              SafeArea(
+                bottom: false,
+                child: _TitleRow(
+                  title: _tabs[_index].label,
+                  onOpenSettings: () => widget.onOpenSettings?.call(context),
+                  onImport: running
+                      ? null
+                      : () => ref
+                            .read(importControllerProvider.notifier)
+                            .pickAndImport(),
+                ),
+              ),
+              Expanded(
+                child: MediaQuery.removePadding(
+                  context: context,
+                  removeTop: true,
+                  child: IndexedStack(
+                    index: _index,
+                    children: const [
+                      SongsScreen(),
+                      PlaceholderTab(message: 'Albums arrive in v0.3.'),
+                      PlaceholderTab(message: 'Artists arrive in v0.3.'),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+          bottomNavigationBar: _TabBar(
+            index: _index,
+            onSelect: (i) => setState(() => _index = i),
+          ),
+        ),
+        const ImportOverlay(),
+      ],
+    );
+  }
+}
+
+/// 44pt row: large title inline with the round buttons (`.appbar`).
+class _TitleRow extends StatelessWidget {
+  const _TitleRow({
+    required this.title,
+    required this.onOpenSettings,
+    required this.onImport,
+  });
+
+  final String title;
+  final VoidCallback onOpenSettings;
+  final VoidCallback? onImport;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = Theme.of(context).extension<OwntuneColors>()!;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 2, 16, 12),
+      child: SizedBox(
+        height: 44,
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(
+                title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 34,
+                  height: 44 / 34,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: -0.68,
+                  color: c.text,
+                ),
+              ),
+            ),
+            _MoreMenu(onOpenSettings: onOpenSettings),
+            const SizedBox(width: 8),
+            RoundIconButton(
+              key: const Key('import-button'),
+              icon: CupertinoIcons.plus,
+              tooltip: 'Import Music',
+              tinted: true,
+              onPressed: onImport,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+enum _MenuItem { settings }
+
+/// The "…" pull-down menu. v0.2.0 has a single entry.
+class _MoreMenu extends StatelessWidget {
+  const _MoreMenu({required this.onOpenSettings});
+
+  final VoidCallback onOpenSettings;
+
+  @override
+  Widget build(BuildContext context) {
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    final fg = dark ? const Color(0xffffffff) : const Color(0xff000000);
+    return PopupMenuButton<_MenuItem>(
+      tooltip: 'More',
+      padding: EdgeInsets.zero,
+      offset: const Offset(0, 52),
+      color: dark
+          ? const Color.fromRGBO(37, 37, 42, 0.96)
+          : const Color.fromRGBO(250, 250, 250, 0.96),
+      elevation: 12,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(13)),
+      constraints: const BoxConstraints.tightFor(width: 250),
+      menuPadding: EdgeInsets.zero,
+      onSelected: (item) => switch (item) {
+        _MenuItem.settings => onOpenSettings(),
+      },
+      itemBuilder: (context) => [
+        PopupMenuItem(
+          value: _MenuItem.settings,
+          height: 44,
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Row(
+            children: [
+              Text('Settings', style: TextStyle(fontSize: 17, color: fg)),
+              const Spacer(),
+              Icon(CupertinoIcons.gear, size: 20, color: fg),
+            ],
+          ),
+        ),
+      ],
+      child: const RoundIconFace(icon: CupertinoIcons.ellipsis),
+    );
+  }
+}
+
+/// 49pt tab bar plus the home indicator area, translucent with blur.
+class _TabBar extends StatelessWidget {
+  const _TabBar({required this.index, required this.onSelect});
+
+  final int index;
+  final ValueChanged<int> onSelect;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = Theme.of(context).extension<OwntuneColors>()!;
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    final bottom = MediaQuery.viewPaddingOf(context).bottom;
+    return ClipRect(
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+        child: Container(
+          constraints: BoxConstraints(minHeight: 49 + bottom),
+          padding: EdgeInsets.fromLTRB(30, 0, 30, bottom),
+          decoration: BoxDecoration(
+            color: dark
+                ? const Color.fromRGBO(22, 22, 28, 0.82)
+                : const Color.fromRGBO(251, 250, 247, 0.86),
+            border: Border(top: BorderSide(color: c.line, width: 0.5)),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              for (var i = 0; i < _tabs.length; i++)
+                _TabItem(
+                  tab: _tabs[i],
+                  selected: i == index,
+                  onTap: () => onSelect(i),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _TabItem extends StatelessWidget {
+  const _TabItem({
+    required this.tab,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final _Tab tab;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = Theme.of(context).extension<OwntuneColors>()!;
+    final color = selected ? c.accent : c.muted;
+    return Semantics(
+      selected: selected,
+      button: true,
+      child: InkResponse(
+        onTap: onTap,
+        radius: 36,
+        child: SizedBox(
+          width: 80,
+          child: Padding(
+            padding: const EdgeInsets.only(top: 7, bottom: 1),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  selected ? tab.selectedIcon : tab.icon,
+                  size: 26,
+                  color: color,
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  tab.label,
+                  style: TextStyle(
+                    fontSize: 10,
+                    height: 1.2,
+                    fontWeight: FontWeight.w600,
+                    color: color,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
