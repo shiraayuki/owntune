@@ -66,8 +66,13 @@ void main() {
     expect({for (final e in q.entries) e.key}.length, 3);
   });
 
+  test('moveUpcoming takes the index after removal', () {
+    final q = PlayQueue.of([1, 2, 3, 4], start: 0).moveUpcoming(2, 0);
+    expect(ids(q), [1, 4, 2, 3]);
+  });
+
   test('moveUpcoming reorders only upcoming entries', () {
-    final q = PlayQueue.of([1, 2, 3, 4], start: 0).moveUpcoming(0, 3);
+    final q = PlayQueue.of([1, 2, 3, 4], start: 0).moveUpcoming(0, 2);
     expect(ids(q), [1, 3, 4, 2]);
     expect(q.index, 0);
   });

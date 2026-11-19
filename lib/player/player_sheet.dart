@@ -14,6 +14,7 @@ import 'package:owntune/library/sort_key.dart';
 import 'package:owntune/player/play_queue.dart';
 import 'package:owntune/player/player_controller.dart';
 import 'package:owntune/player/scrubber.dart';
+import 'package:owntune/player/up_next.dart';
 
 /// Opens Now Playing as a full-screen sheet; swipe down or tap the grabber
 /// to close it.
@@ -167,68 +168,73 @@ class _Content extends ConsumerWidget {
             ),
           ),
         ),
-        Expanded(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(32, 18, 32, 0),
-            child: Center(
-              child: LayoutBuilder(
-                builder: (context, constraints) {
-                  final side = [
-                    326.0,
-                    constraints.maxWidth,
-                    constraints.maxHeight,
-                  ].reduce((a, b) => a < b ? a : b);
-                  return DecoratedBox(
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(14),
-                      boxShadow: const [
-                        BoxShadow(
-                          color: Color.fromRGBO(0, 0, 0, 0.45),
-                          blurRadius: 60,
-                          offset: Offset(0, 24),
-                        ),
-                      ],
-                    ),
-                    child: Artwork(file: coverFile, size: side, radius: 14),
-                  );
-                },
+        if (!showQueue) ...[
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(32, 18, 32, 0),
+              child: Center(
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    final side = [
+                      326.0,
+                      constraints.maxWidth,
+                      constraints.maxHeight,
+                    ].reduce((a, b) => a < b ? a : b);
+                    return DecoratedBox(
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(14),
+                        boxShadow: const [
+                          BoxShadow(
+                            color: Color.fromRGBO(0, 0, 0, 0.45),
+                            blurRadius: 60,
+                            offset: Offset(0, 24),
+                          ),
+                        ],
+                      ),
+                      child: Artwork(file: coverFile, size: side, radius: 14),
+                    );
+                  },
+                ),
               ),
             ),
           ),
-        ),
-        Padding(
-          padding: const EdgeInsets.fromLTRB(32, 34, 32, 0),
-          child: Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      displayTitle(track.title, track.originalName),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 22,
-                        fontWeight: FontWeight.w700,
-                        color: c.text,
+          Padding(
+            padding: const EdgeInsets.fromLTRB(32, 34, 32, 0),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        displayTitle(track.title, track.originalName),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.w700,
+                          color: c.text,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      subtitle,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(fontSize: 19, color: c.muted),
-                    ),
-                  ],
+                      const SizedBox(height: 2),
+                      Text(
+                        subtitle,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(fontSize: 19, color: c.muted),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-              const SizedBox(width: 12),
-              _MoreButton(track: track),
-            ],
+                const SizedBox(width: 12),
+                _MoreButton(track: track),
+              ],
+            ),
           ),
-        ),
+        ] else ...[
+          _NowRow(track: track, coverFile: coverFile),
+          const Expanded(child: UpNext()),
+        ],
         Padding(
           padding: const EdgeInsets.fromLTRB(32, 16, 32, 0),
           child: Scrubber(durationMs: track.durationMs),
@@ -244,6 +250,69 @@ class _Content extends ConsumerWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+/// The compact current-song row above Up Next (`.q-now`).
+class _NowRow extends StatelessWidget {
+  const _NowRow({required this.track, required this.coverFile});
+
+  final Track track;
+  final File? coverFile;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = Theme.of(context).extension<OwntuneColors>()!;
+    final album = track.album?.trim();
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 6, 20, 0),
+      child: Row(
+        children: [
+          DecoratedBox(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(10),
+              boxShadow: const [
+                BoxShadow(
+                  color: Color.fromRGBO(0, 0, 0, 0.3),
+                  blurRadius: 20,
+                  offset: Offset(0, 8),
+                ),
+              ],
+            ),
+            child: Artwork(file: coverFile, size: 64, radius: 10),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  displayTitle(track.title, track.originalName),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.w700,
+                    color: c.text,
+                  ),
+                ),
+                Text(
+                  [
+                    displayArtist(track.artist),
+                    if (album != null && album.isNotEmpty) album,
+                  ].join(' · '),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(fontSize: 15, color: c.muted),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 12),
+          _MoreButton(track: track),
+        ],
+      ),
     );
   }
 }

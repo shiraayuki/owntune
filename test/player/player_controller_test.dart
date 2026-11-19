@@ -246,7 +246,7 @@ void main() {
     () async {
       await playAt(0);
       final entries = state().queue.entries;
-      player().moveUpcoming(0, 2);
+      player().moveUpcoming(0, 1);
       expect(queueIds(), [1, 3, 2]);
       await player().remove(entries[2].key);
       expect(queueIds(), [1, 2]);

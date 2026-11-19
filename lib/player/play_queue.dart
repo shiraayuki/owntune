@@ -127,13 +127,14 @@ class PlayQueue {
     return _withNew([...entries, entry], isEmpty ? 0 : index);
   }
 
-  /// Moves an upcoming entry; [from] and [to] are indices within [upcoming]
-  /// with ReorderableListView semantics ([to] counts the moved entry).
+  /// Moves an upcoming entry; [from] and [to] are indices within [upcoming],
+  /// [to] counted after [from] was taken out (ReorderableListView's
+  /// `onReorderItem`).
   PlayQueue moveUpcoming(int from, int to) {
     final up = [...upcoming];
     if (from < 0 || from >= up.length) return this;
     final moved = up.removeAt(from);
-    up.insert((to > from ? to - 1 : to).clamp(0, up.length), moved);
+    up.insert(to.clamp(0, up.length), moved);
     return _copy(entries: [...entries.sublist(0, index + 1), ...up]);
   }
 
