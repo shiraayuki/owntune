@@ -2,6 +2,7 @@ import 'package:cupertino_ui/cupertino_ui.dart' show CupertinoIcons;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:owntune/app/app_shell.dart';
 import 'package:owntune/app/providers.dart';
 import 'package:owntune/library/song_sort.dart';
 import 'package:owntune/settings/settings.dart';
@@ -198,5 +199,30 @@ void main() {
       await t.tapAt(const Offset(10, 10));
       await t.pumpAndSettle();
     }
+  });
+
+  testWidgets('import summary shows over a pushed screen', (t) async {
+    final importer = FakeImporter();
+    await pumpApp(t, importer: importer, picker: FakePicker(['/a/one.mp3']));
+    await t.tap(find.byKey(const Key('import-button')));
+    await t.pumpAndSettle();
+    await t.tap(find.text('Hide – keep importing'));
+    await t.pumpAndSettle();
+
+    Navigator.of(t.element(find.byType(AppShell))).push(
+      MaterialPageRoute<void>(
+        builder: (_) => const Scaffold(body: Center(child: Text('pushed'))),
+      ),
+    );
+    await t.pumpAndSettle();
+    expect(find.text('pushed'), findsOneWidget);
+
+    importer.finish(summary47);
+    await t.pumpAndSettle();
+    expect(find.text('Import complete').hitTestable(), findsOneWidget);
+    await t.tap(find.text('Done'));
+    await t.pumpAndSettle();
+    expect(find.text('Import complete'), findsNothing);
+    expect(find.text('pushed'), findsOneWidget);
   });
 }

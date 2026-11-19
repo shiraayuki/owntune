@@ -35,6 +35,10 @@ class OwntuneApp extends ConsumerWidget {
         AppearanceMode.light => ThemeMode.light,
         AppearanceMode.dark => ThemeMode.dark,
       },
+      // The import sheets sit above the navigator, so they also show over
+      // pushed screens (album, artist, search).
+      builder: (context, child) =>
+          Stack(children: [child!, const ImportOverlay()]),
       home: AppShell(onOpenSettings: onOpenSettings),
     );
   }
@@ -55,8 +59,8 @@ const _tabs = [
   _Tab('Artists', CupertinoIcons.person, CupertinoIcons.person_fill),
 ];
 
-/// Title row with the "…" menu and "+", the three tabs, the tab bar and the
-/// import sheets on top.
+/// Title row with the "…" menu and "+", the three tabs and the tab bar. The
+/// import sheets are added above the navigator by [OwntuneApp].
 class AppShell extends ConsumerStatefulWidget {
   const AppShell({super.key, this.onOpenSettings});
 
@@ -72,49 +76,44 @@ class _AppShellState extends ConsumerState<AppShell> {
   @override
   Widget build(BuildContext context) {
     final running = ref.watch(importControllerProvider) is ImportRunning;
-    return Stack(
-      children: [
-        Scaffold(
-          extendBody: true,
-          body: Column(
-            children: [
-              SafeArea(
-                bottom: false,
-                child: _TitleRow(
-                  title: _tabs[_index].label,
-                  showSort: _index == 0,
-                  onOpenSettings: () =>
-                      (widget.onOpenSettings ?? showSettingsSheet)(context),
-                  onImport: running
-                      ? null
-                      : () => ref
-                            .read(importControllerProvider.notifier)
-                            .pickAndImport(),
-                ),
-              ),
-              Expanded(
-                child: MediaQuery.removePadding(
-                  context: context,
-                  removeTop: true,
-                  child: IndexedStack(
-                    index: _index,
-                    children: const [
-                      SongsScreen(),
-                      PlaceholderTab(message: 'Albums arrive in v0.3.'),
-                      PlaceholderTab(message: 'Artists arrive in v0.3.'),
-                    ],
-                  ),
-                ),
-              ),
-            ],
+    return Scaffold(
+      extendBody: true,
+      body: Column(
+        children: [
+          SafeArea(
+            bottom: false,
+            child: _TitleRow(
+              title: _tabs[_index].label,
+              showSort: _index == 0,
+              onOpenSettings: () =>
+                  (widget.onOpenSettings ?? showSettingsSheet)(context),
+              onImport: running
+                  ? null
+                  : () => ref
+                        .read(importControllerProvider.notifier)
+                        .pickAndImport(),
+            ),
           ),
-          bottomNavigationBar: _TabBar(
-            index: _index,
-            onSelect: (i) => setState(() => _index = i),
+          Expanded(
+            child: MediaQuery.removePadding(
+              context: context,
+              removeTop: true,
+              child: IndexedStack(
+                index: _index,
+                children: const [
+                  SongsScreen(),
+                  PlaceholderTab(message: 'Albums arrive in v0.3.'),
+                  PlaceholderTab(message: 'Artists arrive in v0.3.'),
+                ],
+              ),
+            ),
           ),
-        ),
-        const ImportOverlay(),
-      ],
+        ],
+      ),
+      bottomNavigationBar: _TabBar(
+        index: _index,
+        onSelect: (i) => setState(() => _index = i),
+      ),
     );
   }
 }

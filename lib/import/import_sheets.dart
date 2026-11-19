@@ -13,7 +13,8 @@ String _count(int n, String one, [String? many]) =>
     '$n ${n == 1 ? one : (many ?? '${one}s')}';
 
 /// Scrim plus the sheet for the current [ImportState]; empty while idle or
-/// while a running import is hidden. Sits above the whole shell.
+/// while a running import is hidden. Sits above the app's navigator, so it
+/// covers every screen.
 class ImportOverlay extends ConsumerWidget {
   const ImportOverlay({super.key});
 
