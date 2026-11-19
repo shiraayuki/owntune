@@ -7,13 +7,21 @@ import '../frb_generated.dart';
 
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
-// These functions are ignored because they are not marked as `pub`: `clean`, `cover_from`, `cover_of`, `hash_file`, `is_supported`, `unreadable`
-// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `assert_fields_are_eq`, `assert_fields_are_eq`, `assert_fields_are_eq`, `clone`, `clone`, `clone`, `clone`, `eq`, `eq`, `eq`, `eq`, `fmt`, `fmt`, `fmt`, `fmt`
+// These functions are ignored because they are not marked as `pub`: `apply`, `clean`, `cover_from`, `cover_of`, `hash_file`, `is_supported`, `part_path`, `unreadable`, `write_via`
+// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `assert_fields_are_eq`, `assert_fields_are_eq`, `assert_fields_are_eq`, `assert_fields_are_eq`, `clone`, `clone`, `clone`, `clone`, `clone`, `eq`, `eq`, `eq`, `eq`, `eq`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`
 
 /// Reads tags, duration, content hash and cover art of one audio file.
 /// Never panics; every failure is reported through `status` and `message`.
 Future<ReadResult> readTrack({required String path}) =>
     RustLib.instance.api.crateApiLibraryReadTrack(path: path);
+
+/// Writes `tags` into the primary tag of the file at `path` (created if
+/// missing). The file is copied to `<stem>.part.<ext>` next to it, written
+/// there and renamed over the original, so an interrupted write leaves the
+/// original intact. Returns an error message, or `None` on success. Never
+/// panics.
+Future<String?> writeTags({required String path, required TagValues tags}) =>
+    RustLib.instance.api.crateApiLibraryWriteTags(path: path, tags: tags);
 
 /// Embedded cover art, ready to be cached by the app.
 class CoverArt {
@@ -73,6 +81,54 @@ enum ReadStatus {
 
   /// The file is missing, unreadable or not valid audio.
   unreadable,
+}
+
+/// The editable tag fields; `None` removes the item from the file.
+class TagValues {
+  final String? title;
+  final String? artist;
+  final String? album;
+  final String? albumArtist;
+  final String? genre;
+  final int? trackNumber;
+  final int? discNumber;
+  final int? year;
+
+  const TagValues({
+    this.title,
+    this.artist,
+    this.album,
+    this.albumArtist,
+    this.genre,
+    this.trackNumber,
+    this.discNumber,
+    this.year,
+  });
+
+  @override
+  int get hashCode =>
+      title.hashCode ^
+      artist.hashCode ^
+      album.hashCode ^
+      albumArtist.hashCode ^
+      genre.hashCode ^
+      trackNumber.hashCode ^
+      discNumber.hashCode ^
+      year.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is TagValues &&
+          runtimeType == other.runtimeType &&
+          title == other.title &&
+          artist == other.artist &&
+          album == other.album &&
+          albumArtist == other.albumArtist &&
+          genre == other.genre &&
+          trackNumber == other.trackNumber &&
+          discNumber == other.discNumber &&
+          year == other.year;
 }
 
 class TrackInfo {
