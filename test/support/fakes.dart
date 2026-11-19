@@ -11,6 +11,8 @@ import 'package:owntune/app/providers.dart';
 import 'package:owntune/data/db/database.dart';
 import 'package:owntune/data/library_storage.dart';
 import 'package:owntune/data/track_repository.dart';
+import 'package:owntune/edit/tag_saver.dart';
+import 'package:owntune/edit/track_tags.dart';
 import 'package:owntune/import/audio_file_picker.dart';
 import 'package:owntune/import/importer.dart';
 import 'package:owntune/library/navigation.dart';
@@ -93,6 +95,22 @@ class FakeImporter implements Importer {
 
 /// Records `delete` calls and returns fixed library stats; other members are
 /// unused in widget tests.
+/// Records written tags by file path; paths in [failing] return their
+/// message instead, and [throwing] makes every write throw.
+class FakeTagWriter {
+  final written = <String, TrackTags>{};
+  final failing = <String, String>{};
+  var throwing = false;
+
+  Future<String?> call(String path, TrackTags tags) async {
+    if (throwing) throw const FileSystemException('disk gone');
+    final error = failing[path];
+    if (error != null) return error;
+    written[path] = tags;
+    return null;
+  }
+}
+
 class FakeTrackRepository implements TrackRepository {
   FakeTrackRepository({this.songCount = 0, this.bytes = 0, this.deleteError});
 
@@ -105,6 +123,13 @@ class FakeTrackRepository implements TrackRepository {
 
   /// Ids passed to [markPlayed], in order.
   final played = <int>[];
+
+  /// Every [updateTags] call, in order.
+  final updatedTags = <Map<int, TrackTags>>[];
+
+  @override
+  Future<void> updateTags(Map<int, TrackTags> byId) async =>
+      updatedTags.add(byId);
 
   @override
   Future<void> markPlayed(int id) async => played.add(id);
@@ -273,16 +298,25 @@ Future<void> pumpApp(
   FakeAudioEngine? engine,
   LibraryStorage? storage,
   void Function(BuildContext)? onOpenSettings,
+  FakeTagWriter? tagWriter,
+  FakeTrackRepository? editRepo,
   List<Override> overrides = const [],
 }) async {
+  final libraryStorage =
+      storage ?? LibraryStorage(Directory('/nonexistent/owntune'));
   await t.pumpWidget(
     ProviderScope(
       overrides: [
         tracksProvider.overrideWith(
           (ref) => songsStream ?? Stream.value(songs),
         ),
-        storageProvider.overrideWithValue(
-          storage ?? LibraryStorage(Directory('/nonexistent/owntune')),
+        storageProvider.overrideWithValue(libraryStorage),
+        tagSaverProvider.overrideWithValue(
+          TagSaver(
+            write: (tagWriter ?? FakeTagWriter()).call,
+            storage: libraryStorage,
+            repo: editRepo ?? FakeTrackRepository(),
+          ),
         ),
         importerProvider.overrideWithValue(importer ?? FakeImporter()),
         filePickerProvider.overrideWithValue(picker ?? FakePicker()),

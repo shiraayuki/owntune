@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:owntune/data/db/database.dart';
 import 'package:owntune/data/library_storage.dart';
 import 'package:owntune/data/track_repository.dart';
+import 'package:owntune/edit/tag_saver.dart';
 import 'package:owntune/import/audio_file_picker.dart';
 import 'package:owntune/import/import_controller.dart';
 import 'package:owntune/import/importer.dart';
@@ -84,6 +85,27 @@ final importerProvider = Provider<Importer>(
     storage: ref.watch(storageProvider),
     read: (p) => readTrack(path: p),
     supportedExtensions: supportedFormats().toSet(),
+  ),
+);
+
+/// Saves edited song tags; tests override it with a fake writer.
+final tagSaverProvider = Provider<TagSaver>(
+  (ref) => TagSaver(
+    repo: ref.watch(trackRepositoryProvider),
+    storage: ref.watch(storageProvider),
+    write: (path, t) => writeTags(
+      path: path,
+      tags: TagValues(
+        title: t.title,
+        artist: t.artist,
+        album: t.album,
+        albumArtist: t.albumArtist,
+        genre: t.genre,
+        trackNumber: t.trackNumber,
+        discNumber: t.discNumber,
+        year: t.year,
+      ),
+    ),
   ),
 );
 

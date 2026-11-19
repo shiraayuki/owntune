@@ -66,9 +66,8 @@ void main() {
   });
 
   test('text is trimmed', () {
-    final t = const TagEdit({
-      TagField.title: '  Rain  ',
-    }).apply(TrackTags.of(one));
+    final t = const TagEdit({TagField.title: '  Rain  '})
+        .apply(TrackTags.of(one));
     expect(t.title, 'Rain');
   });
 
