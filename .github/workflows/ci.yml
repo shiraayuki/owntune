@@ -36,7 +36,7 @@ jobs:
       - name: Linux dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev libsqlite3-dev libmpv-dev xvfb
+          sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev libsqlite3-dev libmpv-dev xvfb pulseaudio
 
       - uses: actions/setup-java@v6
         with:
@@ -75,6 +75,13 @@ jobs:
           git status --porcelain
           git diff --exit-code
           test -z "$(git status --porcelain)"
+
+      # The runner has no sound card; mpv needs an audio output to play.
+      - name: Silent audio output for the player tests
+        run: |
+          pulseaudio --start --exit-idle-time=-1
+          pactl load-module module-null-sink sink_name=silent
+          pactl set-default-sink silent
 
       - name: Integration test with real Rust core
         run: xvfb-run flutter test integration_test -d linux
