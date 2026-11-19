@@ -12,6 +12,7 @@ import 'package:owntune/library/library.dart';
 import 'package:owntune/library/navigation.dart';
 import 'package:owntune/library/songs_screen.dart';
 import 'package:owntune/library/sort_key.dart';
+import 'package:owntune/player/mini_player.dart';
 import 'package:owntune/player/player_controller.dart';
 
 /// Album detail (mockup 07): cover, title, artist, meta, Play/Shuffle and
@@ -29,6 +30,8 @@ class AlbumScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      extendBody: true,
+      bottomNavigationBar: const MiniPlayer(),
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [

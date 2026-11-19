@@ -221,11 +221,14 @@ void main() {
     await t.tap(find.text('B song'));
     await t.pumpAndSettle();
 
+    // The mini player shows the title too.
+    Finder inRow(String text) =>
+        find.descendant(of: find.byType(SongRow), matching: find.text(text));
     final accent = Theme.of(t.element(find.byType(AppShell)))
         .extension<OwntuneColors>()!
         .accent;
-    expect(t.widget<Text>(find.text('B song')).style!.color, accent);
-    expect(t.widget<Text>(find.text('A song')).style!.color, isNot(accent));
+    expect(t.widget<Text>(inRow('B song')).style!.color, accent);
+    expect(t.widget<Text>(inRow('A song')).style!.color, isNot(accent));
   });
 
   testWidgets('the playing album track shows bars instead of its number', (

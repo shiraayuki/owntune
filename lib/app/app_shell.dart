@@ -14,6 +14,7 @@ import 'package:owntune/library/library_tab.dart';
 import 'package:owntune/library/playlists_screen.dart';
 import 'package:owntune/library/search_screen.dart';
 import 'package:owntune/library/song_sort.dart';
+import 'package:owntune/player/mini_player.dart';
 import 'package:owntune/player/player_controller.dart';
 import 'package:owntune/settings/settings.dart';
 import 'package:owntune/settings/settings_sheet.dart';
@@ -204,9 +205,12 @@ class _AppShellState extends ConsumerState<AppShell> {
           ),
         ],
       ),
-      bottomNavigationBar: _TabBar(
-        index: _index,
-        onSelect: (i) => setState(() => _index = i),
+      bottomNavigationBar: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const MiniPlayer(overTabBar: true),
+          _TabBar(index: _index, onSelect: (i) => setState(() => _index = i)),
+        ],
       ),
     );
   }

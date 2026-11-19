@@ -8,6 +8,7 @@ import 'package:owntune/library/artists_screen.dart';
 import 'package:owntune/library/library.dart';
 import 'package:owntune/library/navigation.dart';
 import 'package:owntune/library/songs_screen.dart';
+import 'package:owntune/player/mini_player.dart';
 import 'package:owntune/player/player_controller.dart';
 
 /// Number of songs shown on the artist screen before "See All".
@@ -31,6 +32,8 @@ class ArtistScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      extendBody: true,
+      bottomNavigationBar: const MiniPlayer(),
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -207,6 +210,8 @@ class ArtistSongsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final c = Theme.of(context).extension<OwntuneColors>()!;
     return Scaffold(
+      extendBody: true,
+      bottomNavigationBar: const MiniPlayer(),
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
