@@ -127,7 +127,7 @@ void main() {
   test('repeat all wraps after the last song', () async {
     await playAt(2);
     player().cycleRepeat();
-    expect(state().queue.repeat, RepeatMode.all);
+    expect(state().queue.repeat, QueueRepeat.all);
     engine.complete();
     await pumpEventQueue();
     expect(engine.current, 'hash1.mp3');
@@ -141,7 +141,7 @@ void main() {
       player()
         ..cycleRepeat()
         ..cycleRepeat();
-      expect(state().queue.repeat, RepeatMode.one);
+      expect(state().queue.repeat, QueueRepeat.one);
       engine.complete();
       await pumpEventQueue();
       expect(engine.loaded, ['hash1.mp3', 'hash1.mp3']);

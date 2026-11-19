@@ -15,22 +15,22 @@ void main() {
     final last = PlayQueue.of([1, 2, 3], start: 2);
     expect(last.nextIndex(auto: false), isNull);
     expect(last.hasNext, isFalse);
-    final all = last.withRepeat(RepeatMode.all);
+    final all = last.withRepeat(QueueRepeat.all);
     expect(all.nextIndex(auto: false), 0);
     expect(all.hasNext, isTrue);
-    expect(last.withRepeat(RepeatMode.one).hasNext, isFalse);
+    expect(last.withRepeat(QueueRepeat.one).hasNext, isFalse);
   });
 
   test('repeat one repeats only when the song ends', () {
-    final q = PlayQueue.of([1, 2, 3], start: 0).withRepeat(RepeatMode.one);
+    final q = PlayQueue.of([1, 2, 3], start: 0).withRepeat(QueueRepeat.one);
     expect(q.nextIndex(auto: true), 0);
     expect(q.nextIndex(auto: false), 1);
   });
 
-  test('RepeatMode cycles off, all, one', () {
-    expect(RepeatMode.off.next, RepeatMode.all);
-    expect(RepeatMode.all.next, RepeatMode.one);
-    expect(RepeatMode.one.next, RepeatMode.off);
+  test('QueueRepeat cycles off, all, one', () {
+    expect(QueueRepeat.off.next, QueueRepeat.all);
+    expect(QueueRepeat.all.next, QueueRepeat.one);
+    expect(QueueRepeat.one.next, QueueRepeat.off);
   });
 
   test('previousIndex is null on the first entry', () {

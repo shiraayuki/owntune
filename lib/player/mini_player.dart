@@ -8,6 +8,7 @@ import 'package:owntune/app/theme.dart';
 import 'package:owntune/library/artwork.dart';
 import 'package:owntune/library/sort_key.dart';
 import 'package:owntune/player/player_controller.dart';
+import 'package:owntune/player/player_sheet.dart';
 
 /// Share of [durationMs] that [position] covers, clamped to 0..1; 0 for an
 /// unknown or zero duration.
@@ -47,7 +48,7 @@ class MiniPlayer extends ConsumerWidget {
       child: GestureDetector(
         key: const Key('mini-player'),
         behavior: HitTestBehavior.opaque,
-        onTap: onOpen,
+        onTap: onOpen ?? () => showPlayer(context),
         child: Container(
           height: 60,
           decoration: BoxDecoration(

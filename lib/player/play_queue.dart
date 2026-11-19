@@ -1,10 +1,10 @@
 /// Repeat mode of the player; the button cycles off → all → one.
-enum RepeatMode {
+enum QueueRepeat {
   off,
   all,
   one;
 
-  RepeatMode get next => switch (this) {
+  QueueRepeat get next => switch (this) {
     off => all,
     all => one,
     one => off,
@@ -37,7 +37,7 @@ class PlayQueue {
     this.entries = const [],
     this.index = 0,
     this.source,
-    this.repeat = RepeatMode.off,
+    this.repeat = QueueRepeat.off,
     this._nextKey = 0,
   });
 
@@ -47,7 +47,7 @@ class PlayQueue {
     List<int> trackIds, {
     required int start,
     String? source,
-    RepeatMode repeat = RepeatMode.off,
+    QueueRepeat repeat = QueueRepeat.off,
   }) => PlayQueue(
     entries: [for (final (i, id) in trackIds.indexed) QueueEntry(i, id)],
     index: start,
@@ -59,7 +59,7 @@ class PlayQueue {
   final List<QueueEntry> entries;
   final int index;
   final String? source;
-  final RepeatMode repeat;
+  final QueueRepeat repeat;
   final int _nextKey;
 
   bool get isEmpty => entries.isEmpty;
@@ -73,15 +73,15 @@ class PlayQueue {
   /// False only on the last entry with repeat off (or repeat one, where Next
   /// still has nowhere to go).
   bool get hasNext =>
-      !isEmpty && (index + 1 < entries.length || repeat == RepeatMode.all);
+      !isEmpty && (index + 1 < entries.length || repeat == QueueRepeat.all);
 
   /// The entry to play after the current one; [auto] is true when the song
   /// ended by itself (repeat one then repeats it). Null means stop.
   int? nextIndex({required bool auto}) {
     if (isEmpty) return null;
-    if (auto && repeat == RepeatMode.one) return index;
+    if (auto && repeat == QueueRepeat.one) return index;
     if (index + 1 < entries.length) return index + 1;
-    return repeat == RepeatMode.all ? 0 : null;
+    return repeat == QueueRepeat.all ? 0 : null;
   }
 
   /// Null on the first entry (the caller restarts the song).
@@ -90,7 +90,7 @@ class PlayQueue {
   PlayQueue _copy({
     List<QueueEntry>? entries,
     int? index,
-    RepeatMode? repeat,
+    QueueRepeat? repeat,
   }) => PlayQueue(
     entries: entries ?? this.entries,
     index: index ?? this.index,
@@ -107,7 +107,7 @@ class PlayQueue {
     nextKey: _nextKey + 1,
   );
 
-  PlayQueue withRepeat(RepeatMode r) => _copy(repeat: r);
+  PlayQueue withRepeat(QueueRepeat r) => _copy(repeat: r);
 
   PlayQueue withIndex(int i) => _copy(index: i);
 
