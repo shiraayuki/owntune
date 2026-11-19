@@ -341,6 +341,8 @@ class _Segmented extends StatelessWidget {
 }
 
 /// The seven accent presets as 44pt circles; the selected one has a ring.
+/// On screens narrower than 7 × 44pt (e.g. 360dp Android phones) the
+/// circles shrink to fit instead of overflowing.
 class _Swatches extends StatelessWidget {
   const _Swatches({required this.selected, required this.onSelect});
 
@@ -352,29 +354,40 @@ class _Swatches extends StatelessWidget {
     final c = Theme.of(context).extension<OwntuneColors>()!;
     return Padding(
       padding: const EdgeInsets.all(12),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          for (final preset in kAccentPresets)
-            Semantics(
-              label: preset.name,
-              button: true,
-              selected: preset.color == selected,
-              excludeSemantics: true,
-              child: GestureDetector(
-                onTap: () => onSelect(preset.color),
-                child: SizedBox.square(
-                  dimension: 44,
-                  child: CustomPaint(
-                    painter: _SwatchPainter(
-                      color: preset.color,
-                      ring: preset.color == selected ? c.text : null,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final size = math.min(
+            44.0,
+            constraints.maxWidth / kAccentPresets.length,
+          );
+          return Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              for (final preset in kAccentPresets)
+                Semantics(
+                  label: preset.name,
+                  button: true,
+                  selected: preset.color == selected,
+                  // Excluding the child's semantics drops the detector's tap
+                  // action, so the node gets its own.
+                  onTap: () => onSelect(preset.color),
+                  excludeSemantics: true,
+                  child: GestureDetector(
+                    onTap: () => onSelect(preset.color),
+                    child: SizedBox.square(
+                      dimension: size,
+                      child: CustomPaint(
+                        painter: _SwatchPainter(
+                          color: preset.color,
+                          ring: preset.color == selected ? c.text : null,
+                        ),
+                      ),
                     ),
                   ),
                 ),
-              ),
-            ),
-        ],
+            ],
+          );
+        },
       ),
     );
   }

@@ -104,11 +104,24 @@ void main() {
     await openSettings(t);
     expect(
       t.getSemantics(find.bySemanticsLabel('Coral')),
-      isSemantics(isSelected: true),
+      isSemantics(isSelected: true, isButton: true, hasTapAction: true),
     );
     expect(
       t.getSemantics(find.bySemanticsLabel('Sky')),
       isSemantics(isSelected: false),
+    );
+  });
+
+  testWidgets('the sheet fits a 360pt wide Android phone', (t) async {
+    t.view.physicalSize = const Size(1080, 2340);
+    t.view.devicePixelRatio = 3;
+    addTearDown(t.view.reset);
+    await openSettings(t);
+    // A RenderFlex overflow would fail the test on its own.
+    expect(find.bySemanticsLabel('Pink'), findsOneWidget);
+    expect(
+      t.getBottomRight(find.bySemanticsLabel('Pink')).dx,
+      lessThanOrEqualTo(360 - 16 - 12 + 0.01),
     );
   });
 
