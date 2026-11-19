@@ -33,8 +33,9 @@ class ArtistsScreen extends ConsumerWidget {
         MediaQuery.paddingOf(context).bottom + 16,
       ),
       itemCount: artists.length,
-      itemBuilder: (context, i) => ArtistRow(
-        artist: artists[i],
+      itemBuilder: (context, i) => LinkRow(
+        leading: ArtistAvatar(artist: artists[i]),
+        title: artists[i].name,
         subtitle: artistCounts(artists[i]),
         divider: i + 1 < artists.length,
         onTap: () => openArtist(context, artists[i].key, backLabel: 'Artists'),
@@ -43,17 +44,20 @@ class ArtistsScreen extends ConsumerWidget {
   }
 }
 
-/// 64pt row: round avatar, name, subtitle and a chevron.
-class ArtistRow extends StatelessWidget {
-  const ArtistRow({
+/// 64pt row that opens a screen: 48pt [leading], title, subtitle and a
+/// chevron.
+class LinkRow extends StatelessWidget {
+  const LinkRow({
     super.key,
-    required this.artist,
+    required this.leading,
+    required this.title,
     required this.subtitle,
     required this.onTap,
     this.divider = true,
   });
 
-  final Artist artist;
+  final Widget leading;
+  final String title;
   final String subtitle;
   final VoidCallback onTap;
   final bool divider;
@@ -72,7 +76,7 @@ class ArtistRow extends StatelessWidget {
               padding: const EdgeInsets.symmetric(vertical: 8),
               child: Row(
                 children: [
-                  ArtistAvatar(artist: artist),
+                  leading,
                   const SizedBox(width: 12),
                   Expanded(
                     child: Column(
@@ -80,7 +84,7 @@ class ArtistRow extends StatelessWidget {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Text(
-                          artist.name,
+                          title,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(

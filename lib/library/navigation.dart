@@ -6,6 +6,7 @@ import 'package:owntune/app/theme.dart';
 import 'package:owntune/library/album_screen.dart';
 import 'package:owntune/library/artist_screen.dart';
 import 'package:owntune/library/library.dart';
+import 'package:owntune/library/search_screen.dart';
 
 /// Opens the album detail above the tab shell.
 Future<void> openAlbum(
@@ -38,6 +39,15 @@ Future<void> openArtistSongs(
   MaterialPageRoute<void>(
     builder: (_) =>
         ArtistSongsScreen(artistKey: artistKey, backLabel: backLabel),
+  ),
+);
+
+/// Opens the global search above the tab shell.
+Future<void> openSearch(BuildContext context) => Navigator.of(context).push(
+  PageRouteBuilder<void>(
+    pageBuilder: (_, _, _) => const SearchScreen(),
+    transitionsBuilder: (_, animation, _, child) =>
+        FadeTransition(opacity: animation, child: child),
   ),
 );
 

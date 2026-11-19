@@ -10,6 +10,8 @@ import 'package:owntune/import/import_controller.dart';
 import 'package:owntune/import/import_sheets.dart';
 import 'package:owntune/library/albums_screen.dart';
 import 'package:owntune/library/artists_screen.dart';
+import 'package:owntune/library/navigation.dart';
+import 'package:owntune/library/search_screen.dart';
 import 'package:owntune/library/song_sort.dart';
 import 'package:owntune/library/songs_screen.dart';
 import 'package:owntune/settings/settings.dart';
@@ -93,6 +95,13 @@ class _AppShellState extends ConsumerState<AppShell> {
                   : () => ref
                         .read(importControllerProvider.notifier)
                         .pickAndImport(),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+            child: SearchField(
+              label: 'Search ${_tabs[_index].label}',
+              onTap: () => openSearch(context),
             ),
           ),
           Expanded(
