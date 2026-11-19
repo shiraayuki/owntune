@@ -382,7 +382,7 @@ Color _red(BuildContext context) =>
     ? const Color(0xffff453a)
     : const Color(0xffff3b30);
 
-enum _SongAction { album, artist, delete }
+enum _SongAction { playNext, playLater, album, artist, delete }
 
 /// Where a song row is shown, for its context menu: the back label of
 /// screens it opens, and the album/artist screen it is already on (whose
@@ -392,11 +392,16 @@ class SongMenuScope {
     required this.backLabel,
     this.currentAlbum,
     this.currentArtist,
+    this.inPlayer = false,
   });
 
   final String backLabel;
   final AlbumKey? currentAlbum;
   final String? currentArtist;
+
+  /// Opened from the player: no Play Next/Later, and "Go to" closes the
+  /// player before it opens the screen.
+  final bool inPlayer;
 }
 
 /// The long-press context menu of a song row, opened at [position].
@@ -412,6 +417,7 @@ Future<void> showSongMenu(
   SongMenuScope scope,
 ) async {
   final repo = ref.read(trackRepositoryProvider);
+  final player = ref.read(playerProvider.notifier);
   final navigator = Navigator.of(context);
   final dark = Theme.of(context).brightness == Brightness.dark;
   final fg = dark ? const Color(0xffffffff) : const Color(0xff000000);
@@ -426,8 +432,10 @@ Future<void> showSongMenu(
     _SongAction value,
     String label,
     IconData icon,
-    Color color,
-  ) => PopupMenuItem(
+    Color color, {
+    Key? key,
+  }) => PopupMenuItem(
+    key: key,
     value: value,
     height: 44,
     padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -461,6 +469,23 @@ Future<void> showSongMenu(
     constraints: const BoxConstraints.tightFor(width: 250),
     menuPadding: EdgeInsets.zero,
     items: [
+      if (!scope.inPlayer) ...[
+        item(
+          _SongAction.playNext,
+          'Play Next',
+          CupertinoIcons.text_insert,
+          fg,
+          key: const Key('menu-play-next'),
+        ),
+        item(
+          _SongAction.playLater,
+          'Play Later',
+          CupertinoIcons.text_append,
+          fg,
+          key: const Key('menu-play-later'),
+        ),
+        menuGap(context),
+      ],
       if (showAlbum)
         item(_SongAction.album, 'Go to Album', CupertinoIcons.square_stack, fg),
       if (showArtist)
@@ -475,7 +500,15 @@ Future<void> showSongMenu(
     ],
   );
   if (!navigator.mounted) return;
+  if (scope.inPlayer &&
+      (action == _SongAction.album || action == _SongAction.artist)) {
+    navigator.pop();
+  }
   switch (action) {
+    case _SongAction.playNext:
+      await player.playNext(track);
+    case _SongAction.playLater:
+      await player.playLater(track);
     case _SongAction.album:
       await openAlbum(navigator.context, albumKey!, backLabel: scope.backLabel);
     case _SongAction.artist:
