@@ -266,13 +266,15 @@ class PlayerController extends Notifier<PlayerState> {
       "Couldn't play “${track == null ? 'song' : displayTitle(track.title, track.originalName)}”",
     );
     _failures++;
-    final next = queue.following(auto: false, spread: _spread);
+    // Skips keep the order (no reshuffle on wrapping), so counting failures
+    // up to the queue length means every entry was tried once.
+    final next = queue.nextIndex(auto: false);
     if (next == null || _failures >= queue.entries.length) {
       _failures = 0;
       await _stop();
       return;
     }
-    await _start(next, play: play);
+    await _start(queue.withIndex(next), play: play);
   }
 
   Future<void> _onCompleted() async {

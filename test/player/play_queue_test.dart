@@ -203,6 +203,15 @@ void main() {
       expect(off.index, 0);
     });
 
+    test('clear Up Next later in the list keeps only what was played', () {
+      final q = PlayQueue.of([1, 2, 3, 4], start: 0).shuffleOn(reverse);
+      expect(ids(q), [1, 4, 3, 2]);
+      final off = q.withIndex(2).clearUpcoming().shuffleOff();
+      expect(ids(off), [1, 4, 3]);
+      expect(off.current!.trackId, 3);
+      expect(off.upcoming, isEmpty);
+    });
+
     test('retain drops deleted songs from both orders', () {
       final (:queue, :currentRemoved) = shuffledAt2().retain({1, 2, 3});
       expect(currentRemoved, isFalse);

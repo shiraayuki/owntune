@@ -449,4 +449,31 @@ void main() {
       expect(sorted(queueIds()), [1, 2, 3]);
     });
   });
+
+  test('skipping broken songs under shuffle and repeat all reaches the '
+      'playable one', () async {
+    final six = [
+      for (var i = 1; i <= 6; i++) track(i, title: 'S$i', artist: 'Artist $i'),
+    ];
+    library.add(six);
+    await pumpEventQueue();
+    for (var i = 2; i <= 6; i++) {
+      engine.failing.add('hash$i.mp3');
+    }
+    player().cycleRepeat();
+    // The order is random; several rounds make a wrap-around reshuffle
+    // during the skips all but certain.
+    for (var round = 0; round < 10; round++) {
+      await player().playList(six, start: 0, source: 'Songs', shuffle: true);
+      await pumpEventQueue();
+      final order = [...state().queue.entries];
+      final playable = order.indexWhere((e) => e.trackId == 1);
+      if (playable == order.length - 1) continue; // no wrap from here
+      // Start right after the playable song: the skips must wrap around.
+      await player().jumpTo(order[playable + 1].key);
+      await pumpEventQueue();
+      expect(state().queue.current?.trackId, 1, reason: 'round $round');
+      expect(state().queue.entries, order, reason: 'round $round');
+    }
+  });
 }

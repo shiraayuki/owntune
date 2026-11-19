@@ -268,8 +268,20 @@ class PlayQueue {
     return _without([...entries]..removeAt(i), i < index ? index - 1 : index);
   }
 
-  PlayQueue clearUpcoming() =>
-      isEmpty ? this : _without(entries.sublist(0, index + 1), index);
+  /// While shuffled, the unshuffled order becomes what was played so far, so
+  /// turning shuffle off afterwards brings no cleared song back.
+  PlayQueue clearUpcoming() {
+    if (isEmpty) return this;
+    final kept = entries.sublist(0, index + 1);
+    return PlayQueue(
+      entries: kept,
+      index: index,
+      source: source,
+      repeat: repeat,
+      original: original == null ? null : kept,
+      nextKey: _nextKey,
+    );
+  }
 
   /// Drops entries whose track id is not in [existing]. If the current entry
   /// goes, index points at the entry that followed it, or at the last
