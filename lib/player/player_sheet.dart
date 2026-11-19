@@ -63,6 +63,10 @@ class _PlayerSheetState extends ConsumerState<PlayerSheet> {
     final cover = track?.coverFile;
     final coverFile = cover == null ? null : storage.coverFile(cover);
     final padding = MediaQuery.viewPaddingOf(context);
+    // The sheet route (and the Scaffold bar the player opens from) remove the
+    // top padding from the MediaQuery; the screen's own inset is the status
+    // bar / Dynamic Island.
+    final topInset = MediaQueryData.fromView(View.of(context)).viewPadding.top;
 
     return SizedBox(
       key: const Key('player-sheet'),
@@ -104,7 +108,7 @@ class _PlayerSheetState extends ConsumerState<PlayerSheet> {
               ),
               Padding(
                 padding: EdgeInsets.only(
-                  top: padding.top,
+                  top: topInset,
                   bottom: padding.bottom + 16,
                 ),
                 child: track == null

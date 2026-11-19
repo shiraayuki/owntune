@@ -55,6 +55,22 @@ void main() {
     );
   });
 
+  testWidgets('the top row sits below the status bar', (t) async {
+    t.view.devicePixelRatio = 3;
+    t.view.padding = const FakeViewPadding(top: 141);
+    t.view.viewPadding = const FakeViewPadding(top: 141);
+    addTearDown(t.view.resetDevicePixelRatio);
+    addTearDown(t.view.resetPadding);
+    addTearDown(t.view.resetViewPadding);
+    await pumpApp(t, songs: _songs);
+    await _open(t, 'After the Rain');
+
+    expect(
+      t.getTopLeft(find.byKey(const Key('player-close'))).dy,
+      greaterThanOrEqualTo(47),
+    );
+  });
+
   testWidgets('swiping down closes the player', (t) async {
     await pumpApp(t, songs: _songs);
     await _open(t, 'After the Rain');
