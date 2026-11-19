@@ -72,6 +72,7 @@ class _AlbumBody extends ConsumerWidget {
       rows.add(
         AlbumTrackRow(
           track: t,
+          scope: SongMenuScope(backLabel: album.title, currentAlbum: album.key),
           showArtist: artistGroupKey(t.artist) != albumArtist,
           divider: !last && !(album.hasMultipleDiscs && nextDisc != disc),
         ),
@@ -194,27 +195,29 @@ class _DiscHeader extends StatelessWidget {
 
 /// 48pt track row (`.row.track`): number, title (and artist if it differs
 /// from the album artist), duration.
-class AlbumTrackRow extends StatelessWidget {
+class AlbumTrackRow extends ConsumerWidget {
   const AlbumTrackRow({
     super.key,
     required this.track,
+    required this.scope,
     required this.showArtist,
     this.divider = true,
   });
 
   final Track track;
+  final SongMenuScope scope;
   final bool showArtist;
   final bool divider;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final c = Theme.of(context).extension<OwntuneColors>()!;
     final muted = TextStyle(
       fontSize: 15,
       color: c.muted,
       fontFeatures: const [FontFeature.tabularFigures()],
     );
-    return ConstrainedBox(
+    final row = ConstrainedBox(
       constraints: const BoxConstraints(minHeight: 48),
       child: Stack(
         children: [
@@ -270,6 +273,12 @@ class AlbumTrackRow extends StatelessWidget {
             ),
         ],
       ),
+    );
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onLongPressStart: (details) =>
+          showSongMenu(context, ref, track, details.globalPosition, scope),
+      child: row,
     );
   }
 }

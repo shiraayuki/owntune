@@ -9,6 +9,8 @@ import 'package:owntune/data/db/database.dart';
 import 'package:owntune/data/track_repository.dart';
 import 'package:owntune/import/import_controller.dart';
 import 'package:owntune/library/artwork.dart';
+import 'package:owntune/library/library.dart';
+import 'package:owntune/library/navigation.dart';
 import 'package:owntune/library/section_index.dart';
 import 'package:owntune/library/song_sort.dart';
 import 'package:owntune/library/sort_key.dart';
@@ -124,7 +126,11 @@ class _SongListState extends State<SongList> {
       itemExtentBuilder: (i, _) =>
           i < items.length && items[i] is String ? _headerExtent : _rowExtent,
       itemBuilder: (context, i) => switch (items[i]) {
-        final Track t => SongRow(track: t, divider: i + 1 < items.length),
+        final Track t => SongRow(
+          track: t,
+          scope: const SongMenuScope(backLabel: 'Songs'),
+          divider: i + 1 < items.length,
+        ),
         final String l => _SectionHeader(
           key: ValueKey('section-$l'),
           letter: l,
@@ -188,11 +194,13 @@ class SongRow extends ConsumerWidget {
   const SongRow({
     super.key,
     required this.track,
+    required this.scope,
     this.divider = true,
     this.subtitle,
   });
 
   final Track track;
+  final SongMenuScope scope;
   final bool divider;
 
   /// Replaces the default `artist · album` line.
@@ -214,7 +222,7 @@ class SongRow extends ConsumerWidget {
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onLongPressStart: (details) =>
-          showSongMenu(context, ref, track, details.globalPosition),
+          showSongMenu(context, ref, track, details.globalPosition, scope),
       child: ConstrainedBox(
         constraints: const BoxConstraints(minHeight: 64),
         child: Stack(
@@ -274,7 +282,22 @@ Color _red(BuildContext context) =>
     ? const Color(0xffff453a)
     : const Color(0xffff3b30);
 
-enum _SongAction { delete }
+enum _SongAction { album, artist, delete }
+
+/// Where a song row is shown, for its context menu: the back label of
+/// screens it opens, and the album/artist screen it is already on (whose
+/// "Go to" entry is left out).
+class SongMenuScope {
+  const SongMenuScope({
+    required this.backLabel,
+    this.currentAlbum,
+    this.currentArtist,
+  });
+
+  final String backLabel;
+  final AlbumKey? currentAlbum;
+  final String? currentArtist;
+}
 
 /// The long-press context menu of a song row, opened at [position].
 ///
@@ -286,12 +309,44 @@ Future<void> showSongMenu(
   WidgetRef ref,
   Track track,
   Offset position,
+  SongMenuScope scope,
 ) async {
   final repo = ref.read(trackRepositoryProvider);
   final navigator = Navigator.of(context);
   final dark = Theme.of(context).brightness == Brightness.dark;
+  final fg = dark ? const Color(0xffffffff) : const Color(0xff000000);
   final red = _red(context);
   final overlay = Overlay.of(context).context.findRenderObject()! as RenderBox;
+  final albumKey = albumKeyOf(track);
+  final artistKey = artistGroupKey(track.artist);
+  final showAlbum = albumKey != null && albumKey != scope.currentAlbum;
+  final showArtist = artistKey != scope.currentArtist;
+
+  PopupMenuItem<_SongAction> item(
+    _SongAction value,
+    String label,
+    IconData icon,
+    Color color,
+  ) => PopupMenuItem(
+    value: value,
+    height: 44,
+    padding: const EdgeInsets.symmetric(horizontal: 16),
+    child: Row(
+      children: [
+        Expanded(
+          child: Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(fontSize: 17, color: color),
+          ),
+        ),
+        const SizedBox(width: 10),
+        Icon(icon, size: 20, color: color),
+      ],
+    ),
+  );
+
   final action = await showMenu<_SongAction>(
     context: context,
     position: RelativeRect.fromRect(
@@ -306,29 +361,34 @@ Future<void> showSongMenu(
     constraints: const BoxConstraints.tightFor(width: 250),
     menuPadding: EdgeInsets.zero,
     items: [
-      PopupMenuItem(
-        value: _SongAction.delete,
-        height: 44,
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        child: Row(
-          children: [
-            Expanded(
-              child: Text(
-                'Delete from Library',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(fontSize: 17, color: red),
-              ),
-            ),
-            const SizedBox(width: 10),
-            Icon(CupertinoIcons.trash, size: 20, color: red),
-          ],
-        ),
+      if (showAlbum)
+        item(_SongAction.album, 'Go to Album', CupertinoIcons.square_stack, fg),
+      if (showArtist)
+        item(_SongAction.artist, 'Go to Artist', CupertinoIcons.person, fg),
+      if (showAlbum || showArtist)
+        const PopupMenuDivider(height: 8, thickness: 8),
+      item(
+        _SongAction.delete,
+        'Delete from Library',
+        CupertinoIcons.trash,
+        red,
       ),
     ],
   );
-  if (action == _SongAction.delete && navigator.mounted) {
-    await confirmDeleteSong(navigator.context, repo, track);
+  if (!navigator.mounted) return;
+  switch (action) {
+    case _SongAction.album:
+      await openAlbum(navigator.context, albumKey!, backLabel: scope.backLabel);
+    case _SongAction.artist:
+      await openArtist(
+        navigator.context,
+        artistKey,
+        backLabel: scope.backLabel,
+      );
+    case _SongAction.delete:
+      await confirmDeleteSong(navigator.context, repo, track);
+    case null:
+      break;
   }
 }
 

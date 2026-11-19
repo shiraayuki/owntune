@@ -119,6 +119,10 @@ class _ArtistBody extends ConsumerWidget {
         for (final (i, t) in preview.indexed)
           SongRow(
             track: t,
+            scope: SongMenuScope(
+              backLabel: artist.name,
+              currentArtist: artist.key,
+            ),
             subtitle: _albumLine(t),
             divider: i + 1 < preview.length,
           ),
@@ -229,6 +233,10 @@ class ArtistSongsScreen extends StatelessWidget {
                   final t = artist.songs[i - 1];
                   return SongRow(
                     track: t,
+                    scope: SongMenuScope(
+                      backLabel: artist.name,
+                      currentArtist: artist.key,
+                    ),
                     subtitle: _albumLine(t),
                     divider: i < artist.songs.length,
                   );
