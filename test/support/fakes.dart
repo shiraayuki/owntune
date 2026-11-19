@@ -19,6 +19,13 @@ Track track(
   String? title,
   String? artist,
   String? album,
+  String? albumArtist,
+  int? trackNumber,
+  int? discNumber,
+  int? year,
+  String? genre,
+  int durationMs = 1000,
+  DateTime? addedAt,
   String? originalName,
   String? cover,
 }) => Track(
@@ -29,9 +36,14 @@ Track track(
   title: title,
   artist: artist,
   album: album,
-  durationMs: 1000,
+  albumArtist: albumArtist,
+  trackNumber: trackNumber,
+  discNumber: discNumber,
+  year: year,
+  genre: genre,
+  durationMs: durationMs,
   coverFile: cover,
-  addedAt: DateTime(2026, 11, 18),
+  addedAt: addedAt ?? DateTime(2026, 11, 18),
   playCount: 0,
 );
 
@@ -142,7 +154,9 @@ Future<void> pumpApp(
   await t.pumpWidget(
     ProviderScope(
       overrides: [
-        songsProvider.overrideWith((ref) => songsStream ?? Stream.value(songs)),
+        tracksProvider.overrideWith(
+          (ref) => songsStream ?? Stream.value(songs),
+        ),
         storageProvider.overrideWithValue(
           storage ?? LibraryStorage(Directory('/nonexistent/owntune')),
         ),

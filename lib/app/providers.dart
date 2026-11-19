@@ -5,7 +5,7 @@ import 'package:owntune/data/track_repository.dart';
 import 'package:owntune/import/audio_file_picker.dart';
 import 'package:owntune/import/import_controller.dart';
 import 'package:owntune/import/importer.dart';
-import 'package:owntune/library/sort_key.dart';
+import 'package:owntune/library/library.dart';
 import 'package:owntune/settings/settings.dart';
 import 'package:owntune/src/rust/api/library.dart';
 import 'package:owntune/src/rust/api/metadata.dart';
@@ -25,9 +25,14 @@ final trackRepositoryProvider = Provider<TrackRepository>(
       TrackRepository(ref.watch(databaseProvider), ref.watch(storageProvider)),
 );
 
-/// All tracks, sorted by title; updates live while an import runs.
-final songsProvider = StreamProvider<List<Track>>(
-  (ref) => ref.watch(trackRepositoryProvider).watchAll().map(sortByTitle),
+/// All tracks, unsorted; updates live while an import runs.
+final tracksProvider = StreamProvider<List<Track>>(
+  (ref) => ref.watch(trackRepositoryProvider).watchAll(),
+);
+
+/// Songs, albums and artists derived from [tracksProvider].
+final libraryProvider = Provider<AsyncValue<Library>>(
+  (ref) => ref.watch(tracksProvider).whenData(Library.from),
 );
 
 final settingsRepositoryProvider = Provider<SettingsRepository>(

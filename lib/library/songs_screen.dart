@@ -9,6 +9,7 @@ import 'package:owntune/data/db/database.dart';
 import 'package:owntune/data/track_repository.dart';
 import 'package:owntune/import/import_controller.dart';
 import 'package:owntune/library/artwork.dart';
+import 'package:owntune/library/song_sort.dart';
 import 'package:owntune/library/sort_key.dart';
 
 /// The Songs tab: all tracks by title with letter sections, or the empty
@@ -19,10 +20,11 @@ class SongsScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return ref
-        .watch(songsProvider)
+        .watch(libraryProvider)
         .when(
-          data: (songs) =>
-              songs.isEmpty ? const EmptyLibrary() : SongList(songs: songs),
+          data: (library) => library.isEmpty
+              ? const EmptyLibrary()
+              : SongList(songs: sortSongs(library.tracks, SongSort.title)),
           error: (e, _) => _LoadError(message: e.toString()),
           loading: () => const SizedBox.shrink(),
         );
@@ -33,7 +35,7 @@ class SongsScreen extends ConsumerWidget {
 class SongList extends StatelessWidget {
   const SongList({super.key, required this.songs});
 
-  /// Already sorted with `sortByTitle`.
+  /// Already sorted by title.
   final List<Track> songs;
 
   @override

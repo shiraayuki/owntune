@@ -9,7 +9,10 @@ import '../../tool/embed_fixtures.dart';
 void main() {
   test('embedded fixtures match test/fixtures/audio', () {
     final onDisk = audioFixtures(Directory('test/fixtures/audio'));
-    expect(onDisk.keys, containsAll(['tagged.mp3', 'broken.mp3', 'demo_3.wav']));
+    expect(
+      onDisk.keys,
+      containsAll(['tagged.mp3', 'broken.mp3', 'demo_3.wav']),
+    );
     expect(
       fixtureData.keys.toSet(),
       onDisk.keys.toSet(),

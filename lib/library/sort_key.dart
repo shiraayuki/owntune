@@ -1,5 +1,3 @@
-import 'package:owntune/data/db/database.dart';
-
 const unknownArtist = 'Unknown Artist';
 
 const _folds = <String, String>{
@@ -23,26 +21,45 @@ const _folds = <String, String>{
   'ñ': 'n',
 };
 
-/// Normalised key for sorting and grouping: lowercase, trimmed, leading
-/// "the " removed and common Latin diacritics folded.
-String sortKey(String s) {
-  var key = s.trim().toLowerCase();
-  if (key.startsWith('the ')) key = key.substring(4).trimLeft();
+/// Normalised key for matching: lowercase, trimmed and common Latin
+/// diacritics folded.
+String foldKey(String s) {
   final buffer = StringBuffer();
-  for (final rune in key.runes) {
+  for (final rune in s.trim().toLowerCase().runes) {
     final ch = String.fromCharCode(rune);
     buffer.write(_folds[ch] ?? ch);
   }
   return buffer.toString();
 }
 
+/// Normalised key for sorting and grouping: [foldKey] with a leading "the "
+/// removed.
+String sortKey(String s) {
+  var key = s.trim().toLowerCase();
+  if (key.startsWith('the ')) key = key.substring(4).trimLeft();
+  return foldKey(key);
+}
+
+bool _startsWithLetter(String key) {
+  if (key.isEmpty) return false;
+  final c = key.codeUnitAt(0);
+  return c >= 0x61 && c <= 0x7a;
+}
+
+/// Compares two [sortKey] results. Keys that do not start with `a`-`z` (the
+/// `#` section, including empty keys) sort after all letter keys.
+int compareKeys(String a, String b) {
+  final la = _startsWithLetter(a);
+  final lb = _startsWithLetter(b);
+  if (la != lb) return la ? -1 : 1;
+  return a.compareTo(b);
+}
+
 /// `A`-`Z` for the first character of [sortKey], `#` for anything else.
 String sectionLetter(String s) {
   final key = sortKey(s);
-  if (key.isEmpty) return '#';
-  final c = key.codeUnitAt(0);
-  if (c >= 0x61 && c <= 0x7a) return String.fromCharCode(c - 0x20);
-  return '#';
+  if (!_startsWithLetter(key)) return '#';
+  return String.fromCharCode(key.codeUnitAt(0) - 0x20);
 }
 
 /// The title, or the original file name without extension when blank.
@@ -57,21 +74,4 @@ String displayTitle(String? title, String originalName) {
 String displayArtist(String? artist) {
   final a = artist?.trim();
   return (a == null || a.isEmpty) ? unknownArtist : a;
-}
-
-/// Returns a new list sorted by title key, ties broken by artist key.
-List<Track> sortByTitle(List<Track> tracks) {
-  final keyed = [
-    for (final t in tracks)
-      (
-        track: t,
-        title: sortKey(displayTitle(t.title, t.originalName)),
-        artist: sortKey(displayArtist(t.artist)),
-      ),
-  ];
-  keyed.sort((a, b) {
-    final c = a.title.compareTo(b.title);
-    return c != 0 ? c : a.artist.compareTo(b.artist);
-  });
-  return [for (final k in keyed) k.track];
 }
