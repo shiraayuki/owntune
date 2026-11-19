@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:owntune/app/providers.dart';
 import 'package:owntune/data/library_storage.dart';
+import 'package:owntune/library/section_index.dart';
 import 'package:owntune/library/song_sort.dart';
 import 'package:owntune/settings/settings.dart';
 
@@ -30,19 +31,20 @@ void main() {
 
   testWidgets('shows section headers A and B', (t) async {
     await pumpApp(t, songs: songs);
-    expect(find.text('A'), findsOneWidget);
-    expect(find.text('B'), findsOneWidget);
-    expect(find.text('D'), findsOneWidget);
+    Finder header(String l) => find.byKey(ValueKey('section-$l'));
+    expect(header('A'), findsOneWidget);
+    expect(header('B'), findsOneWidget);
+    expect(header('D'), findsOneWidget);
     expect(
-      t.getTopLeft(find.text('A')).dy,
+      t.getTopLeft(header('A')).dy,
       lessThan(t.getTopLeft(find.text('After the Rain')).dy),
     );
     expect(
       t.getTopLeft(find.text('Amber Lights')).dy,
-      lessThan(t.getTopLeft(find.text('B')).dy),
+      lessThan(t.getTopLeft(header('B')).dy),
     );
     expect(
-      t.getTopLeft(find.text('B')).dy,
+      t.getTopLeft(header('B')).dy,
       lessThan(t.getTopLeft(find.text('Backroads')).dy),
     );
   });
@@ -146,7 +148,51 @@ void main() {
       ],
     );
     expect(find.text('4 songs · sorted by recently added'), findsOneWidget);
-    expect(find.text('A'), findsNothing);
-    expect(find.text('B'), findsNothing);
+    expect(find.byKey(const ValueKey('section-A')), findsNothing);
+    expect(find.byType(SectionIndex), findsNothing);
+  });
+
+  group('A–Z index', () {
+    // Six songs per letter A–F, so D starts well below the first screen.
+    final many = [
+      for (final (i, l) in ['A', 'B', 'C', 'D', 'E', 'F'].indexed)
+        for (var n = 0; n < 6; n++) track(i * 10 + n, title: '$l song $n'),
+    ];
+    Finder strip(String l) =>
+        find.descendant(of: find.byType(SectionIndex), matching: find.text(l));
+
+    testWidgets('tapping D scrolls the D header to the top', (t) async {
+      await pumpApp(t, songs: many);
+      expect(find.byKey(const ValueKey('section-D')), findsNothing);
+
+      await t.tap(strip('D'));
+      await t.pumpAndSettle();
+
+      expect(
+        t.getTopLeft(find.byKey(const ValueKey('section-D'))).dy,
+        t.getTopLeft(find.byType(ListView)).dy,
+      );
+    });
+
+    testWidgets('tapping a letter without songs jumps to the next one', (
+      t,
+    ) async {
+      await pumpApp(t, songs: many);
+      await t.tap(strip('#'));
+      await t.pumpAndSettle();
+      // Nothing after # — the list stays where it is.
+      expect(find.byKey(const ValueKey('section-A')), findsOneWidget);
+    });
+
+    testWidgets('short screen collapses the index without overflow', (t) async {
+      t.view.physicalSize = const Size(1600, 700);
+      t.view.devicePixelRatio = 2;
+      addTearDown(t.view.reset);
+      await pumpApp(t, songs: many);
+      expect(strip('•'), findsWidgets);
+      expect(strip('A'), findsOneWidget);
+      expect(strip('#'), findsOneWidget);
+      expect(t.takeException(), isNull);
+    });
   });
 }

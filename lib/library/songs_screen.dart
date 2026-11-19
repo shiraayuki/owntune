@@ -9,6 +9,7 @@ import 'package:owntune/data/db/database.dart';
 import 'package:owntune/data/track_repository.dart';
 import 'package:owntune/import/import_controller.dart';
 import 'package:owntune/library/artwork.dart';
+import 'package:owntune/library/section_index.dart';
 import 'package:owntune/library/song_sort.dart';
 import 'package:owntune/library/sort_key.dart';
 
@@ -61,8 +62,9 @@ class _Meta extends StatelessWidget {
 }
 
 /// Sorted songs with a section header wherever the [sort]'s section letter
-/// changes (none for sorts without sections).
-class SongList extends StatelessWidget {
+/// changes (none for sorts without sections), plus the A–Z index when there
+/// are sections.
+class SongList extends StatefulWidget {
   const SongList({super.key, required this.songs, required this.sort});
 
   /// Already in [sort] order.
@@ -70,47 +72,105 @@ class SongList extends StatelessWidget {
   final SongSort sort;
 
   @override
+  State<SongList> createState() => _SongListState();
+}
+
+class _SongListState extends State<SongList> {
+  static const _headerExtent = 36.0;
+  static const _rowExtent = 64.0;
+
+  final _controller = ScrollController();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final items = <Object>[];
+    // Scroll offset of each section header.
+    final offsets = <String, double>{};
+    var offset = 0.0;
     String? letter;
-    for (final t in songs) {
-      final l = songSection(t, sort);
-      if (l != null && l != letter) items.add(letter = l);
+    for (final t in widget.songs) {
+      final l = songSection(t, widget.sort);
+      if (l != null && l != letter) {
+        items.add(letter = l);
+        offsets.putIfAbsent(l, () => offset);
+        offset += _headerExtent;
+      }
       items.add(t);
+      offset += _rowExtent;
     }
-    return ListView.builder(
+    final indexed = offsets.isNotEmpty;
+
+    final list = ListView.builder(
+      controller: _controller,
       padding: EdgeInsets.fromLTRB(
         16,
         0,
-        16,
+        indexed ? 26 : 16,
         MediaQuery.paddingOf(context).bottom + 16,
       ),
       itemCount: items.length,
+      itemExtentBuilder: (i, _) =>
+          i < items.length && items[i] is String ? _headerExtent : _rowExtent,
       itemBuilder: (context, i) => switch (items[i]) {
         final Track t => SongRow(track: t, divider: i + 1 < items.length),
-        final String l => _SectionHeader(letter: l),
+        final String l => _SectionHeader(
+          key: ValueKey('section-$l'),
+          letter: l,
+        ),
         _ => const SizedBox.shrink(),
       },
+    );
+    if (!indexed) return list;
+
+    return Stack(
+      children: [
+        list,
+        Positioned(
+          right: 2,
+          top: 0,
+          bottom: MediaQuery.paddingOf(context).bottom,
+          child: SectionIndex(
+            available: offsets.keys.toSet(),
+            onSelect: (l) {
+              final target = jumpTarget(l, offsets.keys.toSet());
+              if (target == null || !_controller.hasClients) return;
+              final position = _controller.position;
+              _controller.jumpTo(
+                offsets[target]!.clamp(0.0, position.maxScrollExtent),
+              );
+            },
+          ),
+        ),
+      ],
     );
   }
 }
 
 class _SectionHeader extends StatelessWidget {
-  const _SectionHeader({required this.letter});
+  const _SectionHeader({super.key, required this.letter});
 
   final String letter;
 
   @override
   Widget build(BuildContext context) {
     final c = Theme.of(context).extension<OwntuneColors>()!;
-    return Padding(
-      padding: const EdgeInsets.only(top: 14, bottom: 2),
-      child: Text(
-        letter,
-        style: TextStyle(
-          fontSize: 15,
-          fontWeight: FontWeight.w800,
-          color: c.accent,
+    return Align(
+      alignment: Alignment.bottomLeft,
+      child: Padding(
+        padding: const EdgeInsets.only(bottom: 2),
+        child: Text(
+          letter,
+          style: TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.w800,
+            color: c.accent,
+          ),
         ),
       ),
     );
