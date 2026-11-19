@@ -225,4 +225,15 @@ void main() {
     expect(find.text('Import complete'), findsNothing);
     expect(find.text('pushed'), findsOneWidget);
   });
+
+  testWidgets('menu section gaps are subtle, not dark bars', (t) async {
+    await pumpApp(t, songs: [track(1, title: 'a')]);
+    await t.tap(find.byIcon(CupertinoIcons.ellipsis));
+    await t.pumpAndSettle();
+    final gaps = t.widgetList<PopupMenuDivider>(find.byType(PopupMenuDivider));
+    expect(gaps, hasLength(2));
+    for (final gap in gaps) {
+      expect(gap.color, const Color.fromRGBO(0, 0, 0, 0.08));
+    }
+  });
 }

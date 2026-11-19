@@ -293,7 +293,7 @@ class _MoreMenu extends ConsumerWidget {
             ),
             for (final MapEntry(key: sort, value: label) in _sortNames.entries)
               item(sort, label, icon: check(settings.songSort == sort)),
-            const PopupMenuDivider(height: 8, thickness: 8),
+            menuGap(context),
             item(
               _MenuItem.ascending,
               'Ascending',
@@ -304,7 +304,7 @@ class _MoreMenu extends ConsumerWidget {
               'Descending',
               icon: check(settings.songSortDescending),
             ),
-            const PopupMenuDivider(height: 8, thickness: 8),
+            menuGap(context),
           ],
           item(_MenuItem.settings, 'Settings', icon: CupertinoIcons.gear),
         ],

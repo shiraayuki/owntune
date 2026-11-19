@@ -150,3 +150,13 @@ class RoundIcon extends StatelessWidget {
     );
   }
 }
+
+/// The gap between sections of a pull-down or context menu (`.menu .gap`):
+/// 8pt of a faint tint, not a theme divider line.
+PopupMenuDivider menuGap(BuildContext context) => PopupMenuDivider(
+  height: 8,
+  thickness: 8,
+  color: Theme.of(context).brightness == Brightness.dark
+      ? const Color.fromRGBO(0, 0, 0, 0.3)
+      : const Color.fromRGBO(0, 0, 0, 0.08),
+);

@@ -391,8 +391,7 @@ Future<void> showSongMenu(
         item(_SongAction.album, 'Go to Album', CupertinoIcons.square_stack, fg),
       if (showArtist)
         item(_SongAction.artist, 'Go to Artist', CupertinoIcons.person, fg),
-      if (showAlbum || showArtist)
-        const PopupMenuDivider(height: 8, thickness: 8),
+      if (showAlbum || showArtist) menuGap(context),
       item(
         _SongAction.delete,
         'Delete from Library',
