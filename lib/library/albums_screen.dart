@@ -5,19 +5,66 @@ import 'package:owntune/app/theme.dart';
 import 'package:owntune/library/artwork.dart';
 import 'package:owntune/library/library.dart';
 import 'package:owntune/library/navigation.dart';
+import 'package:owntune/library/search.dart';
+import 'package:owntune/library/search_screen.dart';
+import 'package:owntune/library/sort_key.dart';
 import 'package:owntune/library/songs_screen.dart';
 
 /// The Albums tab: a two-column grid (`.grid`), or the empty states.
-class AlbumsScreen extends ConsumerWidget {
+class AlbumsScreen extends ConsumerStatefulWidget {
   const AlbumsScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<AlbumsScreen> createState() => _AlbumsScreenState();
+}
+
+class _AlbumsScreenState extends ConsumerState<AlbumsScreen> {
+  final _query = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    _query.addListener(() => setState(() {}));
+  }
+
+  @override
+  void dispose() {
+    _query.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final library = ref.watch(libraryProvider).value;
     if (library == null) return const SizedBox.shrink();
     if (library.isEmpty) return const EmptyLibrary();
     if (library.albums.isEmpty) return const _NoAlbums();
 
+    final q = foldKey(_query.text);
+    final albums = q.isEmpty
+        ? library.albums
+        : library.albums.where((a) => albumMatches(a, q)).toList();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        TabSearchField(label: 'Search Albums', controller: _query),
+        Expanded(
+          child: albums.isEmpty
+              ? NoResults(query: _query.text)
+              : _AlbumGrid(albums: albums),
+        ),
+      ],
+    );
+  }
+}
+
+class _AlbumGrid extends StatelessWidget {
+  const _AlbumGrid({required this.albums});
+
+  final List<Album> albums;
+
+  @override
+  Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
         const gap = 16.0;
@@ -38,9 +85,9 @@ class AlbumsScreen extends ConsumerWidget {
               MediaQuery.textScalerOf(context),
             ),
           ),
-          itemCount: library.albums.length,
+          itemCount: albums.length,
           itemBuilder: (context, i) {
-            final album = library.albums[i];
+            final album = albums[i];
             return AlbumCard(
               album: album,
               subtitle: album.artist,

@@ -7,8 +7,7 @@ import '../support/fakes.dart';
 Future<FakeImporter> _startHiddenImport(WidgetTester t) async {
   final importer = FakeImporter();
   await pumpApp(t, importer: importer, picker: FakePicker(['/a/one.mp3']));
-  await t.tap(find.byKey(const Key('import-button')));
-  await t.pumpAndSettle();
+  await tapImport(t);
   await t.tap(find.text('Hide – keep importing'));
   await t.pumpAndSettle();
   return importer;
@@ -33,9 +32,15 @@ void main() {
     t.view.devicePixelRatio = 3;
     addTearDown(t.view.reset);
     final importer = await _startHiddenImport(t);
-    await t.tap(find.text('Search Songs'));
+    await t.tap(find.text('Search').last);
     await t.pumpAndSettle();
-    expect(find.byType(SearchScreen), findsOneWidget);
+    await t.tap(
+      find.descendant(
+        of: find.byType(SearchTab),
+        matching: find.byType(TextField),
+      ),
+    );
+    await t.pumpAndSettle();
 
     t.view.viewInsets = const FakeViewPadding(bottom: 336 * 3);
     addTearDown(t.view.resetViewInsets);

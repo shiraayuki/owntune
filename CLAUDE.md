@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 owntune is a mobile music player for **local files** (iOS & Android): import, play, and manage metadata/covers/albums/playlists. No streaming, no account, fully offline.
 
-**Status:** M1 is split into two releases. **v0.2.0** contains: import (copy + hash duplicates + tags/cover via Rust), drift database, Songs tab, delete from library, and Settings (appearance + accent). **v0.3.0** completes M1: Albums and Artists tabs with detail screens, global search, Songs sort menu (stored in the settings) with A–Z index, and "Go to Album/Artist" in the song menu. M1's "done when" still has to be checked on the iPhone. Next: **M2** (player). Specs, plans and mockups live in `docs/superpowers/` and `docs/mockups/m1-v3/` (the UI follows mockup v3).
+**Status:** M1 is split into two releases. **v0.2.0** contains: import (copy + hash duplicates + tags/cover via Rust), drift database, Songs tab, delete from library, and Settings (appearance + accent). **v0.3.0** completes M1: five tabs (Songs, Albums, Artists, Playlists as an empty placeholder until M4, Search) with inline per-tab filtering, album/artist detail screens, Songs sort menu (stored in the settings) with A–Z index, a "+" menu (Import Music; New Playlist and Search Online disabled placeholders), and "Go to Album/Artist" in the song menu. M1's "done when" still has to be checked on the iPhone. Next: **M2** (player). Specs, plans and mockups live in `docs/superpowers/` and `docs/mockups/m1-v3/` (the UI follows mockup v3).
 
 **Language:** Everything in the repo — code, comments, tests, docs, commit messages, CI step names, UI strings — is in English. (Commits before 2026-11-18 are partly German; history is not rewritten.)
 

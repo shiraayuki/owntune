@@ -15,39 +15,23 @@ final _songs = [
   track(3, title: 'Backroads', artist: 'Kettle & Pine', album: 'Northbound'),
 ];
 
-Future<void> _openSearch(
-  WidgetTester t, [
-  String label = 'Search Songs',
-]) async {
-  await t.tap(find.text(label));
+Future<void> _openSearch(WidgetTester t) async {
+  await t.tap(find.text('Search').last);
   await t.pumpAndSettle();
 }
 
 Future<void> _type(WidgetTester t, String query) async {
-  await t.enterText(find.byType(TextField), query);
+  await t.enterText(
+    find.descendant(
+      of: find.byType(SearchTab),
+      matching: find.byType(TextField),
+    ),
+    query,
+  );
   await t.pumpAndSettle();
 }
 
 void main() {
-  testWidgets('every tab has a search field that opens the search', (t) async {
-    await pumpApp(t, songs: _songs);
-    for (final (tab, label) in [
-      ('Songs', 'Search Songs'),
-      ('Albums', 'Search Albums'),
-      ('Artists', 'Search Artists'),
-    ]) {
-      await t.tap(find.text(tab).last);
-      await t.pumpAndSettle();
-      await _openSearch(t, label);
-      expect(find.byType(SearchScreen), findsOneWidget, reason: tab);
-      // The query field has focus, so the keyboard is up.
-      expect(t.testTextInput.hasAnyClients, isTrue, reason: tab);
-      await t.tap(find.text('Cancel'));
-      await t.pumpAndSettle();
-      expect(find.byType(SearchScreen), findsNothing, reason: tab);
-    }
-  });
-
   testWidgets('results are grouped: artists, albums, songs', (t) async {
     await pumpApp(t, songs: _songs);
     await _openSearch(t);
@@ -63,10 +47,12 @@ void main() {
       'Amber Lights',
       'Static',
     ];
+    Finder inTab(String text) =>
+        find.descendant(of: find.byType(SearchTab), matching: find.text(text));
     for (var i = 0; i + 1 < order.length; i++) {
       expect(
-        t.getTopLeft(find.text(order[i])).dy,
-        lessThan(t.getTopLeft(find.text(order[i + 1])).dy),
+        t.getTopLeft(inTab(order[i])).dy,
+        lessThan(t.getTopLeft(inTab(order[i + 1])).dy),
         reason: '${order[i]} before ${order[i + 1]}',
       );
     }
@@ -91,7 +77,18 @@ void main() {
     await t.tap(find.byKey(const Key('search-clear')));
     await t.pumpAndSettle();
     expect(find.text('Neon Harbor'), findsNothing);
-    expect(t.widget<TextField>(find.byType(TextField)).controller!.text, '');
+    expect(
+      t
+          .widget<TextField>(
+            find.descendant(
+              of: find.byType(SearchTab),
+              matching: find.byType(TextField),
+            ),
+          )
+          .controller!
+          .text,
+      '',
+    );
   });
 
   testWidgets('an album opens with back label Search and back returns', (
@@ -109,7 +106,7 @@ void main() {
     );
 
     await tapBack(t);
-    expect(find.byType(SearchScreen), findsOneWidget);
+    expect(find.byType(SearchTab), findsOneWidget);
     expect(find.text('Velvet Hours'), findsOneWidget);
   });
 

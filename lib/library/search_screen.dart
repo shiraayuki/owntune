@@ -38,45 +38,136 @@ class _SearchBox extends StatelessWidget {
   }
 }
 
-/// The search field on the tabs: looks like a search box and opens the
-/// global search when tapped.
-class SearchField extends StatelessWidget {
-  const SearchField({super.key, required this.label, required this.onTap});
+/// The search field of a tab (`.search`): a real text field that shows
+/// "Cancel" while focused or filled; Cancel clears it and hides the
+/// keyboard.
+class TabSearchField extends StatefulWidget {
+  const TabSearchField({
+    super.key,
+    required this.label,
+    required this.controller,
+  });
 
   final String label;
-  final VoidCallback onTap;
+  final TextEditingController controller;
+
+  @override
+  State<TabSearchField> createState() => _TabSearchFieldState();
+}
+
+class _TabSearchFieldState extends State<TabSearchField> {
+  final _focus = FocusNode();
+
+  @override
+  void initState() {
+    super.initState();
+    _focus.addListener(_changed);
+    widget.controller.addListener(_changed);
+  }
+
+  @override
+  void dispose() {
+    widget.controller.removeListener(_changed);
+    _focus.dispose();
+    super.dispose();
+  }
+
+  void _changed() => setState(() {});
 
   @override
   Widget build(BuildContext context) {
     final c = Theme.of(context).extension<OwntuneColors>()!;
-    return Semantics(
-      button: true,
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: onTap,
-        child: _SearchBox(
-          child: Text(
-            label,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(fontSize: 17, color: c.muted),
+    final controller = widget.controller;
+    final active = _focus.hasFocus || controller.text.isNotEmpty;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+      child: Row(
+        children: [
+          Expanded(
+            child: _SearchBox(
+              child: Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: controller,
+                      focusNode: _focus,
+                      textInputAction: TextInputAction.search,
+                      cursorColor: c.accent,
+                      style: TextStyle(fontSize: 17, color: c.text),
+                      decoration: InputDecoration.collapsed(
+                        hintText: widget.label,
+                        hintStyle: TextStyle(fontSize: 17, color: c.muted),
+                      ),
+                    ),
+                  ),
+                  if (controller.text.isNotEmpty)
+                    GestureDetector(
+                      key: const Key('search-clear'),
+                      behavior: HitTestBehavior.opaque,
+                      onTap: controller.clear,
+                      child: Padding(
+                        padding: const EdgeInsets.only(left: 6),
+                        child: Icon(
+                          CupertinoIcons.xmark_circle_fill,
+                          size: 18,
+                          color: c.faint,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
           ),
-        ),
+          if (active) ...[
+            const SizedBox(width: 10),
+            GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: () {
+                controller.clear();
+                _focus.unfocus();
+              },
+              child: Text(
+                'Cancel',
+                style: TextStyle(fontSize: 17, color: c.accent),
+              ),
+            ),
+          ],
+        ],
       ),
     );
   }
 }
 
-/// Global search (mockup 10): results grouped into artists, albums and
-/// songs; updates while typing and while the library changes.
-class SearchScreen extends ConsumerStatefulWidget {
-  const SearchScreen({super.key});
+/// `No results for "<query>"`, shown by a filtered tab or the search.
+class NoResults extends StatelessWidget {
+  const NoResults({super.key, required this.query});
+
+  final String query;
 
   @override
-  ConsumerState<SearchScreen> createState() => _SearchScreenState();
+  Widget build(BuildContext context) {
+    final c = Theme.of(context).extension<OwntuneColors>()!;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(44, 40, 44, 0),
+      child: Text(
+        'No results for "${query.trim()}"',
+        textAlign: TextAlign.center,
+        style: TextStyle(fontSize: 17, color: c.muted),
+      ),
+    );
+  }
 }
 
-class _SearchScreenState extends ConsumerState<SearchScreen> {
+/// The Search tab (mockup 10, as a tab): grouped results for artists,
+/// albums and songs; updates while typing and while the library changes.
+class SearchTab extends ConsumerStatefulWidget {
+  const SearchTab({super.key});
+
+  @override
+  ConsumerState<SearchTab> createState() => _SearchTabState();
+}
+
+class _SearchTabState extends ConsumerState<SearchTab> {
   final _controller = TextEditingController();
 
   @override
@@ -93,77 +184,19 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final c = Theme.of(context).extension<OwntuneColors>()!;
     final library = ref.watch(libraryProvider).value ?? Library.empty;
     final query = _controller.text;
-    final results = searchLibrary(library, query);
-
-    return Scaffold(
-      body: SafeArea(
-        bottom: false,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 10),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: _SearchBox(
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: TextField(
-                              controller: _controller,
-                              autofocus: true,
-                              textInputAction: TextInputAction.search,
-                              cursorColor: c.accent,
-                              style: TextStyle(fontSize: 17, color: c.text),
-                              decoration: InputDecoration.collapsed(
-                                hintText: 'Search',
-                                hintStyle: TextStyle(
-                                  fontSize: 17,
-                                  color: c.muted,
-                                ),
-                              ),
-                            ),
-                          ),
-                          if (query.isNotEmpty)
-                            GestureDetector(
-                              key: const Key('search-clear'),
-                              behavior: HitTestBehavior.opaque,
-                              onTap: _controller.clear,
-                              child: Padding(
-                                padding: const EdgeInsets.only(left: 6),
-                                child: Icon(
-                                  CupertinoIcons.xmark_circle_fill,
-                                  size: 18,
-                                  color: c.faint,
-                                ),
-                              ),
-                            ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  GestureDetector(
-                    behavior: HitTestBehavior.opaque,
-                    onTap: () => Navigator.of(context).maybePop(),
-                    child: Text(
-                      'Cancel',
-                      style: TextStyle(fontSize: 17, color: c.accent),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Expanded(
-              child: _Results(query: query, results: results),
-            ),
-          ],
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        TabSearchField(
+          label: 'Artists, Albums, Songs',
+          controller: _controller,
         ),
-      ),
+        Expanded(
+          child: _Results(query: query, results: searchLibrary(library, query)),
+        ),
+      ],
     );
   }
 }
@@ -176,18 +209,8 @@ class _Results extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final c = Theme.of(context).extension<OwntuneColors>()!;
     if (query.trim().isEmpty) return const SizedBox.shrink();
-    if (results.isEmpty) {
-      return Padding(
-        padding: const EdgeInsets.fromLTRB(44, 40, 44, 0),
-        child: Text(
-          'No results for "${query.trim()}"',
-          textAlign: TextAlign.center,
-          style: TextStyle(fontSize: 17, color: c.muted),
-        ),
-      );
-    }
+    if (results.isEmpty) return NoResults(query: query);
     final storage = ref.watch(storageProvider);
     const scope = SongMenuScope(backLabel: 'Search');
     return ListView(

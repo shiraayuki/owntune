@@ -13,17 +13,57 @@ import 'package:owntune/import/import_controller.dart';
 import 'package:owntune/library/artwork.dart';
 import 'package:owntune/library/library.dart';
 import 'package:owntune/library/navigation.dart';
+import 'package:owntune/library/search.dart';
+import 'package:owntune/library/search_screen.dart';
 import 'package:owntune/library/section_index.dart';
 import 'package:owntune/library/song_sort.dart';
 import 'package:owntune/library/sort_key.dart';
 
 /// The Songs tab: all tracks in the chosen order with letter sections, or
 /// the empty state.
-class SongsScreen extends ConsumerWidget {
+class SongsScreen extends ConsumerStatefulWidget {
   const SongsScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<SongsScreen> createState() => _SongsScreenState();
+}
+
+class _SongsScreenState extends ConsumerState<SongsScreen> {
+  final _query = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    _query.addListener(() => setState(() {}));
+  }
+
+  @override
+  void dispose() {
+    _query.dispose();
+    super.dispose();
+  }
+
+  Widget _list(List<Track> songs, SongSort sort) {
+    final q = foldKey(_query.text);
+    if (q.isEmpty) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _Meta(count: songs.length, sort: sort),
+          Expanded(
+            child: SongList(songs: songs, sort: sort),
+          ),
+        ],
+      );
+    }
+    final matches = songs.where((t) => songMatches(t, q)).toList();
+    return matches.isEmpty
+        ? NoResults(query: _query.text)
+        : SongList(songs: matches, sort: sort, sections: false);
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final sort = ref.watch(settingsProvider.select((s) => s.songSort));
     return ref
         .watch(sortedSongsProvider)
@@ -33,10 +73,8 @@ class SongsScreen extends ConsumerWidget {
               : Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    _Meta(count: songs.length, sort: sort),
-                    Expanded(
-                      child: SongList(songs: songs, sort: sort),
-                    ),
+                    TabSearchField(label: 'Search Songs', controller: _query),
+                    Expanded(child: _list(songs, sort)),
                   ],
                 ),
           error: (e, _) => _LoadError(message: e.toString()),
@@ -75,11 +113,19 @@ class _Meta extends StatelessWidget {
 /// changes (none for sorts without sections), plus the A–Z index when there
 /// are sections.
 class SongList extends StatefulWidget {
-  const SongList({super.key, required this.songs, required this.sort});
+  const SongList({
+    super.key,
+    required this.songs,
+    required this.sort,
+    this.sections = true,
+  });
 
   /// Already in [sort] order.
   final List<Track> songs;
   final SongSort sort;
+
+  /// False for a filtered list: no section headers and no index.
+  final bool sections;
 
   @override
   State<SongList> createState() => _SongListState();
@@ -105,7 +151,7 @@ class _SongListState extends State<SongList> {
     var offset = 0.0;
     String? letter;
     for (final t in widget.songs) {
-      final l = songSection(t, widget.sort);
+      final l = widget.sections ? songSection(t, widget.sort) : null;
       if (l != null && l != letter) {
         items.add(letter = l);
         offsets.putIfAbsent(l, () => offset);

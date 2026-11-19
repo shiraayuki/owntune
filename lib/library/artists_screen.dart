@@ -5,6 +5,9 @@ import 'package:owntune/app/providers.dart';
 import 'package:owntune/app/theme.dart';
 import 'package:owntune/library/library.dart';
 import 'package:owntune/library/navigation.dart';
+import 'package:owntune/library/search.dart';
+import 'package:owntune/library/search_screen.dart';
+import 'package:owntune/library/sort_key.dart';
 import 'package:owntune/library/songs_screen.dart';
 
 String _count(int n, String one) => '$n $one${n == 1 ? '' : 's'}';
@@ -16,15 +19,58 @@ String artistCounts(Artist a) => [
 ].join(' · ');
 
 /// The Artists tab: one row per artist (mockup 08), or the empty state.
-class ArtistsScreen extends ConsumerWidget {
+class ArtistsScreen extends ConsumerStatefulWidget {
   const ArtistsScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<ArtistsScreen> createState() => _ArtistsScreenState();
+}
+
+class _ArtistsScreenState extends ConsumerState<ArtistsScreen> {
+  final _query = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    _query.addListener(() => setState(() {}));
+  }
+
+  @override
+  void dispose() {
+    _query.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final library = ref.watch(libraryProvider).value;
     if (library == null) return const SizedBox.shrink();
     if (library.isEmpty) return const EmptyLibrary();
-    final artists = library.artists;
+    final q = foldKey(_query.text);
+    final artists = q.isEmpty
+        ? library.artists
+        : library.artists.where((a) => artistMatches(a, q)).toList();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        TabSearchField(label: 'Search Artists', controller: _query),
+        Expanded(
+          child: artists.isEmpty
+              ? NoResults(query: _query.text)
+              : _ArtistList(artists: artists),
+        ),
+      ],
+    );
+  }
+}
+
+class _ArtistList extends StatelessWidget {
+  const _ArtistList({required this.artists});
+
+  final List<Artist> artists;
+
+  @override
+  Widget build(BuildContext context) {
     return ListView.builder(
       padding: EdgeInsets.fromLTRB(
         16,

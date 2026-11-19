@@ -184,3 +184,11 @@ Future<void> tapBack(WidgetTester t) async {
   );
   await t.pumpAndSettle();
 }
+
+/// Opens the "+" menu and chooses Import Music.
+Future<void> tapImport(WidgetTester t) async {
+  await t.tap(find.byKey(const Key('import-button')));
+  await t.pumpAndSettle();
+  await t.tap(find.byKey(const Key('menu-import')));
+  await t.pumpAndSettle();
+}

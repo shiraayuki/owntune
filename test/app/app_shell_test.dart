@@ -47,15 +47,14 @@ void main() {
     expect(opened, 1);
   });
 
-  testWidgets('+ and Import Music are disabled while an import runs', (
+  testWidgets('Import Music is disabled in + and empty state while importing', (
     t,
   ) async {
     final importer = FakeImporter();
     final picker = FakePicker(['/a/one.mp3']);
     await pumpApp(t, importer: importer, picker: picker);
 
-    await t.tap(find.byKey(const Key('import-button')));
-    await t.pumpAndSettle();
+    await tapImport(t);
     expect(importer.calls, hasLength(1));
 
     // Hide the sheet so both buttons are reachable again.
@@ -63,7 +62,16 @@ void main() {
     await t.pumpAndSettle();
 
     await t.tap(find.byKey(const Key('import-button')));
-    await t.tap(find.text('Import Music'));
+    await t.pumpAndSettle();
+    expect(
+      t
+          .widget<PopupMenuItem<Object>>(find.byKey(const Key('menu-import')))
+          .enabled,
+      isFalse,
+    );
+    await t.tapAt(const Offset(10, 10)); // close the menu
+    await t.pumpAndSettle();
+    await t.tap(find.text('Import Music')); // the empty state's button
     await t.pumpAndSettle();
     expect(picker.picks, 1);
     expect(importer.calls, hasLength(1));
@@ -73,8 +81,7 @@ void main() {
     await t.tap(find.text('Done'));
     await t.pumpAndSettle();
 
-    await t.tap(find.byKey(const Key('import-button')));
-    await t.pumpAndSettle();
+    await tapImport(t);
     expect(picker.picks, 2);
   });
 
@@ -83,8 +90,7 @@ void main() {
     final picker = FakePicker(List.generate(50, (i) => '/a/$i.mp3'));
     await pumpApp(t, importer: importer, picker: picker);
 
-    await t.tap(find.byKey(const Key('import-button')));
-    await t.pumpAndSettle();
+    await tapImport(t);
     importer.progress(23, 50, 'Kettle & Pine – Dust & Gold.flac');
     await t.pumpAndSettle();
 
@@ -204,8 +210,7 @@ void main() {
   testWidgets('import summary shows over a pushed screen', (t) async {
     final importer = FakeImporter();
     await pumpApp(t, importer: importer, picker: FakePicker(['/a/one.mp3']));
-    await t.tap(find.byKey(const Key('import-button')));
-    await t.pumpAndSettle();
+    await tapImport(t);
     await t.tap(find.text('Hide – keep importing'));
     await t.pumpAndSettle();
 
