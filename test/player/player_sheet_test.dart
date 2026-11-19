@@ -196,4 +196,31 @@ void main() {
     expect(_sheet, findsNothing);
     expect(find.byType(AlbumScreen), findsOneWidget);
   });
+
+  testWidgets('a notice shows on top of the open player', (t) async {
+    final engine = FakeAudioEngine()..failing.add('hash2.mp3');
+    await pumpApp(
+      t,
+      songs: [
+        ..._songs,
+        track(3, title: 'Cassette Summer'),
+      ],
+      engine: engine,
+    );
+    await _open(t, 'After the Rain');
+
+    await t.tap(find.byKey(const Key('player-next')));
+    await t.pump();
+    await t.pump(const Duration(milliseconds: 500));
+
+    final notice = find.text("Couldn't play “Blue Hour”");
+    expect(notice, findsOneWidget);
+    // Outside the navigator, so it is painted above every route, including
+    // the full-screen player.
+    expect(
+      find.descendant(of: find.byType(Navigator), matching: notice),
+      findsNothing,
+    );
+    expect(_sheet, findsOneWidget);
+  });
 }

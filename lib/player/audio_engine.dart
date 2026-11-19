@@ -30,58 +30,83 @@ abstract interface class AudioEngine {
   Future<void> dispose();
 }
 
+/// The code just_audio uses for a load cut off by a newer one; not a
+/// failure of any file.
+const _interruptedCode = 10000000;
+
+/// One running [JustAudioEngine.load].
+class _Load {
+  final done = Completer<void>();
+
+  /// True once this load's own "loading" event without an error code was
+  /// seen; error codes before it belong to an earlier file.
+  var sawCleanLoading = false;
+
+  void complete() {
+    if (!done.isCompleted) done.complete();
+  }
+
+  void fail(Object e, [StackTrace? s]) {
+    if (!done.isCompleted) done.completeError(e, s);
+  }
+}
+
 /// [AudioEngine] on just_audio (media_kit on Linux, see `initAudio`).
+///
+/// `setFilePath` decides whether a load worked. The exception is media_kit,
+/// which reports an unreadable file only as an event with an error code and
+/// never completes `setFilePath`; with [loadEndsOnErrorEvent] (default: on
+/// Linux) such an event also fails the load, but only after this load's own
+/// clean "loading" event: just_audio carries an earlier error code over into
+/// the first event of the next load.
 class JustAudioEngine implements AudioEngine {
-  JustAudioEngine() {
-    // just_audio reports some errors as stream errors and others (media_kit
-    // on Linux) only as an event carrying an error code.
-    _events = _player.playbackEventStream.listen((e) {
-      final code = e.errorCode;
-      if (code != null) {
-        _onError(
-          PlayerException(code, e.errorMessage, e.currentIndex),
-          StackTrace.current,
-        );
-      }
-    }, onError: _onError);
+  JustAudioEngine({bool? loadEndsOnErrorEvent})
+    : _loadEndsOnErrorEvent = loadEndsOnErrorEvent ?? Platform.isLinux {
+    _events = _player.playbackEventStream.listen(
+      _onEvent,
+      onError: (Object _, StackTrace _) {}, // reported via errorStream
+    );
+    _playerErrors = _player.errorStream.listen(_onPlayerError);
   }
 
   final _player = AudioPlayer();
+  final bool _loadEndsOnErrorEvent;
   final _errors = StreamController<Object>.broadcast();
   late final StreamSubscription<PlaybackEvent> _events;
+  late final StreamSubscription<PlayerException> _playerErrors;
 
-  /// Set while [load] runs; errors then fail the load instead of being
-  /// reported on [errors].
-  Completer<void>? _loading;
+  /// Set while [load] runs.
+  _Load? _loading;
 
-  void _onError(Object e, StackTrace _) {
+  void _onEvent(PlaybackEvent e) {
     final loading = _loading;
-    if (loading != null) {
-      if (!loading.isCompleted) loading.completeError(e);
-    } else {
-      _errors.add(e);
+    if (loading == null || !_loadEndsOnErrorEvent) return;
+    final code = e.errorCode;
+    if (code == null) {
+      if (e.processingState == ProcessingState.loading) {
+        loading.sawCleanLoading = true;
+      }
+    } else if (loading.sawCleanLoading && code != _interruptedCode) {
+      loading.fail(PlayerException(code, e.errorMessage, e.currentIndex));
     }
+  }
+
+  /// Errors after a load (deduplicated by just_audio). While a load runs,
+  /// its outcome is decided in [load] instead.
+  void _onPlayerError(PlayerException e) {
+    if (_loading != null || e.code == _interruptedCode) return;
+    _errors.add(e);
   }
 
   @override
   Future<void> load(File file) async {
-    final loading = _loading = Completer<void>();
-    // media_kit (Linux) reports an unreadable file only as an error event
-    // and never completes setFilePath, so the load also ends on the first
-    // error. A later load interrupts the abandoned call; ignore that.
-    final open = _player.setFilePath(file.path);
-    open
-        .then(
-          (_) {
-            if (!loading.isCompleted) loading.complete();
-          },
-          onError: (Object e, StackTrace s) {
-            if (!loading.isCompleted) loading.completeError(e, s);
-          },
-        )
+    final loading = _loading = _Load();
+    _player
+        .setFilePath(file.path)
+        .then((_) => loading.complete(), onError: loading.fail)
         .ignore();
     try {
-      await loading.future;
+      await loading.done.future;
     } finally {
       if (identical(_loading, loading)) _loading = null;
     }
@@ -116,6 +141,7 @@ class JustAudioEngine implements AudioEngine {
   @override
   Future<void> dispose() async {
     await _events.cancel();
+    await _playerErrors.cancel();
     await _errors.close();
     await _player.dispose();
   }

@@ -51,4 +51,54 @@ void main() {
     // media_kit reports the failure as an event only; a hang would time out.
     expect(error, isNot(isA<TimeoutException>()));
   });
+
+  testWidgets('a load cut off by the next one does not fail the next', (
+    t,
+  ) async {
+    final errors = <Object>[];
+    final sub = engine.errors.listen(errors.add);
+    addTearDown(sub.cancel);
+
+    await t.runAsync(() async {
+      final first = engine
+          .load(File('${fixtures.path}/tagged.flac'))
+          .then<Object?>((_) => null, onError: (Object e) => e);
+      await engine
+          .load(File('${fixtures.path}/tagged.mp3'))
+          .timeout(const Duration(seconds: 10));
+      await first;
+      final done = engine.completed.first;
+      await engine.play();
+      await done.timeout(const Duration(seconds: 10));
+      await Future<void>.delayed(const Duration(milliseconds: 300));
+    });
+    expect(errors, isEmpty);
+  });
+
+  testWidgets('a failed load does not fail the following one', (t) async {
+    final errors = <Object>[];
+    final sub = engine.errors.listen(errors.add);
+    addTearDown(sub.cancel);
+
+    final error = await t.runAsync(() async {
+      Object? failed;
+      try {
+        await engine
+            .load(File('${fixtures.path}/broken.mp3'))
+            .timeout(const Duration(seconds: 10));
+      } on Object catch (e) {
+        failed = e;
+      }
+      await engine
+          .load(File('${fixtures.path}/tagged.mp3'))
+          .timeout(const Duration(seconds: 10));
+      final done = engine.completed.first;
+      await engine.play();
+      await done.timeout(const Duration(seconds: 10));
+      await Future<void>.delayed(const Duration(milliseconds: 300));
+      return failed;
+    });
+    expect(error, isNotNull);
+    expect(errors, isEmpty);
+  });
 }

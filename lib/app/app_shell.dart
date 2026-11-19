@@ -23,9 +23,6 @@ import 'package:owntune/settings/settings_sheet.dart';
 /// [showSettingsSheet].
 typedef OpenSettings = void Function(BuildContext context);
 
-/// Shows snack bars on whichever screen is on top.
-final _messengerKey = GlobalKey<ScaffoldMessengerState>();
-
 class OwntuneApp extends ConsumerWidget {
   const OwntuneApp({super.key, this.onOpenSettings});
 
@@ -36,7 +33,6 @@ class OwntuneApp extends ConsumerWidget {
     final settings = ref.watch(settingsProvider);
     return MaterialApp(
       title: 'owntune',
-      scaffoldMessengerKey: _messengerKey,
       theme: buildTheme(Brightness.light, settings.accent),
       darkTheme: buildTheme(Brightness.dark, settings.accent),
       themeMode: switch (settings.mode) {
@@ -46,8 +42,10 @@ class OwntuneApp extends ConsumerWidget {
       },
       // The import sheets sit above the navigator, so they also show over
       // pushed screens (album, artist, search).
+      // The import sheets and the player's notices sit above the navigator,
+      // so they also show over pushed screens and the full-screen player.
       builder: (context, child) => Stack(
-        children: [child!, const _PlayerNotices(), const _ImportLayer()],
+        children: [child!, const _ImportLayer(), const _PlayerNotices()],
       ),
       home: AppShell(onOpenSettings: onOpenSettings),
     );
@@ -79,9 +77,10 @@ class _ImportLayerState extends State<_ImportLayer> {
       Positioned.fill(child: Overlay(initialEntries: [_entry]));
 }
 
-/// Shows the player's notices (e.g. a song that could not be played) as
-/// snack bars. Subscribes to the stream itself, so two equal notices in a
-/// row both show.
+/// Shows the player's notices (e.g. a song that could not be played) as a
+/// banner at the top, above every screen including the full-screen player.
+/// It subscribes to the stream itself, so two equal notices in a row both
+/// show, and it never takes taps.
 class _PlayerNotices extends ConsumerStatefulWidget {
   const _PlayerNotices();
 
@@ -90,29 +89,70 @@ class _PlayerNotices extends ConsumerStatefulWidget {
 }
 
 class _PlayerNoticesState extends ConsumerState<_PlayerNotices> {
+  static const _visibleFor = Duration(seconds: 3);
+
   StreamSubscription<String>? _sub;
+  Timer? _hide;
+  String? _text;
+  var _visible = false;
 
   @override
   void initState() {
     super.initState();
-    _sub = ref
-        .read(playerProvider.notifier)
-        .notices
-        .listen(
-          (text) => _messengerKey.currentState
-            ?..hideCurrentSnackBar()
-            ..showSnackBar(SnackBar(content: Text(text))),
-        );
+    _sub = ref.read(playerProvider.notifier).notices.listen((text) {
+      _hide?.cancel();
+      setState(() {
+        _text = text;
+        _visible = true;
+      });
+      _hide = Timer(_visibleFor, () {
+        if (mounted) setState(() => _visible = false);
+      });
+    });
   }
 
   @override
   void dispose() {
     _sub?.cancel();
+    _hide?.cancel();
     super.dispose();
   }
 
   @override
-  Widget build(BuildContext context) => const SizedBox.shrink();
+  Widget build(BuildContext context) {
+    final text = _text;
+    if (text == null) return const SizedBox.shrink();
+    final c = Theme.of(context).extension<OwntuneColors>()!;
+    return Positioned(
+      top: MediaQuery.viewPaddingOf(context).top + 8,
+      left: 16,
+      right: 16,
+      child: IgnorePointer(
+        child: AnimatedOpacity(
+          opacity: _visible ? 1 : 0,
+          duration: const Duration(milliseconds: 200),
+          child: Center(
+            child: Material(
+              color: c.surface2,
+              elevation: 8,
+              shape: const StadiumBorder(),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 10,
+                ),
+                child: Text(
+                  text,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 15, color: c.text),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class _Tab {
