@@ -1,0 +1,93 @@
+/* M2 mockups v1: builds on ../m1-v3/mockup.css (same tokens and metrics).
+   Adds the four-tab layout, Library sub-tabs, mini player, full-screen player
+   and queue. */
+
+/* Library sub-tabs: segmented control under the title row */
+.subtabs { padding: 0 16px 10px; flex: none; }
+.subtabs .segmented span { font-size: 14px; }
+
+/* Lists scroll behind tab bar + mini player */
+.scroll.with-mini { padding-bottom: 170px; }
+
+/* Mini player: floating bar above the tab bar (or above the home indicator
+   on pushed screens) */
+.mini { position: absolute; left: 8px; right: 8px; bottom: 91px; z-index: 20; height: 60px; border-radius: 16px; display: flex; align-items: center; gap: 12px; padding: 0 6px 0 8px; background: color-mix(in srgb, var(--surface-2) 88%, transparent); backdrop-filter: blur(24px) saturate(1.6); box-shadow: 0 8px 26px rgba(0, 0, 0, .28); border: 0.5px solid var(--line); overflow: hidden; }
+[data-mode="light"] .mini { background: rgba(255, 255, 255, .9); box-shadow: 0 6px 20px rgba(0, 0, 0, .12); }
+.mini.no-tabs { bottom: 42px; }
+.mini .art { width: 44px; height: 44px; border-radius: 8px; flex: none; }
+.mini .txt { flex: 1; min-width: 0; }
+.mini .t { font-size: 15px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mini .s { font-size: 13px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mini .mbtn { width: 44px; height: 44px; display: grid; place-items: center; color: var(--text); flex: none; }
+.mini .mbtn .ico { width: 26px; height: 26px; }
+.mini .mprog { position: absolute; left: 14px; right: 14px; bottom: 0; height: 2px; background: var(--fill); border-radius: 1px; }
+.mini .mprog > i { display: block; height: 100%; background: var(--accent); border-radius: 1px; }
+
+/* Now-playing indicator in a track row */
+.row.playing .t { color: var(--tint); }
+.row .n .bars { width: 18px; height: 18px; color: var(--tint); stroke-width: 2.6; }
+
+/* Full-screen player */
+.player { position: relative; width: 390px; height: 844px; overflow: hidden; background: var(--bg); display: flex; flex-direction: column; }
+.player .backdrop { position: absolute; inset: -80px; filter: blur(70px) saturate(1.3); opacity: .55; }
+[data-mode="light"] .player .backdrop { opacity: .28; }
+.player .veil { position: absolute; inset: 0; background: linear-gradient(180deg, transparent 0%, var(--bg) 92%); opacity: .7; }
+.player > :not(.backdrop):not(.veil) { position: relative; }
+.p-top { height: 40px; display: flex; align-items: center; justify-content: center; flex: none; }
+.p-top .grab { width: 38px; height: 5px; border-radius: 3px; background: var(--faint); }
+.p-art { width: 326px; height: 326px; border-radius: 14px; margin: 18px auto 0; box-shadow: 0 24px 60px rgba(0, 0, 0, .45); flex: none; }
+.p-art.small { width: 250px; height: 250px; }
+.p-meta { display: flex; align-items: center; gap: 12px; padding: 34px 32px 0; }
+.p-meta .txt { flex: 1; min-width: 0; }
+.p-meta .t { font-size: 22px; font-weight: 750; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.p-meta .s { font-size: 19px; color: var(--muted); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.p-meta .glass { width: 36px; height: 36px; }
+.p-meta .glass .ico { width: 20px; height: 20px; }
+.scrub { padding: 26px 32px 0; }
+.scrub .track { height: 5px; border-radius: 3px; background: var(--fill); position: relative; }
+.scrub .track > i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 3px; background: var(--text); opacity: .85; }
+.scrub .times { display: flex; justify-content: space-between; font-size: 13px; color: var(--muted); margin-top: 8px; font-variant-numeric: tabular-nums; }
+.p-ctrls { display: flex; align-items: center; justify-content: space-between; padding: 22px 26px 0; }
+.p-ctrls .tg { width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; color: var(--muted); }
+.p-ctrls .tg.on { color: var(--tint); background: color-mix(in srgb, var(--accent) 16%, transparent); }
+[data-mode="light"] .p-ctrls .tg.on { color: var(--bg); background: var(--text); }
+.p-ctrls .tg .ico { width: 22px; height: 22px; }
+.p-ctrls .skip { width: 56px; height: 56px; display: grid; place-items: center; color: var(--text); }
+.p-ctrls .skip .ico { width: 38px; height: 38px; }
+.p-ctrls .main { width: 76px; height: 76px; border-radius: 50%; background: var(--accent); color: var(--accent-text); display: grid; place-items: center; box-shadow: 0 10px 26px rgba(0, 0, 0, .3); }
+.p-ctrls .main .ico { width: 34px; height: 34px; }
+.p-bottom { display: flex; justify-content: center; padding-top: 26px; }
+.p-bottom .pill { display: inline-flex; align-items: center; gap: 8px; height: 36px; padding: 0 16px; border-radius: 18px; background: var(--fill); color: var(--text); font-size: 15px; font-weight: 600; }
+.p-bottom .pill.on { background: var(--accent); color: var(--accent-text); }
+.p-bottom .pill .ico { width: 18px; height: 18px; }
+
+/* Queue (inside the player) */
+.q-now { display: flex; align-items: center; gap: 14px; padding: 6px 20px 0; }
+.q-now .art { width: 64px; height: 64px; border-radius: 10px; flex: none; box-shadow: 0 8px 20px rgba(0, 0, 0, .3); }
+.q-now .txt { flex: 1; min-width: 0; }
+.q-now .t { font-size: 17px; font-weight: 700; }
+.q-now .s { font-size: 15px; color: var(--muted); }
+.q-head { display: flex; align-items: baseline; justify-content: space-between; padding: 22px 20px 2px; }
+.q-head h3 { font-size: 20px; font-weight: 750; }
+.q-head a { color: var(--tint); font-size: 17px; }
+.q-sub { padding: 0 20px 6px; font-size: 13px; color: var(--muted); }
+.q-list { padding: 0 20px; flex: 1; overflow: hidden; }
+.q-list .row { min-height: 56px; }
+.q-list .row .art { width: 40px; height: 40px; }
+.q-list .row::after { left: 52px; }
+.q-list .row .t { font-size: 16px; }
+.q-list .row .s { font-size: 14px; }
+.q-list .grip { width: 22px; height: 22px; color: var(--faint); }
+.q-list .row.dragging { background: var(--surface-2); border-radius: 10px; margin: 0 -10px; padding: 0 10px; box-shadow: var(--shadow); transform: scale(1.02); }
+.q-list .row.dragging::after { display: none; }
+.q-dock { position: absolute; left: 0; right: 0; bottom: 0; padding: 12px 0 34px; background: linear-gradient(180deg, transparent, var(--bg) 30%); }
+.q-dock .p-ctrls { padding-top: 6px; }
+.q-dock .scrub { padding-top: 0; }
+
+/* Swipe-to-remove reveal in the queue */
+.row.swiped { margin-right: -20px; }
+.row.swiped .rm { width: 84px; align-self: stretch; background: var(--red); color: #fff; display: grid; place-items: center; font-size: 15px; font-weight: 600; flex: none; margin-left: 6px; }
+
+/* Menus dim the mini player too */
+.dim { z-index: 30; }
+.menu, .lifted { z-index: 31; }
