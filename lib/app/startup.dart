@@ -2,6 +2,7 @@ import 'package:owntune/data/db/database.dart';
 import 'package:owntune/data/library_storage.dart';
 import 'package:owntune/data/track_repository.dart';
 import 'package:owntune/player/audio_setup.dart' as audio;
+import 'package:owntune/player/player_snapshot.dart';
 import 'package:owntune/settings/settings.dart';
 import 'package:owntune/src/rust/frb_generated.dart';
 
@@ -11,11 +12,14 @@ sealed class StartupResult {
 }
 
 final class StartupReady extends StartupResult {
-  const StartupReady(this.db, this.storage, this.settings);
+  const StartupReady(this.db, this.storage, this.settings, {this.player});
 
   final AppDatabase db;
   final LibraryStorage storage;
   final AppSettings settings;
+
+  /// The player as the last run left it; null if nothing (usable) was saved.
+  final PlayerSnapshot? player;
 }
 
 final class StartupFailed extends StartupResult {
@@ -47,7 +51,13 @@ Future<StartupResult> startUp({
     // database file fails here and not later in the UI.
     await TrackRepository(db, storage).cleanupOrphans();
     final settings = await SettingsRepository(db).load();
-    return StartupReady(db, storage, settings);
+    PlayerSnapshot? player;
+    try {
+      player = await DbPlayerStateStore(db).load();
+    } on Object {
+      // A lost player state is not worth a startup failure.
+    }
+    return StartupReady(db, storage, settings, player: player);
   } on Object catch (e) {
     try {
       await db?.close();

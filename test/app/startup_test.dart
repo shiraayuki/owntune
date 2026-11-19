@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:owntune/app/startup.dart';
 import 'package:owntune/data/db/database.dart';
 import 'package:owntune/data/library_storage.dart';
+import 'package:owntune/player/player_snapshot.dart';
 import 'package:owntune/settings/settings.dart';
 
 void main() {
@@ -139,5 +140,37 @@ void main() {
     );
     expect(result, isA<StartupFailed>());
     expect((result as StartupFailed).message, contains('no audio'));
+  });
+
+  test('startUp returns the saved player state', () async {
+    final db = AppDatabase(NativeDatabase.memory());
+    addTearDown(db.close);
+    await DbPlayerStateStore(db).save(
+      const PlayerSnapshot(trackIds: [4, 5], index: 1),
+    );
+
+    final result = await run(openDatabase: () => db);
+
+    final player = (result as StartupReady).player!;
+    expect(player.trackIds, [4, 5]);
+    expect(player.index, 1);
+  });
+
+  test('a malformed saved player state is ignored', () async {
+    final db = AppDatabase(NativeDatabase.memory());
+    addTearDown(db.close);
+    await db
+        .into(db.settingsEntries)
+        .insert(
+          SettingsEntriesCompanion.insert(
+            key: DbPlayerStateStore.key,
+            value: '{broken',
+          ),
+        );
+
+    final result = await run(openDatabase: () => db);
+
+    expect(result, isA<StartupReady>());
+    expect((result as StartupReady).player, isNull);
   });
 }

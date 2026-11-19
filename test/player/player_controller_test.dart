@@ -38,6 +38,7 @@ void main() {
           LibraryStorage(Directory('/nonexistent/owntune')),
         ),
         tracksProvider.overrideWith((ref) => library.stream),
+        playerStateStoreProvider.overrideWithValue(FakePlayerStateStore()),
       ],
     );
     container.listen(playerProvider, (_, _) {});
@@ -299,6 +300,7 @@ void main() {
       overrides: [
         audioEngineProvider.overrideWithValue(FakeAudioEngine()),
         tracksProvider.overrideWith((ref) => Stream.value([a, b])),
+        playerStateStoreProvider.overrideWithValue(FakePlayerStateStore()),
         storageProvider.overrideWithValue(
           LibraryStorage(Directory('/nonexistent/owntune')),
         ),

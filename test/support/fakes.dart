@@ -15,6 +15,7 @@ import 'package:owntune/import/audio_file_picker.dart';
 import 'package:owntune/import/importer.dart';
 import 'package:owntune/library/navigation.dart';
 import 'package:owntune/player/audio_engine.dart';
+import 'package:owntune/player/player_snapshot.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:path/path.dart' as p;
 import 'package:owntune/settings/settings.dart';
@@ -214,6 +215,23 @@ class FakeAudioEngine implements AudioEngine {
   Future<void> dispose() async {}
 }
 
+/// Keeps the last saved player state in memory.
+class FakePlayerStateStore implements PlayerStateStore {
+  FakePlayerStateStore([this.saved]);
+
+  PlayerSnapshot? saved;
+  var saves = 0;
+
+  @override
+  Future<PlayerSnapshot?> load() async => saved;
+
+  @override
+  Future<void> save(PlayerSnapshot? snapshot) async {
+    saves++;
+    saved = snapshot;
+  }
+}
+
 class FakePicker implements AudioFilePicker {
   FakePicker([this.result = const []]);
 
@@ -255,6 +273,7 @@ Future<void> pumpApp(
         importerProvider.overrideWithValue(importer ?? FakeImporter()),
         filePickerProvider.overrideWithValue(picker ?? FakePicker()),
         audioEngineProvider.overrideWithValue(engine ?? FakeAudioEngine()),
+        playerStateStoreProvider.overrideWithValue(FakePlayerStateStore()),
         ...overrides,
       ],
       child: OwntuneApp(onOpenSettings: onOpenSettings),

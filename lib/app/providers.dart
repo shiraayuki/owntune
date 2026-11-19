@@ -8,6 +8,7 @@ import 'package:owntune/import/importer.dart';
 import 'package:owntune/library/library.dart';
 import 'package:owntune/library/song_sort.dart';
 import 'package:owntune/player/audio_engine.dart';
+import 'package:owntune/player/player_snapshot.dart';
 import 'package:owntune/settings/settings.dart';
 import 'package:owntune/src/rust/api/library.dart';
 import 'package:owntune/src/rust/api/metadata.dart';
@@ -99,3 +100,12 @@ final audioEngineProvider = Provider<AudioEngine>((ref) {
   ref.onDispose(engine.dispose);
   return engine;
 });
+
+/// Where the player's state is saved for the next start.
+final playerStateStoreProvider = Provider<PlayerStateStore>(
+  (ref) => DbPlayerStateStore(ref.watch(databaseProvider)),
+);
+
+/// The player state saved by the last run, loaded by `startUp()`; `main`
+/// overrides it.
+final initialPlayerSnapshotProvider = Provider<PlayerSnapshot?>((ref) => null);
