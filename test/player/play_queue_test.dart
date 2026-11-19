@@ -137,9 +137,8 @@ void main() {
 
   group('shuffle', () {
     List<QueueEntry> reverse(List<QueueEntry> es) => es.reversed.toList();
-    List<int>? originalIds(PlayQueue q) => q.original == null
-        ? null
-        : [for (final e in q.original!) e.trackId];
+    List<int>? originalIds(PlayQueue q) =>
+        q.original == null ? null : [for (final e in q.original!) e.trackId];
     PlayQueue shuffledAt2() =>
         PlayQueue.of([1, 2, 3, 4], start: 1).shuffleOn(reverse);
 
@@ -152,10 +151,12 @@ void main() {
     });
 
     test('shuffle on without keepCurrent spreads all', () {
-      final q = PlayQueue.of(
-        [1, 2, 3, 4],
-        start: 1,
-      ).shuffleOn(reverse, keepCurrent: false);
+      final q = PlayQueue.of([
+        1,
+        2,
+        3,
+        4,
+      ], start: 1).shuffleOn(reverse, keepCurrent: false);
       expect(ids(q), [4, 3, 2, 1]);
       expect(q.index, 0);
     });
@@ -213,9 +214,10 @@ void main() {
       final q = PlayQueue.of([1, 1, 2], start: 0);
       final round = q.shuffleOn(reverse).shuffleOff();
       expect(ids(round), [1, 1, 2]);
-      expect([for (final e in round.entries) e.key], [
-        for (final e in q.entries) e.key,
-      ]);
+      expect(
+        [for (final e in round.entries) e.key],
+        [for (final e in q.entries) e.key],
+      );
     });
 
     test('following wraps with a new order under repeat all', () {

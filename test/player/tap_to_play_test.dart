@@ -106,18 +106,56 @@ void main() {
     expect(_state(t).queue.source, 'Paper Lanterns');
   });
 
-  testWidgets('album Shuffle is disabled', (t) async {
+  testWidgets('album Shuffle plays shuffled', (t) async {
     await _tall(t);
-    await pumpApp(t, songs: [_album(1, 'First', 1)]);
+    await pumpApp(t, songs: [_album(1, 'First', 1), _album(2, 'Second', 2)]);
     await t.tap(find.text('Albums'));
     await t.pumpAndSettle();
     await t.tap(find.text('Paper Lanterns'));
     await t.pumpAndSettle();
 
-    final shuffle = t.widget<PillButton>(
-      find.widgetWithText(PillButton, 'Shuffle'),
-    );
-    expect(shuffle.onPressed, isNull);
+    await t.tap(find.widgetWithText(PillButton, 'Shuffle'));
+    await t.pumpAndSettle();
+    expect(_state(t).queue.shuffled, isTrue);
+    expect(_state(t).playing, isTrue);
+    expect([..._ids(t)]..sort(), [1, 2]);
+    expect(_state(t).queue.source, 'Paper Lanterns');
+  });
+
+  testWidgets('album Play turns shuffle off', (t) async {
+    await _tall(t);
+    await pumpApp(t, songs: [_album(1, 'First', 1), _album(2, 'Second', 2)]);
+    await t.tap(find.text('Albums'));
+    await t.pumpAndSettle();
+    await t.tap(find.text('Paper Lanterns'));
+    await t.pumpAndSettle();
+
+    await t.tap(find.widgetWithText(PillButton, 'Shuffle'));
+    await t.pumpAndSettle();
+    await t.tap(find.widgetWithText(PillButton, 'Play'));
+    await t.pumpAndSettle();
+    expect(_state(t).queue.shuffled, isFalse);
+    expect(_ids(t), [1, 2]);
+    expect(_state(t).queue.index, 0);
+  });
+
+  testWidgets('artist Shuffle plays shuffled', (t) async {
+    await _tall(t);
+    final songs = [
+      for (var i = 1; i <= 3; i++)
+        track(i, title: 'Song $i', artist: 'Neon Harbor', album: 'Static'),
+    ];
+    await pumpApp(t, songs: songs);
+    await t.tap(find.text('Artists'));
+    await t.pumpAndSettle();
+    await t.tap(find.text('Neon Harbor'));
+    await t.pumpAndSettle();
+
+    await t.tap(find.widgetWithText(PillButton, 'Shuffle'));
+    await t.pumpAndSettle();
+    expect(_state(t).queue.shuffled, isTrue);
+    expect([..._ids(t)]..sort(), [1, 2, 3]);
+    expect(_state(t).queue.source, 'Neon Harbor');
   });
 
   testWidgets('tapping an album track plays the album from there', (t) async {
@@ -181,12 +219,7 @@ void main() {
 
     expect(_state(t).queue.entries, hasLength(3));
     expect(_state(t).queue.index, 0);
-    expect(
-      t
-          .widget<PillButton>(find.widgetWithText(PillButton, 'Shuffle'))
-          .onPressed,
-      isNull,
-    );
+    expect(_state(t).queue.shuffled, isFalse);
   });
 
   testWidgets('a song in Search plays with the search results as the queue', (
