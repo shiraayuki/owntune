@@ -28,11 +28,15 @@ class ImportProgress {
   final String currentName;
 }
 
+/// A file that has a supported extension but could not be imported.
+typedef ImportFailure = ({String name, String reason});
+
 class ImportSummary {
   const ImportSummary({
     required this.added,
     required this.duplicates,
     required this.unsupported,
+    this.failures = const [],
     required this.albums,
     required this.artists,
   });
@@ -42,6 +46,11 @@ class ImportSummary {
 
   /// Original names of unsupported and unreadable files, in input order.
   final List<String> unsupported;
+
+  /// Why each file with a supported extension in [unsupported] failed (a
+  /// subset of it, same order). The iPhone has no logs, so the summary shows
+  /// these reasons.
+  final List<ImportFailure> failures;
 
   /// Distinct albums among the added tracks (tracks without album excluded).
   final int albums;
@@ -54,6 +63,10 @@ class ImportSummary {
 }
 
 enum _Outcome { added, duplicate, unsupported }
+
+/// Result of one file: the outcome, the track if added, and the reason if a
+/// file with a supported extension failed.
+typedef _FileResult = (_Outcome, TrackInfo?, String?);
 
 /// Copies picked files into the app library, reads their metadata and
 /// inserts a row per new track.
@@ -100,6 +113,7 @@ class Importer {
     var added = 0;
     var duplicates = 0;
     final unsupported = <String>[];
+    final failures = <ImportFailure>[];
     final albums = <String>{};
     final artists = <String>{};
 
@@ -109,9 +123,7 @@ class Importer {
         ImportProgress(done: i, total: paths.length, currentName: name),
       );
 
-      final TrackInfo? info;
-      final _Outcome outcome;
-      (outcome, info) = await _importOne(paths[i], name);
+      final (outcome, info, reason) = await _importOne(paths[i], name);
       switch (outcome) {
         case _Outcome.added:
           added++;
@@ -122,6 +134,7 @@ class Importer {
           duplicates++;
         case _Outcome.unsupported:
           unsupported.add(name);
+          if (reason != null) failures.add((name: name, reason: reason));
       }
     }
 
@@ -132,6 +145,7 @@ class Importer {
       added: added,
       duplicates: duplicates,
       unsupported: unsupported,
+      failures: failures,
       albums: albums.length,
       artists: artists.length,
     );
@@ -139,9 +153,9 @@ class Importer {
 
   /// Imports one file. Only files created by this attempt are removed on
   /// failure; files that belong to existing rows are never touched.
-  Future<(_Outcome, TrackInfo?)> _importOne(String path, String name) async {
+  Future<_FileResult> _importOne(String path, String name) async {
     final ext = p.extension(name).replaceFirst('.', '').toLowerCase();
-    if (!_supported.contains(ext)) return (_Outcome.unsupported, null);
+    if (!_supported.contains(ext)) return (_Outcome.unsupported, null, null);
 
     // The reader picks the parser by file extension, so the temporary copy
     // keeps the real one: `<random>.part.<ext>`.
@@ -155,12 +169,12 @@ class Importer {
       final result = await _read(part.path);
       final info = result.track;
       if (result.status != ReadStatus.ok || info == null) {
-        return (_Outcome.unsupported, null);
+        return (_Outcome.unsupported, null, _readFailure(result));
       }
 
       hash = info.contentHash;
       if (await _repo.hasHash(info.contentHash)) {
-        return (_Outcome.duplicate, null);
+        return (_Outcome.duplicate, null, null);
       }
 
       String? coverName;
@@ -197,14 +211,22 @@ class Importer {
           coverFile: Value(coverName),
         ),
       );
-      return (_Outcome.added, info);
-    } catch (_) {
+      return (_Outcome.added, info, null);
+    } catch (e) {
       await _rollback(hash: hash, finalFile: finalFile, newCover: newCover);
-      return (_Outcome.unsupported, null);
+      return (_Outcome.unsupported, null, e.toString());
     } finally {
       // Gone after a successful rename; a leftover otherwise.
       await _deleteQuietly(part);
     }
+  }
+
+  static String _readFailure(ReadResult result) {
+    final message = result.message?.trim();
+    if (message != null && message.isNotEmpty) return message;
+    return result.status == ReadStatus.unsupported
+        ? 'Format not supported'
+        : 'Could not be read';
   }
 
   /// Removes what a failed attempt created, but never a file a row owns: the

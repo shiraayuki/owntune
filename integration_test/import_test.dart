@@ -65,6 +65,9 @@ void main() {
     expect(summary.added, 5);
     expect(summary.duplicates, 1);
     expect(summary.unsupported, ['evening-walk.ogg', 'broken.mp3']);
+    // The real reader's message reaches the summary (no logs on the iPhone).
+    expect(summary.failures.single.name, 'broken.mp3');
+    expect(summary.failures.single.reason, isNotEmpty);
     expect(summary.checked, 8);
     expect(await repo.count(), 5);
 

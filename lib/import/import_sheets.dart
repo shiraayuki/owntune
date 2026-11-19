@@ -254,9 +254,30 @@ class ImportSummarySheet extends StatelessWidget {
               if (hasOgg) 'OGG is not supported yet',
             ].join(' · '),
           ),
+        // Why supported files failed; selectable so it can be reported back
+        // (there are no logs on the iPhone).
+        for (final f in s.failures) _FailureReason('${f.name}: ${f.reason}'),
         const SizedBox(height: 18),
         PillButton(label: 'Done', expand: true, onPressed: onDone),
       ],
+    );
+  }
+}
+
+class _FailureReason extends StatelessWidget {
+  const _FailureReason(this.text);
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = Theme.of(context).extension<OwntuneColors>()!;
+    return Padding(
+      padding: const EdgeInsets.only(left: 48, bottom: 6),
+      child: SelectableText(
+        text,
+        style: TextStyle(fontSize: 13, color: c.muted),
+      ),
     );
   }
 }

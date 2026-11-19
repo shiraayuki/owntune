@@ -202,6 +202,52 @@ void main() {
     expect(audioFiles(), ['h1.mp3']);
   });
 
+  group('failure reasons', () {
+    test('an unreadable file keeps the reader message', () async {
+      results['broken.mp3'] = const ReadResult(
+        status: ReadStatus.unreadable,
+        message: 'bad frame header',
+      );
+      final summary = await importer().importFiles([pick('broken.mp3')]);
+      expect(summary.failures, [
+        (name: 'broken.mp3', reason: 'bad frame header'),
+      ]);
+    });
+
+    test('an unreadable file without message gets a generic reason', () async {
+      final summary = await importer().importFiles([pick('broken.mp3')]);
+      expect(summary.failures, [
+        (name: 'broken.mp3', reason: 'Could not be read'),
+      ]);
+    });
+
+    test('reader status unsupported says so', () async {
+      results['odd.mp3'] = const ReadResult(status: ReadStatus.unsupported);
+      final summary = await importer().importFiles([pick('odd.mp3')]);
+      expect(summary.failures, [
+        (name: 'odd.mp3', reason: 'Format not supported'),
+      ]);
+    });
+
+    test('an exception keeps its text', () async {
+      throwing.add('boom.mp3');
+      final summary = await importer().importFiles([pick('boom.mp3')]);
+      expect(summary.failures.single.name, 'boom.mp3');
+      expect(summary.failures.single.reason, contains('boom'));
+    });
+
+    test('a missing source file names the copy error', () async {
+      final summary = await importer().importFiles(['${picked.path}/gone.mp3']);
+      expect(summary.failures.single.reason, contains('gone.mp3'));
+    });
+
+    test('an unsupported extension needs no reason', () async {
+      final summary = await importer().importFiles([pick('evening-walk.ogg')]);
+      expect(summary.unsupported, ['evening-walk.ogg']);
+      expect(summary.failures, isEmpty);
+    });
+  });
+
   test('a missing source file is reported and the batch continues', () async {
     results['good.mp3'] = ok('h1');
 

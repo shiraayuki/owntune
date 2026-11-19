@@ -59,6 +59,28 @@ void main() {
     expect(find.textContaining('a.ogg, broken.mp3'), findsOneWidget);
   });
 
+  testWidgets('summary sheet shows why a supported file failed', (t) async {
+    const summary = ImportSummary(
+      added: 0,
+      duplicates: 0,
+      unsupported: ['a.ogg', 'broken.mp3'],
+      failures: [(name: 'broken.mp3', reason: 'No space left on device')],
+      albums: 0,
+      artists: 0,
+    );
+    await pumpSheet(t, ImportSummarySheet(summary: summary, onDone: () {}));
+
+    expect(find.text('2 files not supported'), findsOneWidget);
+    expect(
+      find.byWidgetPredicate(
+        (w) =>
+            w is SelectableText &&
+            w.data == 'broken.mp3: No space left on device',
+      ),
+      findsOneWidget,
+    );
+  });
+
   testWidgets('summary sheet with nothing added', (t) async {
     const summary = ImportSummary(
       added: 0,
