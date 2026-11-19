@@ -21,6 +21,10 @@ abstract interface class AudioEngine {
 
   Stream<Duration> get position;
 
+  /// Play state changes, including those the system makes on its own
+  /// (a phone call, another app taking the audio, headphones unplugged).
+  Stream<bool> get playingChanges;
+
   /// Fires when the loaded file played to its end.
   Stream<void> get completed;
 
@@ -129,6 +133,9 @@ class JustAudioEngine implements AudioEngine {
 
   @override
   Stream<Duration> get position => _player.positionStream;
+
+  @override
+  Stream<bool> get playingChanges => _player.playingStream.distinct();
 
   @override
   Stream<void> get completed => _player.processingStateStream

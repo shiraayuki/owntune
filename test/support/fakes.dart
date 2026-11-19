@@ -152,6 +152,7 @@ class FakeAudioEngine implements AudioEngine {
   final _position = StreamController<Duration>.broadcast();
   final _completed = StreamController<void>.broadcast();
   final _errors = StreamController<Object>.broadcast();
+  final _playing = StreamController<bool>.broadcast();
 
   String? get current => loaded.isEmpty ? null : loaded.last;
 
@@ -159,24 +160,38 @@ class FakeAudioEngine implements AudioEngine {
   Future<void> load(File file) async {
     final name = p.basename(file.path);
     loaded.add(name);
-    playing = false;
     final hold = holdLoad;
     if (hold != null) await hold.future;
     if (failing.contains(name)) throw StateError('cannot decode $name');
   }
 
   @override
-  Future<void> play() async => playing = true;
+  // Like just_audio, the play state stream also reports changes the app
+  // asked for.
+  @override
+  Future<void> play() async => _setPlaying(true);
 
   @override
-  Future<void> pause() async => playing = false;
+  Future<void> pause() async => _setPlaying(false);
+
+  void _setPlaying(bool value) {
+    if (playing == value) return;
+    playing = value;
+    _playing.add(value);
+  }
+
+  @override
+  Stream<bool> get playingChanges => _playing.stream;
+
+  /// The engine changes its play state on its own (e.g. a phone call).
+  void emitPlaying(bool value) => _setPlaying(value);
 
   @override
   Future<void> seek(Duration position) async => lastSeek = position;
 
   @override
   Future<void> unload() async {
-    playing = false;
+    _setPlaying(false);
     unloads++;
   }
 

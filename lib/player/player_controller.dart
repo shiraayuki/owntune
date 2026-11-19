@@ -66,6 +66,7 @@ class PlayerController extends Notifier<PlayerState> {
     _engine = ref.watch(audioEngineProvider);
     final subs = [
       _engine.position.listen((p) => _position = p),
+      _engine.playingChanges.listen(_onEnginePlaying),
       _engine.completed.listen((_) => _onCompleted()),
       _engine.errors.listen((_) => _onFailure(_queue, play: true)),
     ];
@@ -183,6 +184,9 @@ class PlayerController extends Notifier<PlayerState> {
     }
     state = PlayerState(queue: queue, playing: play);
     _position = Duration.zero;
+    // just_audio keeps playing into a newly loaded file.
+    if (!play) await _engine.pause();
+    if (generation != _generation) return;
     final track = _tracks[entry.trackId];
     try {
       if (track == null) throw StateError('track ${entry.trackId} is gone');
@@ -235,6 +239,13 @@ class PlayerController extends Notifier<PlayerState> {
       return;
     }
     await _start(_queue.withIndex(next), play: true);
+  }
+
+  /// The engine changed its play state, possibly on its own (a call, a
+  /// system pause); the player state follows it.
+  void _onEnginePlaying(bool playing) {
+    if (_queue.isEmpty || playing == state.playing) return;
+    state = PlayerState(queue: _queue, playing: playing);
   }
 
   static Map<int, Track> _byId(List<Track> tracks) => {

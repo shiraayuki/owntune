@@ -332,4 +332,19 @@ void main() {
     expect(engine.loaded, ['hash1.mp3']);
     expect(engine.lastSeek, Duration.zero);
   });
+
+  test('a pause by the system shows in the player state', () async {
+    await playAt(0);
+    engine.emitPlaying(false);
+    await pumpEventQueue();
+    expect(state().playing, isFalse);
+  });
+
+  test('a resume by the system shows too', () async {
+    await playAt(0);
+    await player().togglePlay();
+    engine.emitPlaying(true);
+    await pumpEventQueue();
+    expect(state().playing, isTrue);
+  });
 }
