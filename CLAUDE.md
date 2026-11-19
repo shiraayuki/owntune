@@ -45,6 +45,7 @@ flutter test integration_test -d linux              # integration tests with the
 flutter_rust_bridge_codegen generate                # after EVERY change in rust/src/api/
 dart run build_runner build --delete-conflicting-outputs   # after changing the drift schema (lib/data/db/)
 tool/make_fixtures.sh                               # regenerate test/fixtures/audio (needs ffmpeg)
+dart run tool/embed_fixtures.dart                   # after changing fixtures: embed them for on-device integration tests
 
 emulator -avd owntune_pixel &                       # start the Android emulator (boots in ~30 s)
 flutter run -d emulator-5554                        # run on the emulator with hot reload
@@ -69,6 +70,7 @@ rust/                  # Rust crate rust_lib_owntune
   src/frb_generated.rs # GENERATED
 rust_builder/          # cargokit glue: builds Rust for the target platform on every `flutter build`
 test/fixtures/audio/   # small audio fixtures (made by tool/make_fixtures.sh, see its README)
+integration_test/support/ # fixturesDir(): host folder on desktop, embedded copy (fixture_data.dart, GENERATED) on phones
 test/support/fakes.dart # shared fakes and pumpApp() for widget tests
 integration_test/      # tests against the real native library and a real database
 tool/                  # build/release scripts
