@@ -85,7 +85,7 @@ class _ArtistBody extends ConsumerWidget {
         if (artist.albums.isNotEmpty) ...[
           const _SectionTitle(title: 'Albums'),
           SizedBox(
-            height: AlbumCard.heightFor(150),
+            height: AlbumCard.heightFor(150, MediaQuery.textScalerOf(context)),
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
               clipBehavior: Clip.none,

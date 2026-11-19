@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:cupertino_ui/cupertino_ui.dart'
     show CupertinoDialogAction, CupertinoIcons;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -84,9 +86,6 @@ class SongList extends StatefulWidget {
 }
 
 class _SongListState extends State<SongList> {
-  static const _headerExtent = 36.0;
-  static const _rowExtent = 64.0;
-
   final _controller = ScrollController();
 
   @override
@@ -97,6 +96,9 @@ class _SongListState extends State<SongList> {
 
   @override
   Widget build(BuildContext context) {
+    final scaler = MediaQuery.textScalerOf(context);
+    final headerExtent = sectionHeaderExtent(scaler);
+    final rowExtent = SongRow.extentFor(scaler);
     final items = <Object>[];
     // Scroll offset of each section header.
     final offsets = <String, double>{};
@@ -107,10 +109,10 @@ class _SongListState extends State<SongList> {
       if (l != null && l != letter) {
         items.add(letter = l);
         offsets.putIfAbsent(l, () => offset);
-        offset += _headerExtent;
+        offset += headerExtent;
       }
       items.add(t);
-      offset += _rowExtent;
+      offset += rowExtent;
     }
     final indexed = offsets.isNotEmpty;
 
@@ -124,7 +126,7 @@ class _SongListState extends State<SongList> {
       ),
       itemCount: items.length,
       itemExtentBuilder: (i, _) =>
-          i < items.length && items[i] is String ? _headerExtent : _rowExtent,
+          i < items.length && items[i] is String ? headerExtent : rowExtent,
       itemBuilder: (context, i) => switch (items[i]) {
         final Track t => SongRow(
           track: t,
@@ -164,6 +166,19 @@ class _SongListState extends State<SongList> {
   }
 }
 
+/// Line height (as a multiple of the font size) of song rows and section
+/// headers; fixed so their extents can be computed for the A–Z index.
+const _lineHeight = 1.2;
+
+/// Rendered height of one text line of [fontSize] at [scaler]; text layout
+/// rounds line heights up to whole pixels.
+double _line(TextScaler scaler, double fontSize) =>
+    (scaler.scale(fontSize) * _lineHeight).ceilToDouble();
+
+/// Height of a section header at [scaler]: 14pt above, 2pt below the letter.
+double sectionHeaderExtent(TextScaler scaler) =>
+    math.max(36, 16 + _line(scaler, 15));
+
 class _SectionHeader extends StatelessWidget {
   const _SectionHeader({super.key, required this.letter});
 
@@ -180,6 +195,7 @@ class _SectionHeader extends StatelessWidget {
           letter,
           style: TextStyle(
             fontSize: 15,
+            height: _lineHeight,
             fontWeight: FontWeight.w800,
             color: c.accent,
           ),
@@ -205,6 +221,11 @@ class SongRow extends ConsumerWidget {
 
   /// Replaces the default `artist · album` line.
   final String? subtitle;
+
+  /// Height of a row at [scaler]: 64pt, more when the two text lines need
+  /// it.
+  static double extentFor(TextScaler scaler) =>
+      math.max(64, 16 + _line(scaler, 17) + _line(scaler, 15));
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -246,6 +267,7 @@ class SongRow extends ConsumerWidget {
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
                             fontSize: 17,
+                            height: _lineHeight,
                             fontWeight: FontWeight.w600,
                             color: c.text,
                           ),
@@ -254,7 +276,11 @@ class SongRow extends ConsumerWidget {
                           subtitle,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: TextStyle(fontSize: 15, color: c.muted),
+                          style: TextStyle(
+                            fontSize: 15,
+                            height: _lineHeight,
+                            color: c.muted,
+                          ),
                         ),
                       ],
                     ),

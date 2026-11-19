@@ -33,7 +33,10 @@ class AlbumsScreen extends ConsumerWidget {
             crossAxisCount: 2,
             crossAxisSpacing: gap,
             mainAxisSpacing: 20,
-            mainAxisExtent: AlbumCard.heightFor(width),
+            mainAxisExtent: AlbumCard.heightFor(
+              width,
+              MediaQuery.textScalerOf(context),
+            ),
           ),
           itemCount: library.albums.length,
           itemBuilder: (context, i) {
@@ -67,10 +70,13 @@ class AlbumCard extends ConsumerWidget {
   final double? width;
   final VoidCallback? onTap;
 
-  static const _lineHeight = 20.0;
+  /// Line height as a multiple of the 15pt font size.
+  static const _lineHeight = 20 / 15;
 
-  /// Height of a card [width] wide: cover, 7pt gap and two text lines.
-  static double heightFor(double width) => width + 7 + 2 * _lineHeight;
+  /// Height of a card [width] wide at [scaler]: cover, 7pt gap and two text
+  /// lines.
+  static double heightFor(double width, TextScaler scaler) =>
+      width + 7 + 2 * (scaler.scale(15) * _lineHeight).ceilToDouble();
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -93,7 +99,7 @@ class AlbumCard extends ConsumerWidget {
           overflow: TextOverflow.ellipsis,
           style: TextStyle(
             fontSize: 15,
-            height: _lineHeight / 15,
+            height: _lineHeight,
             fontWeight: FontWeight.w600,
             color: c.text,
           ),
@@ -102,11 +108,7 @@ class AlbumCard extends ConsumerWidget {
           subtitle,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
-          style: TextStyle(
-            fontSize: 15,
-            height: _lineHeight / 15,
-            color: c.muted,
-          ),
+          style: TextStyle(fontSize: 15, height: _lineHeight, color: c.muted),
         ),
       ],
     );

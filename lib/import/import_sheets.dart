@@ -57,17 +57,23 @@ class ImportOverlay extends ConsumerWidget {
             ),
           ),
         ),
-        Align(
-          alignment: Alignment.bottomCenter,
-          child: AnimatedSwitcher(
-            duration: const Duration(milliseconds: 250),
-            transitionBuilder: (child, animation) => SlideTransition(
-              position: Tween(begin: const Offset(0, 1), end: Offset.zero)
-                  .chain(CurveTween(curve: Curves.easeOutCubic))
-                  .animate(animation),
-              child: child,
+        // Stay above the keyboard (e.g. a sheet appearing during a search).
+        Padding(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.viewInsetsOf(context).bottom,
+          ),
+          child: Align(
+            alignment: Alignment.bottomCenter,
+            child: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 250),
+              transitionBuilder: (child, animation) => SlideTransition(
+                position: Tween(begin: const Offset(0, 1), end: Offset.zero)
+                    .chain(CurveTween(curve: Curves.easeOutCubic))
+                    .animate(animation),
+                child: child,
+              ),
+              child: sheet ?? const SizedBox.shrink(key: ValueKey('none')),
             ),
-            child: sheet ?? const SizedBox.shrink(key: ValueKey('none')),
           ),
         ),
       ],

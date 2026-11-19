@@ -41,10 +41,35 @@ class OwntuneApp extends ConsumerWidget {
       // The import sheets sit above the navigator, so they also show over
       // pushed screens (album, artist, search).
       builder: (context, child) =>
-          Stack(children: [child!, const ImportOverlay()]),
+          Stack(children: [child!, const _ImportLayer()]),
       home: AppShell(onOpenSettings: onOpenSettings),
     );
   }
+}
+
+/// [ImportOverlay] in an [Overlay] of its own: it sits above the
+/// navigator, whose overlay selectable error text would otherwise need.
+class _ImportLayer extends StatefulWidget {
+  const _ImportLayer();
+
+  @override
+  State<_ImportLayer> createState() => _ImportLayerState();
+}
+
+class _ImportLayerState extends State<_ImportLayer> {
+  final _entry = OverlayEntry(builder: (_) => const ImportOverlay());
+
+  @override
+  void dispose() {
+    _entry
+      ..remove()
+      ..dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) =>
+      Positioned.fill(child: Overlay(initialEntries: [_entry]));
 }
 
 class _Tab {
