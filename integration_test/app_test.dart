@@ -117,7 +117,7 @@ void main() {
     await pumpUntil(t, find.text('After the Rain'));
     expect(find.text('demo_3'), findsOneWidget);
     expect(find.text('Unknown Artist'), findsOneWidget);
-    expect(find.text('D'), findsOneWidget);
+    expect(find.byKey(const ValueKey('section-D')), findsOneWidget);
     // Covers are shown for the tracks that have one.
     expect(find.byType(Image), findsWidgets);
 
