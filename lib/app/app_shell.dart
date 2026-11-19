@@ -180,35 +180,37 @@ class _MoreMenu extends StatelessWidget {
   Widget build(BuildContext context) {
     final dark = Theme.of(context).brightness == Brightness.dark;
     final fg = dark ? const Color(0xffffffff) : const Color(0xff000000);
-    return PopupMenuButton<_MenuItem>(
-      tooltip: 'More',
-      padding: EdgeInsets.zero,
-      offset: const Offset(0, 52),
-      color: dark
-          ? const Color.fromRGBO(37, 37, 42, 0.96)
-          : const Color.fromRGBO(250, 250, 250, 0.96),
-      elevation: 12,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(13)),
-      constraints: const BoxConstraints.tightFor(width: 250),
-      menuPadding: EdgeInsets.zero,
-      onSelected: (item) => switch (item) {
-        _MenuItem.settings => onOpenSettings(),
-      },
-      itemBuilder: (context) => [
-        PopupMenuItem(
-          value: _MenuItem.settings,
-          height: 44,
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: Row(
-            children: [
-              Text('Settings', style: TextStyle(fontSize: 17, color: fg)),
-              const Spacer(),
-              Icon(CupertinoIcons.gear, size: 20, color: fg),
-            ],
+    return RoundIconSurface(
+      child: PopupMenuButton<_MenuItem>(
+        tooltip: 'More',
+        padding: EdgeInsets.zero,
+        offset: const Offset(0, 52),
+        color: dark
+            ? const Color.fromRGBO(37, 37, 42, 0.96)
+            : const Color.fromRGBO(250, 250, 250, 0.96),
+        elevation: 12,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(13)),
+        constraints: const BoxConstraints.tightFor(width: 250),
+        menuPadding: EdgeInsets.zero,
+        onSelected: (item) => switch (item) {
+          _MenuItem.settings => onOpenSettings(),
+        },
+        itemBuilder: (context) => [
+          PopupMenuItem(
+            value: _MenuItem.settings,
+            height: 44,
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Row(
+              children: [
+                Text('Settings', style: TextStyle(fontSize: 17, color: fg)),
+                const Spacer(),
+                Icon(CupertinoIcons.gear, size: 20, color: fg),
+              ],
+            ),
           ),
-        ),
-      ],
-      child: const RoundIconFace(icon: CupertinoIcons.ellipsis),
+        ],
+        child: const RoundIcon(icon: CupertinoIcons.ellipsis),
+      ),
     );
   }
 }
@@ -237,17 +239,23 @@ class _TabBar extends StatelessWidget {
                 : const Color.fromRGBO(251, 250, 247, 0.86),
             border: Border(top: BorderSide(color: c.line, width: 0.5)),
           ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              for (var i = 0; i < _tabs.length; i++)
-                _TabItem(
-                  tab: _tabs[i],
-                  selected: i == index,
-                  onTap: () => onSelect(i),
-                ),
-            ],
+          // Own transparent Material: ink splashes of the tab items are
+          // painted on it, above the bar's background, instead of on the
+          // Scaffold's Material underneath.
+          child: Material(
+            type: MaterialType.transparency,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                for (var i = 0; i < _tabs.length; i++)
+                  _TabItem(
+                    tab: _tabs[i],
+                    selected: i == index,
+                    onTap: () => onSelect(i),
+                  ),
+              ],
+            ),
           ),
         ),
       ),
