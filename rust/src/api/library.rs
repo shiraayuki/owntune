@@ -2,8 +2,10 @@ use std::fs::File;
 use std::io::{self, BufReader};
 use std::path::Path;
 
+use lofty::config::WriteOptions;
 use lofty::file::{AudioFile, FileType, TaggedFileExt};
 use lofty::picture::{MimeType, Picture, PictureType};
+use lofty::tag::items::Timestamp;
 use lofty::tag::{Accessor, ItemKey, Tag};
 
 /// Outcome of reading one audio file.
@@ -104,6 +106,112 @@ pub fn read_track(path: String) -> ReadResult {
         status: ReadStatus::Ok,
         track: Some(track),
         message: None,
+    }
+}
+
+/// The editable tag fields; `None` removes the item from the file.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TagValues {
+    pub title: Option<String>,
+    pub artist: Option<String>,
+    pub album: Option<String>,
+    pub album_artist: Option<String>,
+    pub genre: Option<String>,
+    pub track_number: Option<u32>,
+    pub disc_number: Option<u32>,
+    pub year: Option<u32>,
+}
+
+/// Writes `tags` into the primary tag of the file at `path` (created if
+/// missing). The file is copied to `<stem>.part.<ext>` next to it, written
+/// there and renamed over the original, so an interrupted write leaves the
+/// original intact. Returns an error message, or `None` on success. Never
+/// panics.
+pub fn write_tags(path: String, tags: TagValues) -> Option<String> {
+    let path = Path::new(&path);
+    let part = match part_path(path) {
+        Some(part) => part,
+        None => return Some(format!("Not an audio file name: {}", path.display())),
+    };
+    let result = write_via(path, &part, &tags);
+    if result.is_some() {
+        let _ = std::fs::remove_file(&part);
+    }
+    result
+}
+
+/// `<dir>/<stem>.part.<ext>`; lofty picks the parser by extension.
+fn part_path(path: &Path) -> Option<std::path::PathBuf> {
+    let stem = path.file_stem()?.to_str()?;
+    let ext = path.extension()?.to_str()?;
+    Some(path.with_file_name(format!("{stem}.part.{ext}")))
+}
+
+fn write_via(path: &Path, part: &Path, tags: &TagValues) -> Option<String> {
+    if let Err(e) = std::fs::copy(path, part) {
+        return Some(e.to_string());
+    }
+    let mut tagged = match lofty::read_from_path(part) {
+        Ok(tagged) => tagged,
+        Err(e) => return Some(e.to_string()),
+    };
+    let tag_type = tagged.primary_tag_type();
+    if tagged.tag(tag_type).is_none() {
+        tagged.insert_tag(Tag::new(tag_type));
+    }
+    let Some(tag) = tagged.tag_mut(tag_type) else {
+        return Some(format!("No {tag_type:?} tag in {}", path.display()));
+    };
+    apply(tag, tags);
+    if let Err(e) = tagged.save_to_path(part, WriteOptions::default()) {
+        return Some(e.to_string());
+    }
+    std::fs::rename(part, path).err().map(|e| e.to_string())
+}
+
+fn apply(tag: &mut Tag, tags: &TagValues) {
+    match clean(tags.title.as_deref()) {
+        Some(v) => tag.set_title(v),
+        None => tag.remove_title(),
+    }
+    match clean(tags.artist.as_deref()) {
+        Some(v) => tag.set_artist(v),
+        None => tag.remove_artist(),
+    }
+    match clean(tags.album.as_deref()) {
+        Some(v) => tag.set_album(v),
+        None => tag.remove_album(),
+    }
+    match clean(tags.album_artist.as_deref()) {
+        Some(v) => {
+            tag.insert_text(ItemKey::AlbumArtist, v);
+        }
+        None => tag.remove_key(ItemKey::AlbumArtist),
+    }
+    match clean(tags.genre.as_deref()) {
+        Some(v) => tag.set_genre(v),
+        None => tag.remove_genre(),
+    }
+    match tags.track_number {
+        Some(n) => tag.set_track(n),
+        None => tag.remove_track(),
+    }
+    match tags.disc_number {
+        Some(n) => tag.set_disk(n),
+        None => tag.remove_disk(),
+    }
+    // Dart sends every field on each save; an unchanged year must not cut a
+    // full date (e.g. 2003-04-01) down to the year.
+    match tags.year.and_then(|y| u16::try_from(y).ok()) {
+        Some(year) if tag.date().map(|d| d.year) == Some(year) => {}
+        Some(year) => tag.set_date(Timestamp {
+            year,
+            ..Timestamp::default()
+        }),
+        None => {
+            tag.remove_date();
+            tag.remove_key(ItemKey::Year);
+        }
     }
 }
 
@@ -258,5 +366,158 @@ mod tests {
         let b = track("tagged.mp3");
         assert_eq!(a.content_hash, b.content_hash);
         assert_ne!(a.content_hash, track("unicode.mp3").content_hash);
+    }
+
+    use std::sync::atomic::{AtomicUsize, Ordering};
+
+    /// A fresh copy of the fixture [name] in its own temp folder.
+    fn copy_fixture(name: &str) -> std::path::PathBuf {
+        static NEXT: AtomicUsize = AtomicUsize::new(0);
+        let dir = std::env::temp_dir().join(format!(
+            "owntune-write-{}-{}",
+            std::process::id(),
+            NEXT.fetch_add(1, Ordering::SeqCst)
+        ));
+        std::fs::create_dir_all(&dir).unwrap();
+        let ext = Path::new(name).extension().unwrap().to_str().unwrap();
+        let target = dir.join(format!("copy.{ext}"));
+        std::fs::copy(format!("{FIXTURES}{name}"), &target).unwrap();
+        target
+    }
+
+    fn all_fields() -> TagValues {
+        TagValues {
+            title: Some("New Title".into()),
+            artist: Some("New Artist".into()),
+            album: Some("New Album".into()),
+            album_artist: Some("New Album Artist".into()),
+            genre: Some("Ambient".into()),
+            track_number: Some(7),
+            disc_number: Some(2),
+            year: Some(1999),
+        }
+    }
+
+    fn read_path(path: &Path) -> TrackInfo {
+        let r = read_track(path.to_str().unwrap().to_owned());
+        assert_eq!(r.status, ReadStatus::Ok, "{:?}", r.message);
+        r.track.unwrap()
+    }
+
+    #[test]
+    fn write_tags_round_trips_each_format() {
+        for name in ["tagged.mp3", "tagged.m4a", "tagged.flac", "demo_3.wav"] {
+            let path = copy_fixture(name);
+            let error = write_tags(path.to_str().unwrap().to_owned(), all_fields());
+            assert_eq!(error, None, "{name}");
+            let t = read_path(&path);
+            assert_eq!(t.title.as_deref(), Some("New Title"), "{name}");
+            assert_eq!(t.artist.as_deref(), Some("New Artist"), "{name}");
+            assert_eq!(t.album.as_deref(), Some("New Album"), "{name}");
+            assert_eq!(
+                t.album_artist.as_deref(),
+                Some("New Album Artist"),
+                "{name}"
+            );
+            assert_eq!(t.genre.as_deref(), Some("Ambient"), "{name}");
+            assert_eq!(t.track_number, Some(7), "{name}");
+            assert_eq!(t.disc_number, Some(2), "{name}");
+            assert_eq!(t.year, Some(1999), "{name}");
+        }
+    }
+
+    #[test]
+    fn cleared_fields_are_removed() {
+        let path = copy_fixture("tagged.mp3");
+        let none = TagValues {
+            title: None,
+            artist: None,
+            album: None,
+            album_artist: None,
+            genre: None,
+            track_number: None,
+            disc_number: None,
+            year: None,
+        };
+        assert_eq!(write_tags(path.to_str().unwrap().to_owned(), none), None);
+        let t = read_path(&path);
+        assert_eq!(t.title, None);
+        assert_eq!(t.artist, None);
+        assert_eq!(t.album, None);
+        assert_eq!(t.album_artist, None);
+        assert_eq!(t.genre, None);
+        assert_eq!(t.track_number, None);
+        assert_eq!(t.disc_number, None);
+        assert_eq!(t.year, None);
+    }
+
+    #[test]
+    fn write_keeps_audio_and_cover() {
+        for name in ["tagged.mp3", "tagged.flac"] {
+            let path = copy_fixture(name);
+            let before = read_path(&path);
+            assert_eq!(
+                write_tags(path.to_str().unwrap().to_owned(), all_fields()),
+                None
+            );
+            let after = read_path(&path);
+            assert!(
+                before.duration_ms.abs_diff(after.duration_ms) <= 50,
+                "{name}"
+            );
+            assert_eq!(
+                before.cover.map(|c| c.hash),
+                after.cover.map(|c| c.hash),
+                "{name}"
+            );
+        }
+    }
+
+    #[test]
+    fn write_reports_a_missing_file() {
+        let error = write_tags(format!("{FIXTURES}does-not-exist.mp3"), all_fields());
+        assert!(error.is_some());
+    }
+
+    #[test]
+    fn no_part_file_is_left() {
+        let path = copy_fixture("tagged.m4a");
+        assert_eq!(
+            write_tags(path.to_str().unwrap().to_owned(), all_fields()),
+            None
+        );
+        let names: Vec<_> = std::fs::read_dir(path.parent().unwrap())
+            .unwrap()
+            .map(|e| e.unwrap().file_name().into_string().unwrap())
+            .collect();
+        assert_eq!(names, vec!["copy.m4a".to_owned()]);
+    }
+
+    #[test]
+    fn an_unchanged_year_keeps_the_full_date() {
+        let path = copy_fixture("tagged.mp3");
+        let mut tagged = lofty::read_from_path(&path).unwrap();
+        let tag = tagged.primary_tag_mut().unwrap();
+        tag.set_date(Timestamp {
+            year: 2003,
+            month: Some(4),
+            day: Some(1),
+            ..Timestamp::default()
+        });
+        tagged.save_to_path(&path, WriteOptions::default()).unwrap();
+
+        let tags = TagValues {
+            genre: Some("Folk".into()),
+            year: Some(2003),
+            ..all_fields()
+        };
+        assert_eq!(write_tags(path.to_str().unwrap().to_owned(), tags), None);
+        let date = lofty::read_from_path(&path)
+            .unwrap()
+            .primary_tag()
+            .unwrap()
+            .date()
+            .unwrap();
+        assert_eq!((date.year, date.month, date.day), (2003, Some(4), Some(1)));
     }
 }

@@ -189,4 +189,25 @@ void main() {
       expect(y('Go to Artist'), lessThan(y('Delete from Library')));
     });
   });
+
+  testWidgets('Edit Info in the song menu opens the editor', (t) async {
+    await pumpApp(
+      t,
+      songs: songs,
+      overrides: [
+        trackRepositoryProvider.overrideWithValue(FakeTrackRepository()),
+      ],
+    );
+    await longPress(t, 'Amber Lights');
+    await t.tap(find.byKey(const Key('menu-edit')));
+    await t.pumpAndSettle();
+    expect(find.text('Edit Info'), findsOneWidget);
+    expect(
+      t
+          .widget<TextField>(find.byKey(const Key('edit-field-title')))
+          .controller!
+          .text,
+      'Amber Lights',
+    );
+  });
 }

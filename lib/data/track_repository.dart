@@ -3,6 +3,8 @@ import 'dart:io';
 import 'package:drift/drift.dart';
 import 'package:path/path.dart' as p;
 
+import 'package:owntune/edit/track_tags.dart';
+
 import 'db/database.dart';
 import 'library_storage.dart';
 
@@ -27,6 +29,26 @@ class TrackRepository {
   Future<void> insert(TracksCompanion row) async {
     await _db.into(_db.tracks).insert(row);
   }
+
+  /// Sets the tag columns of the rows in [byId], in one transaction so the
+  /// library changes in one step. Hash and file name stay as imported.
+  Future<void> updateTags(Map<int, TrackTags> byId) =>
+      _db.transaction(() async {
+        for (final MapEntry(key: id, value: t) in byId.entries) {
+          await (_db.update(_db.tracks)..where((r) => r.id.equals(id))).write(
+            TracksCompanion(
+              title: Value(t.title),
+              artist: Value(t.artist),
+              album: Value(t.album),
+              albumArtist: Value(t.albumArtist),
+              genre: Value(t.genre),
+              trackNumber: Value(t.trackNumber),
+              discNumber: Value(t.discNumber),
+              year: Value(t.year),
+            ),
+          );
+        }
+      });
 
   /// Removes the row and its audio file, plus the cover file if no other row
   /// references it.

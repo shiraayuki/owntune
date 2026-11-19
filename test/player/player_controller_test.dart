@@ -476,4 +476,23 @@ void main() {
       expect(state().queue.entries, order, reason: 'round $round');
     }
   });
+
+  test('an edited current song is reloaded at its position', () async {
+    await playAt(1);
+    engine.emitPosition(const Duration(seconds: 40));
+    await pumpEventQueue();
+    await player().reloadIfCurrent({2, 3});
+    await pumpEventQueue();
+    expect(engine.loaded, ['hash2.mp3', 'hash2.mp3']);
+    expect(engine.lastSeek, const Duration(seconds: 40));
+    expect(engine.playing, isTrue);
+    expect(state().queue.current!.trackId, 2);
+  });
+
+  test('editing other songs does not reload the current one', () async {
+    await playAt(1);
+    await player().reloadIfCurrent({1, 3});
+    await pumpEventQueue();
+    expect(engine.loaded, ['hash2.mp3']);
+  });
 }

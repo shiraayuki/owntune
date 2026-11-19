@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:owntune/data/db/database.dart';
 import 'package:owntune/data/library_storage.dart';
 import 'package:owntune/data/track_repository.dart';
+import 'package:owntune/edit/track_tags.dart';
 
 TracksCompanion row(
   String hash, {
@@ -182,5 +183,49 @@ void main() {
     final t = (await repo.watchAll().first).single;
     expect(t.playCount, 2);
     expect(t.lastPlayedAt!.isAfter(before), isTrue);
+  });
+
+  test('updateTags writes all columns and keeps hash and file name', () async {
+    await repo.insert(row('h1'));
+    await repo.insert(row('h2', title: 'Other'));
+    final ids = [for (final t in await repo.watchAll().first) t.id];
+
+    await repo.updateTags({
+      ids.first: const TrackTags(
+        title: 'New',
+        artist: 'Artist',
+        album: 'Album',
+        albumArtist: 'Album Artist',
+        genre: 'Genre',
+        trackNumber: 3,
+        discNumber: 1,
+        year: 2020,
+      ),
+    });
+
+    final tracks = await repo.watchAll().first;
+    final t = tracks.firstWhere((t) => t.id == ids.first);
+    expect(
+      TrackTags.of(t),
+      const TrackTags(
+        title: 'New',
+        artist: 'Artist',
+        album: 'Album',
+        albumArtist: 'Album Artist',
+        genre: 'Genre',
+        trackNumber: 3,
+        discNumber: 1,
+        year: 2020,
+      ),
+    );
+    expect(t.contentHash, 'h1');
+    expect(t.fileName, 'h1.mp3');
+    expect(tracks.firstWhere((t) => t.id == ids.last).title, 'Other');
+
+    await repo.updateTags({ids.first: const TrackTags()});
+    final cleared = (await repo.watchAll().first).firstWhere(
+      (t) => t.id == ids.first,
+    );
+    expect(TrackTags.of(cleared), const TrackTags());
   });
 }

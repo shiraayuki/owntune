@@ -70,7 +70,7 @@ class RustLib extends BaseEntrypoint<RustLibApi, RustLibApiImpl, RustLibWire> {
   String get codegenVersion => '2.13.0';
 
   @override
-  int get rustContentHash => 205873272;
+  int get rustContentHash => -1274911527;
 
   static const kDefaultExternalLibraryLoaderConfig =
       ExternalLibraryLoaderConfig(
@@ -87,6 +87,11 @@ abstract class RustLibApi extends BaseApi {
   Future<ReadResult> crateApiLibraryReadTrack({required String path});
 
   List<String> crateApiMetadataSupportedFormats();
+
+  Future<String?> crateApiLibraryWriteTags({
+    required String path,
+    required TagValues tags,
+  });
 }
 
 class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
@@ -174,6 +179,38 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   TaskConstMeta get kCrateApiMetadataSupportedFormatsConstMeta =>
       const TaskConstMeta(debugName: "supported_formats", argNames: []);
 
+  @override
+  Future<String?> crateApiLibraryWriteTags({
+    required String path,
+    required TagValues tags,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_String(path, serializer);
+          sse_encode_box_autoadd_tag_values(tags, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 4,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_opt_String,
+          decodeErrorData: null,
+        ),
+        constMeta: kCrateApiLibraryWriteTagsConstMeta,
+        argValues: [path, tags],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiLibraryWriteTagsConstMeta =>
+      const TaskConstMeta(debugName: "write_tags", argNames: ["path", "tags"]);
+
   @protected
   String dco_decode_String(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
@@ -184,6 +221,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   CoverArt dco_decode_box_autoadd_cover_art(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return dco_decode_cover_art(raw);
+  }
+
+  @protected
+  TagValues dco_decode_box_autoadd_tag_values(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return dco_decode_tag_values(raw);
   }
 
   @protected
@@ -273,6 +316,24 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  TagValues dco_decode_tag_values(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 8)
+      throw Exception('unexpected arr length: expect 8 but see ${arr.length}');
+    return TagValues(
+      title: dco_decode_opt_String(arr[0]),
+      artist: dco_decode_opt_String(arr[1]),
+      album: dco_decode_opt_String(arr[2]),
+      albumArtist: dco_decode_opt_String(arr[3]),
+      genre: dco_decode_opt_String(arr[4]),
+      trackNumber: dco_decode_opt_box_autoadd_u_32(arr[5]),
+      discNumber: dco_decode_opt_box_autoadd_u_32(arr[6]),
+      year: dco_decode_opt_box_autoadd_u_32(arr[7]),
+    );
+  }
+
+  @protected
   TrackInfo dco_decode_track_info(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     final arr = raw as List<dynamic>;
@@ -322,6 +383,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   CoverArt sse_decode_box_autoadd_cover_art(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     return (sse_decode_cover_art(deserializer));
+  }
+
+  @protected
+  TagValues sse_decode_box_autoadd_tag_values(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return (sse_decode_tag_values(deserializer));
   }
 
   @protected
@@ -441,6 +508,29 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  TagValues sse_decode_tag_values(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_title = sse_decode_opt_String(deserializer);
+    var var_artist = sse_decode_opt_String(deserializer);
+    var var_album = sse_decode_opt_String(deserializer);
+    var var_albumArtist = sse_decode_opt_String(deserializer);
+    var var_genre = sse_decode_opt_String(deserializer);
+    var var_trackNumber = sse_decode_opt_box_autoadd_u_32(deserializer);
+    var var_discNumber = sse_decode_opt_box_autoadd_u_32(deserializer);
+    var var_year = sse_decode_opt_box_autoadd_u_32(deserializer);
+    return TagValues(
+      title: var_title,
+      artist: var_artist,
+      album: var_album,
+      albumArtist: var_albumArtist,
+      genre: var_genre,
+      trackNumber: var_trackNumber,
+      discNumber: var_discNumber,
+      year: var_year,
+    );
+  }
+
+  @protected
   TrackInfo sse_decode_track_info(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     var var_title = sse_decode_opt_String(deserializer);
@@ -505,6 +595,15 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   ) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     sse_encode_cover_art(self, serializer);
+  }
+
+  @protected
+  void sse_encode_box_autoadd_tag_values(
+    TagValues self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_tag_values(self, serializer);
   }
 
   @protected
@@ -613,6 +712,19 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   void sse_encode_read_status(ReadStatus self, SseSerializer serializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     sse_encode_i_32(self.index, serializer);
+  }
+
+  @protected
+  void sse_encode_tag_values(TagValues self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_opt_String(self.title, serializer);
+    sse_encode_opt_String(self.artist, serializer);
+    sse_encode_opt_String(self.album, serializer);
+    sse_encode_opt_String(self.albumArtist, serializer);
+    sse_encode_opt_String(self.genre, serializer);
+    sse_encode_opt_box_autoadd_u_32(self.trackNumber, serializer);
+    sse_encode_opt_box_autoadd_u_32(self.discNumber, serializer);
+    sse_encode_opt_box_autoadd_u_32(self.year, serializer);
   }
 
   @protected

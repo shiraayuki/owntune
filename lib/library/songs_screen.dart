@@ -8,6 +8,7 @@ import 'package:owntune/app/buttons.dart';
 import 'package:owntune/app/providers.dart';
 import 'package:owntune/app/theme.dart';
 import 'package:owntune/data/db/database.dart';
+import 'package:owntune/edit/edit_info_screen.dart';
 import 'package:owntune/data/track_repository.dart';
 import 'package:owntune/import/import_controller.dart';
 import 'package:owntune/library/artwork.dart';
@@ -382,7 +383,7 @@ Color _red(BuildContext context) =>
     ? const Color(0xffff453a)
     : const Color(0xffff3b30);
 
-enum _SongAction { playNext, playLater, album, artist, delete }
+enum _SongAction { playNext, playLater, album, artist, edit, delete }
 
 /// Where a song row is shown, for its context menu: the back label of
 /// screens it opens, and the album/artist screen it is already on (whose
@@ -492,6 +493,14 @@ Future<void> showSongMenu(
         item(_SongAction.artist, 'Go to Artist', CupertinoIcons.person, fg),
       if (showAlbum || showArtist) menuGap(context),
       item(
+        _SongAction.edit,
+        'Edit Info',
+        CupertinoIcons.pencil,
+        fg,
+        key: const Key('menu-edit'),
+      ),
+      menuGap(context),
+      item(
         _SongAction.delete,
         'Delete from Library',
         CupertinoIcons.trash,
@@ -517,6 +526,8 @@ Future<void> showSongMenu(
         artistKey,
         backLabel: scope.backLabel,
       );
+    case _SongAction.edit:
+      await openEditInfo(navigator.context, [track]);
     case _SongAction.delete:
       await confirmDeleteSong(navigator.context, repo, track);
     case null:
@@ -542,11 +553,11 @@ Future<void> confirmDeleteSong(
         'The song will be removed from owntune and its file deleted.',
       ),
       actions: [
-        _DialogAction(
+        DialogAction(
           label: 'Cancel',
           onPressed: () => Navigator.pop(context, false),
         ),
-        _DialogAction(
+        DialogAction(
           label: 'Delete',
           destructive: true,
           onPressed: () => Navigator.pop(context, true),
@@ -565,7 +576,7 @@ Future<void> confirmDeleteSong(
         title: Text('Could not delete "$title"'),
         content: SelectableText('$e'),
         actions: [
-          _DialogAction(label: 'OK', onPressed: () => Navigator.pop(context)),
+          DialogAction(label: 'OK', onPressed: () => Navigator.pop(context)),
         ],
       ),
     );
@@ -573,8 +584,10 @@ Future<void> confirmDeleteSong(
 }
 
 /// A dialog button: Cupertino on iOS/macOS, a text button elsewhere.
-class _DialogAction extends StatelessWidget {
-  const _DialogAction({
+/// A dialog button: Cupertino style on iOS/macOS, a text button elsewhere.
+class DialogAction extends StatelessWidget {
+  const DialogAction({
+    super.key,
     required this.label,
     required this.onPressed,
     this.destructive = false,
