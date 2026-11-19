@@ -19,11 +19,7 @@ class SaveFailure {
 /// whose file was written, in one transaction. A failed file write leaves
 /// that song's row as it was, so database and file never drift apart.
 class TagSaver {
-  TagSaver({
-    required this._write,
-    required this._storage,
-    required this._repo,
-  });
+  TagSaver({required this._write, required this._storage, required this._repo});
 
   final WriteTags _write;
   final LibraryStorage _storage;
