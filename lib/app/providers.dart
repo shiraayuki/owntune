@@ -7,6 +7,7 @@ import 'package:owntune/import/import_controller.dart';
 import 'package:owntune/import/importer.dart';
 import 'package:owntune/library/library.dart';
 import 'package:owntune/library/song_sort.dart';
+import 'package:owntune/player/audio_engine.dart';
 import 'package:owntune/settings/settings.dart';
 import 'package:owntune/src/rust/api/library.dart';
 import 'package:owntune/src/rust/api/metadata.dart';
@@ -91,3 +92,10 @@ final filePickerProvider = Provider<AudioFilePicker>(
 
 final importControllerProvider =
     NotifierProvider<ImportController, ImportState>(ImportController.new);
+
+/// The one audio engine of the app; tests override it with a fake.
+final audioEngineProvider = Provider<AudioEngine>((ref) {
+  final engine = JustAudioEngine();
+  ref.onDispose(engine.dispose);
+  return engine;
+});
