@@ -160,4 +160,33 @@ void main() {
     await pumpEventQueue();
     expect(store.saved, isNull);
   });
+
+  test('restores shuffle and its original order', () async {
+    container = make(
+      const PlayerSnapshot(
+        trackIds: [2, 3, 1],
+        index: 0,
+        shuffleOrder: [2, 0, 1],
+      ),
+    );
+    library.add([a, b, c]);
+    await pumpEventQueue();
+    expect(state().queue.shuffled, isTrue);
+    expect(ids(), [2, 3, 1]);
+    player().toggleShuffle();
+    expect(ids(), [1, 2, 3]);
+    expect(state().queue.current!.trackId, 2);
+  });
+
+  test('saves the shuffle order', () async {
+    container = make(null);
+    library.add([a, b, c]);
+    await pumpEventQueue();
+    await player().playList([a, b, c], start: 1, source: 'Songs');
+    player().toggleShuffle();
+    await pumpEventQueue();
+    final s = store.saved!;
+    expect(s.trackIds.first, 2);
+    expect([for (final p in s.shuffleOrder!) s.trackIds[p]], [1, 2, 3]);
+  });
 }

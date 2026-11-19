@@ -349,4 +349,104 @@ void main() {
     await pumpEventQueue();
     expect(state().playing, isTrue);
   });
+
+  group('shuffle', () {
+    List<int> sorted(List<int> xs) => [...xs]..sort();
+
+    test('toggle shuffle keeps the song playing', () async {
+      await playAt(1);
+      final loads = engine.loaded.length;
+      player().toggleShuffle();
+      await pumpEventQueue();
+      expect(state().queue.shuffled, isTrue);
+      expect(state().queue.current!.trackId, 2);
+      expect(state().queue.index, 0);
+      expect(sorted(queueIds()), [1, 2, 3]);
+      expect(state().playing, isTrue);
+      expect(engine.loaded.length, loads);
+    });
+
+    test('toggle twice restores the list order', () async {
+      await playAt(1);
+      player()
+        ..toggleShuffle()
+        ..toggleShuffle();
+      await pumpEventQueue();
+      expect(state().queue.shuffled, isFalse);
+      expect(queueIds(), [1, 2, 3]);
+      expect(state().queue.current!.trackId, 2);
+    });
+
+    test('tapping a song with shuffle on plays it first', () async {
+      await playAt(0);
+      player().toggleShuffle();
+      await player().playList([a, b, c], start: 2, source: 'Songs');
+      await pumpEventQueue();
+      expect(state().queue.shuffled, isTrue);
+      expect(state().queue.current!.trackId, 3);
+      expect(state().queue.index, 0);
+      expect(sorted(queueIds()), [1, 2, 3]);
+      expect(engine.loaded.last, 'hash3.mp3');
+    });
+
+    test('album Shuffle starts shuffled', () async {
+      await player().playList(
+        [a, b, c],
+        start: 0,
+        source: 'Album',
+        shuffle: true,
+      );
+      await pumpEventQueue();
+      expect(state().queue.shuffled, isTrue);
+      expect(state().queue.index, 0);
+      expect(sorted(queueIds()), [1, 2, 3]);
+      expect(state().playing, isTrue);
+    });
+
+    test('Play turns shuffle off', () async {
+      await playAt(0);
+      player().toggleShuffle();
+      await player().playList(
+        [a, b, c],
+        start: 0,
+        source: 'Album',
+        shuffle: false,
+      );
+      await pumpEventQueue();
+      expect(state().queue.shuffled, isFalse);
+      expect(queueIds(), [1, 2, 3]);
+      expect(state().queue.current!.trackId, 1);
+    });
+
+    test('shuffle survives an emptied queue', () async {
+      await playAt(0);
+      player().toggleShuffle();
+      library.add([]);
+      await pumpEventQueue();
+      expect(state().queue.isEmpty, isTrue);
+      library.add([a, b, c]);
+      await pumpEventQueue();
+      await playAt(0);
+      expect(state().queue.shuffled, isTrue);
+    });
+
+    test('next under repeat all reshuffles at the end', () async {
+      await playAt(0);
+      player()
+        ..toggleShuffle()
+        ..cycleRepeat();
+      expect(state().queue.repeat, QueueRepeat.all);
+      await player().next();
+      await player().next();
+      await pumpEventQueue();
+      expect(state().queue.index, 2);
+      final ended = state().queue.current;
+      await player().next();
+      await pumpEventQueue();
+      expect(state().queue.index, 0);
+      expect(state().queue.current, isNot(ended));
+      expect(state().queue.shuffled, isTrue);
+      expect(sorted(queueIds()), [1, 2, 3]);
+    });
+  });
 }
