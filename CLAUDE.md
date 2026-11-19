@@ -70,17 +70,17 @@ rust/                  # Rust crate rust_lib_owntune
   src/frb_generated.rs # GENERATED
 rust_builder/          # cargokit glue: builds Rust for the target platform on every `flutter build`
 test/fixtures/audio/   # small audio fixtures (made by tool/make_fixtures.sh, see its README)
-integration_test/support/ # fixturesDir(): host folder on desktop, embedded copy (fixture_data.dart, GENERATED) on phones
 test/support/fakes.dart # shared fakes and pumpApp() for widget tests
 integration_test/      # tests against the real native library and a real database
+  support/             # fixturesDir(): host folder on desktop, embedded copy (fixture_data.dart, GENERATED) on phones
 tool/                  # build/release scripts
 ```
 
 Planned for later milestones: `lib/data/sources/` (a "source" abstraction for a later download feature), `lib/services/` (audio).
 
-**Startup sequence** (`lib/app/startup.dart`): `RustLib.init()` → `LibraryStorage.open()` + `ensure()` (`<ApplicationSupport>/library/{audio,covers}`) → `AppDatabase.open()` (`<ApplicationSupport>/owntune.sqlite`) → `cleanupOrphans()` (best effort: `.part` files and files without a row) → load settings. Any error → `StartupFailed`.
+**Startup sequence** (`lib/app/startup.dart`): `RustLib.init()` → `LibraryStorage.open()` + `ensure()` (`<ApplicationSupport>/library/{audio,covers}`) → `AppDatabase.open()` (`<ApplicationSupport>/owntune.sqlite`) → `cleanupOrphans()` (best effort: leftover `.part` files and files without a row) → load settings. Any error → `StartupFailed`.
 
-**Data rules:** The DB stores file names only (`<blake3>.<ext>`, covers `<blake3-of-image>.<ext>`), never absolute paths, because the iOS container path changes on app updates. Each file is copied to a `.part` name, renamed, and only then gets its row.
+**Data rules:** The DB stores file names only (`<blake3>.<ext>`, covers `<blake3-of-image>.<ext>`), never absolute paths, because the iOS container path changes on app updates. Each file is copied to `audio/<random>.part.<ext>` (lofty picks the parser by extension), renamed to `<blake3>.<ext>`, and only then gets its row; covers are written via `covers/<random>.part`.
 
 **Drift codegen:** `lib/data/db/database.g.dart` is committed; CI runs `build_runner` and fails if anything changes (same as for the FRB code).
 
@@ -91,10 +91,10 @@ Planned for later milestones: `lib/data/sources/` (a "source" abstraction for a 
 ## Principles for upcoming milestones
 
 - **File storage:** Imported files are copied into the app-owned library folder `<ApplicationSupport>/library/`, because iOS does not allow persistent access to foreign folders. Duplicates are detected by BLAKE3 hash. In M1 the folder is deliberately **not** visible in the Files app: users could delete files behind the database's back. Revisit this together with "Open with …" in M5.
-- **Metadata:** The database is the source of truth for display; changes are additionally written back into the file tags via `lofty` (ID3, Vorbis, MP4). Covers are cached as thumbnails.
+- **Metadata:** The database is the source of truth for display; changes are additionally written back into the file tags via `lofty` (ID3, Vorbis, MP4). Covers: v0.2.0 stores each distinct embedded image once under its hash and downscales in the UI (`cacheWidth`); real thumbnails may come later.
 - **Download feature is out of scope** — only prepare the abstraction in `data/sources/`.
 
-**Data model (draft):** Track (id, filePath, fileHash, title, artist, albumId, trackNumber, discNumber, duration, year, genre, coverPath, addedAt, playCount, lastPlayedAt) · Album (id, title, albumArtist, year, coverPath, isUserCreated) · Playlist (id, name, coverPath, createdAt) · PlaylistEntry (playlistId, trackId, position).
+**Data model:** The `tracks` and `settings_entries` tables in `lib/data/db/database.dart` are the source of truth. Albums and artists are derived from track tags; there is no album table yet. Draft for later milestones: Album (id, title, albumArtist, year, coverFile, isUserCreated) · Playlist (id, name, coverFile, createdAt) · PlaylistEntry (playlistId, trackId, position). These also store file names only, never paths.
 
 ## Milestones
 
@@ -103,7 +103,7 @@ Planned for later milestones: `lib/data/sources/` (a "source" abstraction for a 
 - **M2 Player** – controls, queue, shuffle/repeat, mini and full-screen player, background + lock screen (`UIBackgroundModes: audio`), restore state after restart. *Done when:* plays on the iPhone with the screen locked and can be controlled.
 - **M3 Metadata editor** – edit fields, pick/crop/remove covers, bulk editing, write back to tags.
 - **M4 Albums & playlists** – custom albums, playlists with drag & drop and custom cover.
-- **M5 Polish** – share sheet / "Open with …", dynamic colors from the cover, dark mode, statistics.
+- **M5 Polish** – share sheet / "Open with …", dynamic colors from the cover, statistics (dark mode already ships in v0.2.0).
 
 Out of scope: download/search of external sources, cloud sync, accounts, streaming, store publishing.
 
