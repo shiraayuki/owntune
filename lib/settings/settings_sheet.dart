@@ -4,6 +4,7 @@ import 'package:cupertino_ui/cupertino_ui.dart' show CupertinoIcons;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:owntune/app/providers.dart';
+import 'package:owntune/app/segmented.dart';
 import 'package:owntune/app/theme.dart';
 import 'package:owntune/settings/settings.dart';
 import 'package:package_info_plus/package_info_plus.dart';
@@ -75,7 +76,12 @@ class SettingsSheet extends ConsumerWidget {
             ),
             _Header(onDone: () => Navigator.pop(context)),
             const _GroupLabel('Appearance'),
-            _Segmented(
+            Segmented<AppearanceMode>(
+              segments: const {
+                AppearanceMode.system: 'System',
+                AppearanceMode.light: 'Light',
+                AppearanceMode.dark: 'Dark',
+              },
               value: settings.mode,
               onChanged: (m) =>
                   notifier.set(ref.read(settingsProvider).copyWith(mode: m)),
@@ -265,76 +271,6 @@ class _Cell extends StatelessWidget {
             Text(value, style: TextStyle(fontSize: 17, color: c.muted)),
           ],
         ),
-      ),
-    );
-  }
-}
-
-/// System / Light / Dark segmented control (`.segmented`), no group box.
-class _Segmented extends StatelessWidget {
-  const _Segmented({required this.value, required this.onChanged});
-
-  final AppearanceMode value;
-  final ValueChanged<AppearanceMode> onChanged;
-
-  static const _labels = {
-    AppearanceMode.system: 'System',
-    AppearanceMode.light: 'Light',
-    AppearanceMode.dark: 'Dark',
-  };
-
-  @override
-  Widget build(BuildContext context) {
-    final c = Theme.of(context).extension<OwntuneColors>()!;
-    final dark = Theme.of(context).brightness == Brightness.dark;
-    return Container(
-      height: 32,
-      padding: const EdgeInsets.all(2),
-      decoration: BoxDecoration(
-        color: c.fill,
-        borderRadius: BorderRadius.circular(9),
-      ),
-      child: Row(
-        children: [
-          for (final MapEntry(key: mode, value: label) in _labels.entries)
-            Expanded(
-              child: Semantics(
-                button: true,
-                selected: mode == value,
-                child: GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onTap: () => onChanged(mode),
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 150),
-                    alignment: Alignment.center,
-                    decoration: mode == value
-                        ? BoxDecoration(
-                            color: dark ? const Color(0xff636366) : c.surface,
-                            borderRadius: BorderRadius.circular(7),
-                            boxShadow: const [
-                              BoxShadow(
-                                color: Color(0x1f000000),
-                                blurRadius: 8,
-                                offset: Offset(0, 3),
-                              ),
-                            ],
-                          )
-                        : null,
-                    child: Text(
-                      label,
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: mode == value
-                            ? FontWeight.w600
-                            : FontWeight.w500,
-                        color: c.text,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-        ],
       ),
     );
   }

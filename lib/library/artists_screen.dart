@@ -84,7 +84,7 @@ class _ArtistList extends StatelessWidget {
         title: artists[i].name,
         subtitle: artistCounts(artists[i]),
         divider: i + 1 < artists.length,
-        onTap: () => openArtist(context, artists[i].key, backLabel: 'Artists'),
+        onTap: () => openArtist(context, artists[i].key, backLabel: 'Library'),
       ),
     );
   }

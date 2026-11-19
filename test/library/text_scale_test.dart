@@ -22,6 +22,11 @@ void main() {
   testWidgets('songs rows grow with the text size and the index still jumps', (
     t,
   ) async {
+    // iPhone 14: the 800×600 default leaves too little room for the full
+    // A–Z strip under the sub-tabs and above the tab bar.
+    t.view.physicalSize = const Size(1170, 2532);
+    t.view.devicePixelRatio = 3;
+    addTearDown(t.view.reset);
     t.platformDispatcher.textScaleFactorTestValue = scale;
     addTearDown(t.platformDispatcher.clearTextScaleFactorTestValue);
     await pumpApp(t, songs: many);
@@ -45,5 +50,17 @@ void main() {
     await t.tap(find.text('Albums'));
     await t.pumpAndSettle();
     expect(t.takeException(), isNull);
+  });
+
+  testWidgets('library sub-tabs fit at large text', (t) async {
+    t.platformDispatcher.textScaleFactorTestValue = scale;
+    addTearDown(t.platformDispatcher.clearTextScaleFactorTestValue);
+    await pumpApp(t, songs: many);
+    expect(t.takeException(), isNull);
+    for (final sub in ['Artists', 'Songs']) {
+      await t.tap(find.text(sub));
+      await t.pumpAndSettle();
+      expect(t.takeException(), isNull, reason: sub);
+    }
   });
 }

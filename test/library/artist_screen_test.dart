@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:owntune/app/buttons.dart';
 import 'package:owntune/data/db/database.dart';
+import 'package:owntune/library/album_screen.dart';
 import 'package:owntune/library/artist_screen.dart';
 import 'package:owntune/library/navigation.dart';
 
@@ -150,5 +151,27 @@ void main() {
     expect(find.byType(ArtistScreen), findsNothing);
     expect(t.takeException(), isNull);
     expect(find.text('Juno Vale'), findsOneWidget);
+  });
+
+  testWidgets('an album opened from an artist keeps the artist as back label', (
+    t,
+  ) async {
+    await pumpApp(t, songs: _neon);
+    await _open(t, 'Neon Harbor');
+    // The album card's title comes first; song rows repeat it as subtitle.
+    await t.tap(find.text('Velvet Hours').first);
+    await t.pumpAndSettle();
+    expect(find.byType(AlbumScreen), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byType(NavRow),
+        matching: find.text('Neon Harbor'),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(of: find.byType(NavRow), matching: find.text('Library')),
+      findsNothing,
+    );
   });
 }

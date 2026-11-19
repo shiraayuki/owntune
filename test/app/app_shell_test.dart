@@ -4,34 +4,59 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:owntune/app/app_shell.dart';
 import 'package:owntune/app/providers.dart';
+import 'package:owntune/library/section_index.dart';
 import 'package:owntune/library/song_sort.dart';
 import 'package:owntune/settings/settings.dart';
 
 import '../support/fakes.dart';
 
 void main() {
-  testWidgets('shows the Songs tab with the title row first', (t) async {
-    await pumpApp(t);
-    expect(find.text('Songs'), findsWidgets);
+  testWidgets('shows Library › Songs with the title row first', (t) async {
+    await pumpApp(t, songs: [track(1, title: 'a')]);
+    expect(find.text('Library'), findsWidgets);
     expect(find.byIcon(CupertinoIcons.ellipsis), findsOneWidget);
     expect(find.byIcon(CupertinoIcons.plus), findsWidgets);
-    expect(find.text('Albums'), findsOneWidget);
-    expect(find.text('Artists'), findsOneWidget);
+    for (final l in ['Songs', 'Albums', 'Artists']) {
+      expect(find.text(l), findsOneWidget, reason: l);
+    }
+    expect(find.text('1 song · sorted by title'), findsOneWidget);
   });
 
-  testWidgets('switches between the tabs', (t) async {
-    await pumpApp(t);
+  testWidgets('switches between the library sub-tabs', (t) async {
+    await pumpApp(
+      t,
+      songs: [track(1, title: 'a', album: 'X', artist: 'Y')],
+    );
 
     await t.tap(find.text('Albums'));
     await t.pumpAndSettle();
-    expect(find.text('Your library is empty'), findsOneWidget);
+    expect(find.text('X').hitTestable(), findsOneWidget);
     expect(find.byIcon(CupertinoIcons.square_stack_fill), findsOneWidget);
 
     await t.tap(find.text('Artists'));
     await t.pumpAndSettle();
-    expect(find.text('Your library is empty'), findsOneWidget);
-    expect(find.byIcon(CupertinoIcons.person_fill), findsOneWidget);
-    expect(find.byIcon(CupertinoIcons.square_stack), findsOneWidget);
+    expect(find.text('Y').hitTestable(), findsOneWidget);
+    expect(find.byIcon(CupertinoIcons.square_stack_fill), findsOneWidget);
+  });
+
+  testWidgets('the song list and A–Z index end above the tab bar', (t) async {
+    await pumpApp(
+      t,
+      songs: [
+        for (final l in ['A', 'B', 'C', 'D', 'E', 'F'])
+          for (var n = 0; n < 6; n++)
+            track(l.codeUnitAt(0) * 10 + n, title: '$l song $n'),
+      ],
+    );
+    final barTop = t.getRect(find.byType(BackdropFilter)).top;
+    expect(
+      t.getRect(find.byType(SectionIndex)).bottom,
+      lessThanOrEqualTo(barTop),
+    );
+
+    await t.drag(find.byType(ListView), const Offset(0, -5000));
+    await t.pumpAndSettle();
+    expect(t.getRect(find.text('F song 5')).bottom, lessThanOrEqualTo(barTop));
   });
 
   testWidgets('Settings in the … menu calls the callback', (t) async {
@@ -192,15 +217,15 @@ void main() {
     expect(repo.saved.last.songSort, SongSort.artist);
   });
 
-  testWidgets('the … menu on Albums and Artists has only Settings', (t) async {
-    await pumpApp(t);
-    for (final tab in ['Albums', 'Artists']) {
-      await t.tap(find.text(tab).last);
+  testWidgets('sorting shows only on Library › Songs', (t) async {
+    await pumpApp(t, songs: [track(1, title: 'a')]);
+    for (final place in ['Albums', 'Artists', 'Home', 'Search', 'Playlists']) {
+      await t.tap(find.text(place).last);
       await t.pumpAndSettle();
       await t.tap(find.byIcon(CupertinoIcons.ellipsis));
       await t.pumpAndSettle();
-      expect(find.text('Settings'), findsOneWidget, reason: tab);
-      expect(find.text('Sort By'), findsNothing, reason: tab);
+      expect(find.text('Settings'), findsOneWidget, reason: place);
+      expect(find.text('Sort By'), findsNothing, reason: place);
       // Dismiss the menu.
       await t.tapAt(const Offset(10, 10));
       await t.pumpAndSettle();

@@ -17,7 +17,7 @@ void main() {
     await pumpApp(t);
     expect(
       find.ancestor(
-        of: _inkMaterial(find.text('Albums')),
+        of: _inkMaterial(find.text('Playlists')),
         matching: find.byType(BackdropFilter),
       ),
       findsOneWidget,
