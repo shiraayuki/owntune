@@ -41,27 +41,6 @@ void main() {
     expect(_inMini(find.byIcon(CupertinoIcons.play_fill)), findsOneWidget);
   });
 
-  testWidgets('next button skips', (t) async {
-    final engine = FakeAudioEngine();
-    await pumpApp(t, songs: _abc, engine: engine);
-    await _play(t, 'A song');
-
-    await t.tap(find.byKey(const Key('mini-next')));
-    await t.pumpAndSettle();
-    expect(engine.current, 'hash2.mp3');
-    expect(_inMini(find.text('B song')), findsOneWidget);
-  });
-
-  testWidgets('next is disabled on the last song with repeat off', (t) async {
-    final engine = FakeAudioEngine();
-    await pumpApp(t, songs: _abc, engine: engine);
-    await _play(t, 'C song');
-
-    await t.tap(find.byKey(const Key('mini-next')), warnIfMissed: false);
-    await t.pumpAndSettle();
-    expect(engine.loaded, ['hash3.mp3']);
-  });
-
   testWidgets('mini player shows on the album screen without a tab bar', (
     t,
   ) async {
@@ -136,5 +115,77 @@ void main() {
     final last = find.text('Song 130');
     expect(last, findsOneWidget);
     expect(t.getBottomLeft(last).dy, lessThanOrEqualTo(t.getTopLeft(_mini).dy));
+  });
+
+  testWidgets('the mini player has only the play/pause button', (t) async {
+    await pumpApp(t, songs: _abc);
+    await _play(t, 'A song');
+    expect(find.byKey(const Key('mini-play')), findsOneWidget);
+    expect(_inMini(find.byType(IconButton)), findsOneWidget);
+    expect(_inMini(find.byIcon(CupertinoIcons.forward_fill)), findsNothing);
+  });
+
+  testWidgets('swiping left goes to the next song', (t) async {
+    final engine = FakeAudioEngine();
+    await pumpApp(t, songs: _abc, engine: engine);
+    await _play(t, 'A song');
+
+    await t.drag(_mini, const Offset(-300, 0));
+    await t.pumpAndSettle();
+    expect(engine.current, 'hash2.mp3');
+    expect(_inMini(find.text('B song')), findsOneWidget);
+  });
+
+  testWidgets('swiping right goes to the previous song even late in it', (
+    t,
+  ) async {
+    final engine = FakeAudioEngine();
+    await pumpApp(t, songs: _abc, engine: engine);
+    await _play(t, 'B song');
+    engine.emitPosition(const Duration(seconds: 30));
+    await t.pump();
+
+    await t.drag(_mini, const Offset(300, 0));
+    await t.pumpAndSettle();
+    expect(engine.current, 'hash1.mp3');
+  });
+
+  testWidgets('swiping right on the first song restarts it', (t) async {
+    final engine = FakeAudioEngine();
+    await pumpApp(t, songs: _abc, engine: engine);
+    await _play(t, 'A song');
+
+    await t.drag(_mini, const Offset(300, 0));
+    await t.pumpAndSettle();
+    expect(engine.loaded, ['hash1.mp3']);
+    expect(engine.lastSeek, Duration.zero);
+  });
+
+  testWidgets('swiping left on the last song with repeat off does nothing', (
+    t,
+  ) async {
+    final engine = FakeAudioEngine();
+    await pumpApp(t, songs: _abc, engine: engine);
+    await _play(t, 'C song');
+
+    await t.drag(_mini, const Offset(-300, 0));
+    await t.pumpAndSettle();
+    expect(engine.loaded, ['hash3.mp3']);
+  });
+
+  testWidgets('a short slow swipe does nothing', (t) async {
+    final engine = FakeAudioEngine();
+    await pumpApp(t, songs: _abc, engine: engine);
+    await _play(t, 'A song');
+
+    final gesture = await t.startGesture(t.getCenter(_mini));
+    for (var i = 0; i < 10; i++) {
+      await gesture.moveBy(const Offset(-5, 0));
+      await t.pump(const Duration(milliseconds: 50));
+    }
+    await t.pump(const Duration(milliseconds: 300));
+    await gesture.up();
+    await t.pumpAndSettle();
+    expect(engine.loaded, ['hash1.mp3']);
   });
 }

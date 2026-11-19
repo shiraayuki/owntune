@@ -128,6 +128,18 @@ class PlayerController extends Notifier<PlayerState> {
     }
   }
 
+  /// The previous song regardless of the position (swipe on the mini
+  /// player); on the first song it restarts it.
+  Future<void> skipBack() async {
+    if (_queue.isEmpty) return;
+    final previous = _queue.previousIndex;
+    if (previous == null) {
+      await seek(Duration.zero);
+    } else {
+      await _start(_queue.withIndex(previous), play: state.playing);
+    }
+  }
+
   Future<void> seek(Duration position) async {
     _position = position;
     await _engine.seek(position);

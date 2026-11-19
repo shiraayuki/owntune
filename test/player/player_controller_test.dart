@@ -315,4 +315,21 @@ void main() {
         .playList([a, b], start: 1, source: 'Songs');
     expect(early.read(currentTrackProvider)!.id, 2);
   });
+
+  test('skipBack goes to the previous song even late in a song', () async {
+    await playAt(1);
+    engine.emitPosition(const Duration(seconds: 30));
+    await pumpEventQueue();
+    await player().skipBack();
+    await pumpEventQueue();
+    expect(state().queue.index, 0);
+    expect(engine.current, 'hash1.mp3');
+  });
+
+  test('skipBack on the first song restarts it', () async {
+    await playAt(0);
+    await player().skipBack();
+    expect(engine.loaded, ['hash1.mp3']);
+    expect(engine.lastSeek, Duration.zero);
+  });
 }
