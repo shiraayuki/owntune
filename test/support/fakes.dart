@@ -16,6 +16,7 @@ import 'package:owntune/import/importer.dart';
 import 'package:owntune/library/navigation.dart';
 import 'package:owntune/player/audio_engine.dart';
 import 'package:owntune/player/player_snapshot.dart';
+import 'package:owntune/player/system_controls.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:path/path.dart' as p;
 import 'package:owntune/settings/settings.dart';
@@ -230,6 +231,19 @@ class FakePlayerStateStore implements PlayerStateStore {
     saves++;
     saved = snapshot;
   }
+}
+
+/// Records what would show on the lock screen; the test sends commands
+/// through [commands].
+class FakeSystemControls implements SystemControls {
+  SystemCommands? commands;
+  final shown = <NowPlaying?>[];
+
+  @override
+  void connect(SystemCommands commands) => this.commands = commands;
+
+  @override
+  void show(NowPlaying? now) => shown.add(now);
 }
 
 class FakePicker implements AudioFilePicker {

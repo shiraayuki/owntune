@@ -4,6 +4,7 @@ import 'package:owntune/app/app_shell.dart';
 import 'package:owntune/app/providers.dart';
 import 'package:owntune/app/startup.dart';
 import 'package:owntune/app/startup_error_screen.dart';
+import 'package:owntune/player/system_controls.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -13,6 +14,7 @@ Future<void> main() async {
       :final storage,
       :final settings,
       :final player,
+      :final controls,
     ):
       runApp(
         ProviderScope(
@@ -21,6 +23,7 @@ Future<void> main() async {
             storageProvider.overrideWithValue(storage),
             initialSettingsProvider.overrideWithValue(settings),
             initialPlayerSnapshotProvider.overrideWithValue(player),
+            systemControlsProvider.overrideWithValue(controls),
           ],
           child: const OwntuneApp(),
         ),

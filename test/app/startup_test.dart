@@ -6,6 +6,7 @@ import 'package:owntune/app/startup.dart';
 import 'package:owntune/data/db/database.dart';
 import 'package:owntune/data/library_storage.dart';
 import 'package:owntune/player/player_snapshot.dart';
+import 'package:owntune/player/system_controls.dart';
 import 'package:owntune/settings/settings.dart';
 
 void main() {
@@ -22,11 +23,14 @@ void main() {
   Future<StartupResult> run({
     Future<void> Function()? initRust,
     Future<void> Function()? initAudio,
+    Future<SystemControls> Function()? initSystemControls,
     Future<LibraryStorage> Function()? openStorage,
     AppDatabase Function()? openDatabase,
   }) => startUp(
     initRust: initRust ?? () async {},
     initAudio: initAudio ?? () async {},
+    initSystemControls:
+        initSystemControls ?? () async => const NoSystemControls(),
     openStorage: openStorage ?? () async => storage,
     openDatabase: openDatabase ?? () => AppDatabase(NativeDatabase.memory()),
   );
@@ -145,9 +149,8 @@ void main() {
   test('startUp returns the saved player state', () async {
     final db = AppDatabase(NativeDatabase.memory());
     addTearDown(db.close);
-    await DbPlayerStateStore(db).save(
-      const PlayerSnapshot(trackIds: [4, 5], index: 1),
-    );
+    await DbPlayerStateStore(db)
+        .save(const PlayerSnapshot(trackIds: [4, 5], index: 1));
 
     final result = await run(openDatabase: () => db);
 
@@ -172,5 +175,19 @@ void main() {
 
     expect(result, isA<StartupReady>());
     expect((result as StartupReady).player, isNull);
+  });
+
+  test('startUp returns StartupFailed when the system controls fail', () async {
+    final result = await run(
+      initSystemControls: () async => throw StateError('no media session'),
+    );
+    expect((result as StartupFailed).message, contains('no media session'));
+  });
+
+  test('startUp returns the system controls it set up', () async {
+    const controls = NoSystemControls();
+    final result = await run(initSystemControls: () async => controls);
+    addTearDown((result as StartupReady).db.close);
+    expect(result.controls, same(controls));
   });
 }

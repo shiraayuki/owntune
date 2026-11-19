@@ -16,6 +16,7 @@ import 'package:owntune/library/search_screen.dart';
 import 'package:owntune/library/song_sort.dart';
 import 'package:owntune/player/mini_player.dart';
 import 'package:owntune/player/player_controller.dart';
+import 'package:owntune/player/system_controls.dart';
 import 'package:owntune/settings/settings.dart';
 import 'package:owntune/settings/settings_sheet.dart';
 
@@ -31,6 +32,8 @@ class OwntuneApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final settings = ref.watch(settingsProvider);
+    // Lock screen / notification controls follow the player for the whole run.
+    ref.watch(systemControlsSyncProvider);
     return MaterialApp(
       title: 'owntune',
       theme: buildTheme(Brightness.light, settings.accent),
