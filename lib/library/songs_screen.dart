@@ -6,6 +6,7 @@ import 'package:owntune/app/buttons.dart';
 import 'package:owntune/app/providers.dart';
 import 'package:owntune/app/theme.dart';
 import 'package:owntune/data/db/database.dart';
+import 'package:owntune/data/track_repository.dart';
 import 'package:owntune/import/import_controller.dart';
 import 'package:owntune/library/artwork.dart';
 import 'package:owntune/library/sort_key.dart';
@@ -167,12 +168,18 @@ Color _red(BuildContext context) =>
 enum _SongAction { delete }
 
 /// The long-press context menu of a song row, opened at [position].
+///
+/// The row may be rebuilt elsewhere (and its element disposed) while a menu
+/// or dialog is open, e.g. by a running import; so the repository and the
+/// navigator are captured before the first await.
 Future<void> showSongMenu(
   BuildContext context,
   WidgetRef ref,
   Track track,
   Offset position,
 ) async {
+  final repo = ref.read(trackRepositoryProvider);
+  final navigator = Navigator.of(context);
   final dark = Theme.of(context).brightness == Brightness.dark;
   final red = _red(context);
   final overlay = Overlay.of(context).context.findRenderObject()! as RenderBox;
@@ -211,15 +218,18 @@ Future<void> showSongMenu(
       ),
     ],
   );
-  if (action == _SongAction.delete && context.mounted) {
-    await confirmDeleteSong(context, ref, track);
+  if (action == _SongAction.delete && navigator.mounted) {
+    await confirmDeleteSong(navigator.context, repo, track);
   }
 }
 
 /// Asks before deleting [track]; only `Delete` removes it from the library.
+/// A failure is shown in a dialog (there are no logs on the iPhone).
+///
+/// [context] must stay mounted across the dialogs (the navigator's context).
 Future<void> confirmDeleteSong(
   BuildContext context,
-  WidgetRef ref,
+  TrackRepository repo,
   Track track,
 ) async {
   final title = displayTitle(track.title, track.originalName);
@@ -243,8 +253,21 @@ Future<void> confirmDeleteSong(
       ],
     ),
   );
-  if (confirmed ?? false) {
-    await ref.read(trackRepositoryProvider).delete(track.id);
+  if (!(confirmed ?? false)) return;
+  try {
+    await repo.delete(track.id);
+  } catch (e) {
+    if (!context.mounted) return;
+    await showAdaptiveDialog<void>(
+      context: context,
+      builder: (context) => AlertDialog.adaptive(
+        title: Text('Could not delete "$title"'),
+        content: SelectableText('$e'),
+        actions: [
+          _DialogAction(label: 'OK', onPressed: () => Navigator.pop(context)),
+        ],
+      ),
+    );
   }
 }
 

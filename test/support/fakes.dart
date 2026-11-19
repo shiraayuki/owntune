@@ -75,14 +75,20 @@ class FakeImporter implements Importer {
 /// Records `delete` calls and returns fixed library stats; other members are
 /// unused in widget tests.
 class FakeTrackRepository implements TrackRepository {
-  FakeTrackRepository({this.songCount = 0, this.bytes = 0});
+  FakeTrackRepository({this.songCount = 0, this.bytes = 0, this.deleteError});
 
   final int songCount;
   final int bytes;
+
+  /// Thrown by [delete] when set.
+  final Object? deleteError;
   final deleted = <int>[];
 
   @override
-  Future<void> delete(int id) async => deleted.add(id);
+  Future<void> delete(int id) async {
+    if (deleteError != null) throw deleteError!;
+    deleted.add(id);
+  }
 
   @override
   Future<int> count() async => songCount;
@@ -126,6 +132,7 @@ class FakePicker implements AudioFilePicker {
 Future<void> pumpApp(
   WidgetTester t, {
   List<Track> songs = const [],
+  Stream<List<Track>>? songsStream,
   FakeImporter? importer,
   FakePicker? picker,
   LibraryStorage? storage,
@@ -135,7 +142,7 @@ Future<void> pumpApp(
   await t.pumpWidget(
     ProviderScope(
       overrides: [
-        songsProvider.overrideWith((ref) => Stream.value(songs)),
+        songsProvider.overrideWith((ref) => songsStream ?? Stream.value(songs)),
         storageProvider.overrideWithValue(
           storage ?? LibraryStorage(Directory('/nonexistent/owntune')),
         ),

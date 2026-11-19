@@ -1,7 +1,12 @@
+import 'dart:async';
+import 'dart:io';
+
 import 'package:cupertino_ui/cupertino_ui.dart' show CupertinoAlertDialog;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:owntune/app/providers.dart';
+import 'package:owntune/data/db/database.dart';
+import 'package:owntune/library/songs_screen.dart';
 
 import '../support/fakes.dart';
 
@@ -83,4 +88,66 @@ void main() {
     await t.pumpAndSettle();
     expect(repo.deleted, [7]);
   }, variant: TargetPlatformVariant.only(TargetPlatform.iOS));
+
+  testWidgets(
+    'a failing delete is shown with its error',
+    (t) async {
+      final repo = FakeTrackRepository(
+        deleteError: const FileSystemException('Permission denied', '/x.mp3'),
+      );
+      await pumpApp(
+        t,
+        songs: songs,
+        overrides: [trackRepositoryProvider.overrideWithValue(repo)],
+      );
+      await openDialog(t);
+      await t.tap(find.text('Delete'));
+      await t.pumpAndSettle();
+
+      expect(find.text('Could not delete "Amber Lights"'), findsOneWidget);
+      expect(
+        find.byWidgetPredicate(
+          (w) =>
+              w is SelectableText &&
+              (w.data ?? '').contains('Permission denied'),
+        ),
+        findsOneWidget,
+      );
+      await t.tap(find.text('OK'));
+      await t.pumpAndSettle();
+      expect(find.text('Could not delete "Amber Lights"'), findsNothing);
+    },
+    variant: TargetPlatformVariant({
+      TargetPlatform.android,
+      TargetPlatform.iOS,
+    }),
+  );
+
+  testWidgets('Delete still works if the list changed meanwhile', (t) async {
+    final repo = FakeTrackRepository();
+    final controller = StreamController<List<Track>>();
+    addTearDown(controller.close);
+    controller.add(songs);
+    await pumpApp(
+      t,
+      songsStream: controller.stream,
+      overrides: [trackRepositoryProvider.overrideWithValue(repo)],
+    );
+    await openDialog(t);
+
+    // E.g. a running import updates the list: the long-pressed row is
+    // rebuilt elsewhere and its element is disposed.
+    controller.add(const []);
+    await t.pumpAndSettle();
+    expect(
+      find.text('Your library is empty', skipOffstage: false),
+      findsOneWidget,
+    );
+    expect(find.byType(SongRow, skipOffstage: false), findsNothing);
+    await t.tap(find.text('Delete'));
+    await t.pumpAndSettle();
+
+    expect(t.takeException(), isNull);
+    expect(repo.deleted, [7]);
+  });
 }
