@@ -200,7 +200,10 @@ fn apply(tag: &mut Tag, tags: &TagValues) {
         Some(n) => tag.set_disk(n),
         None => tag.remove_disk(),
     }
+    // Dart sends every field on each save; an unchanged year must not cut a
+    // full date (e.g. 2003-04-01) down to the year.
     match tags.year.and_then(|y| u16::try_from(y).ok()) {
+        Some(year) if tag.date().map(|d| d.year) == Some(year) => {}
         Some(year) => tag.set_date(Timestamp {
             year,
             ..Timestamp::default()
@@ -488,5 +491,33 @@ mod tests {
             .map(|e| e.unwrap().file_name().into_string().unwrap())
             .collect();
         assert_eq!(names, vec!["copy.m4a".to_owned()]);
+    }
+
+    #[test]
+    fn an_unchanged_year_keeps_the_full_date() {
+        let path = copy_fixture("tagged.mp3");
+        let mut tagged = lofty::read_from_path(&path).unwrap();
+        let tag = tagged.primary_tag_mut().unwrap();
+        tag.set_date(Timestamp {
+            year: 2003,
+            month: Some(4),
+            day: Some(1),
+            ..Timestamp::default()
+        });
+        tagged.save_to_path(&path, WriteOptions::default()).unwrap();
+
+        let tags = TagValues {
+            genre: Some("Folk".into()),
+            year: Some(2003),
+            ..all_fields()
+        };
+        assert_eq!(write_tags(path.to_str().unwrap().to_owned(), tags), None);
+        let date = lofty::read_from_path(&path)
+            .unwrap()
+            .primary_tag()
+            .unwrap()
+            .date()
+            .unwrap();
+        assert_eq!((date.year, date.month, date.day), (2003, Some(4), Some(1)));
     }
 }
