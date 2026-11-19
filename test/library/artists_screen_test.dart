@@ -1,5 +1,9 @@
+import 'dart:async';
+
 import 'package:cupertino_ui/cupertino_ui.dart' show CupertinoIcons;
 import 'package:flutter_test/flutter_test.dart';
+import 'package:material_ui/material_ui.dart';
+import 'package:owntune/data/db/database.dart';
 import 'package:owntune/library/artist_screen.dart';
 import 'package:owntune/library/artists_screen.dart';
 import 'package:owntune/library/library.dart';
@@ -43,11 +47,19 @@ void main() {
     expect(find.byIcon(CupertinoIcons.chevron_right), findsNWidgets(3));
   });
 
-  testWidgets('empty library shows the empty state', (t) async {
-    await pumpApp(t);
+  testWidgets('emptied library shows the empty state, no sub-tabs', (t) async {
+    final songs = StreamController<List<Track>>();
+    addTearDown(songs.close);
+    await pumpApp(t, songsStream: songs.stream);
+    songs.add([track(1, title: 'x', artist: 'Y', album: 'Z')]);
+    await t.pumpAndSettle();
     await t.tap(find.text('Artists'));
     await t.pumpAndSettle();
+
+    songs.add([]);
+    await t.pumpAndSettle();
     expect(find.text('Your library is empty'), findsOneWidget);
+    expect(find.byKey(const ValueKey('library-segments')), findsNothing);
   });
 
   testWidgets('tapping an artist opens it with back label Artists', (t) async {

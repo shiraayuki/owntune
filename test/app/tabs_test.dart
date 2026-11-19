@@ -21,12 +21,66 @@ Future<void> _filter(WidgetTester t, String label, String query) async {
 }
 
 void main() {
-  testWidgets('five tabs, Songs with the two-note icon', (t) async {
-    await pumpApp(t);
-    for (final l in ['Songs', 'Albums', 'Artists', 'Playlists', 'Search']) {
-      expect(find.text(l), findsWidgets, reason: l);
+  testWidgets('four tabs in order, starting on Library', (t) async {
+    await pumpApp(t, songs: _songs);
+    final bar = find.byType(BackdropFilter);
+    double x(String l) =>
+        t.getCenter(find.descendant(of: bar, matching: find.text(l))).dx;
+    final labels = ['Home', 'Search', 'Library', 'Playlists'];
+    for (var i = 1; i < labels.length; i++) {
+      expect(x(labels[i - 1]), lessThan(x(labels[i])), reason: labels[i]);
     }
-    expect(find.byIcon(CupertinoIcons.music_note_2), findsOneWidget);
+    expect(find.text('Library'), findsNWidgets(2)); // title and tab item
+    expect(find.byIcon(CupertinoIcons.square_stack_fill), findsOneWidget);
+    expect(find.byIcon(CupertinoIcons.house), findsOneWidget);
+  });
+
+  testWidgets('Home shows its placeholder without a search field', (t) async {
+    await pumpApp(t, songs: _songs);
+    await _tab(t, 'Home');
+    expect(find.text('Nothing here yet'), findsOneWidget);
+    expect(find.text('Home arrives in a later version.'), findsOneWidget);
+    expect(find.byType(TextField).hitTestable(), findsNothing);
+    expect(find.byIcon(CupertinoIcons.house_fill), findsOneWidget);
+  });
+
+  testWidgets('Library switches sub-tabs with the segmented control', (
+    t,
+  ) async {
+    await pumpApp(t, songs: _songs);
+    expect(find.widgetWithText(TextField, 'Search Songs'), findsOneWidget);
+    await _tab(t, 'Albums');
+    expect(
+      find.widgetWithText(TextField, 'Search Albums').hitTestable(),
+      findsOneWidget,
+    );
+    await _tab(t, 'Artists');
+    expect(
+      find.widgetWithText(TextField, 'Search Artists').hitTestable(),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('each sub-tab keeps its query across sub-tabs and tabs', (
+    t,
+  ) async {
+    await pumpApp(t, songs: _songs);
+    await _filter(t, 'Search Songs', 'back');
+    await _tab(t, 'Albums');
+    await _tab(t, 'Songs');
+    expect(find.text('Backroads'), findsOneWidget);
+    expect(find.text('Blue Hour'), findsNothing);
+
+    await _tab(t, 'Search');
+    await _tab(t, 'Library');
+    expect(find.text('Backroads').hitTestable(), findsOneWidget);
+    expect(find.text('Blue Hour'), findsNothing);
+  });
+
+  testWidgets('empty library: no sub-tabs, import still offered', (t) async {
+    await pumpApp(t);
+    expect(find.byKey(const ValueKey('library-segments')), findsNothing);
+    expect(find.text('Your library is empty'), findsOneWidget);
   });
 
   testWidgets('Playlists shows its empty state without a search field', (

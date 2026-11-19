@@ -8,12 +8,11 @@ import 'package:owntune/app/providers.dart';
 import 'package:owntune/app/theme.dart';
 import 'package:owntune/import/import_controller.dart';
 import 'package:owntune/import/import_sheets.dart';
-import 'package:owntune/library/albums_screen.dart';
-import 'package:owntune/library/artists_screen.dart';
+import 'package:owntune/home/home_screen.dart';
+import 'package:owntune/library/library_tab.dart';
 import 'package:owntune/library/playlists_screen.dart';
 import 'package:owntune/library/search_screen.dart';
 import 'package:owntune/library/song_sort.dart';
-import 'package:owntune/library/songs_screen.dart';
 import 'package:owntune/settings/settings.dart';
 import 'package:owntune/settings/settings_sheet.dart';
 
@@ -81,19 +80,25 @@ class _Tab {
 }
 
 const _tabs = [
+  _Tab('Home', CupertinoIcons.house, CupertinoIcons.house_fill),
   // These glyphs are already solid; there is no separate fill variant.
-  _Tab('Songs', CupertinoIcons.music_note_2, CupertinoIcons.music_note_2),
-  _Tab('Albums', CupertinoIcons.square_stack, CupertinoIcons.square_stack_fill),
-  _Tab('Artists', CupertinoIcons.person, CupertinoIcons.person_fill),
+  _Tab('Search', CupertinoIcons.search, CupertinoIcons.search),
+  _Tab(
+    'Library',
+    CupertinoIcons.square_stack,
+    CupertinoIcons.square_stack_fill,
+  ),
   _Tab(
     'Playlists',
     CupertinoIcons.music_note_list,
     CupertinoIcons.music_note_list,
   ),
-  _Tab('Search', CupertinoIcons.search, CupertinoIcons.search),
 ];
 
-/// Title row with the "…" menu and "+", the five tabs and the tab bar. The
+/// Index of the Library tab in [_tabs].
+const _libraryTab = 2;
+
+/// Title row with the "…" menu and "+", the four tabs and the tab bar. The
 /// import sheets are added above the navigator by [OwntuneApp].
 class AppShell extends ConsumerStatefulWidget {
   const AppShell({super.key, this.onOpenSettings});
@@ -105,7 +110,10 @@ class AppShell extends ConsumerStatefulWidget {
 }
 
 class _AppShellState extends ConsumerState<AppShell> {
-  var _index = 0;
+  // Opens on Library while Home is a placeholder; Home becomes the start tab
+  // once it has content.
+  var _index = _libraryTab;
+  var _section = LibrarySection.songs;
 
   @override
   Widget build(BuildContext context) {
@@ -118,7 +126,8 @@ class _AppShellState extends ConsumerState<AppShell> {
             bottom: false,
             child: _TitleRow(
               title: _tabs[_index].label,
-              showSort: _index == 0,
+              showSort:
+                  _index == _libraryTab && _section == LibrarySection.songs,
               onOpenSettings: () =>
                   (widget.onOpenSettings ?? showSettingsSheet)(context),
               onImport: running
@@ -129,18 +138,24 @@ class _AppShellState extends ConsumerState<AppShell> {
             ),
           ),
           Expanded(
-            child: MediaQuery.removePadding(
-              context: context,
-              removeTop: true,
-              child: IndexedStack(
-                index: _index,
-                children: const [
-                  SongsScreen(),
-                  AlbumsScreen(),
-                  ArtistsScreen(),
-                  PlaylistsScreen(),
-                  SearchTab(),
-                ],
+            // The Builder's context sits below the Scaffold, so the bottom
+            // padding the Scaffold adds for the tab bar (extendBody) is kept.
+            child: Builder(
+              builder: (context) => MediaQuery.removePadding(
+                context: context,
+                removeTop: true,
+                child: IndexedStack(
+                  index: _index,
+                  children: [
+                    const HomeScreen(),
+                    const SearchTab(),
+                    LibraryTab(
+                      section: _section,
+                      onSection: (s) => setState(() => _section = s),
+                    ),
+                    const PlaylistsScreen(),
+                  ],
+                ),
               ),
             ),
           ),

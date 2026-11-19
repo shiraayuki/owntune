@@ -162,6 +162,11 @@ void main() {
         find.descendant(of: find.byType(SectionIndex), matching: find.text(l));
 
     testWidgets('tapping D scrolls the D header to the top', (t) async {
+      // iPhone 14: the 800×600 default leaves too little room for the full
+      // A–Z strip under the sub-tabs and above the tab bar.
+      t.view.physicalSize = const Size(1170, 2532);
+      t.view.devicePixelRatio = 3;
+      addTearDown(t.view.reset);
       await pumpApp(t, songs: many);
       expect(find.byKey(const ValueKey('section-D')), findsNothing);
 
