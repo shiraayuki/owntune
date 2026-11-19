@@ -132,6 +132,17 @@ class PlayerController extends Notifier<PlayerState> {
     return _start(queue, play: true);
   }
 
+  /// Reloads the current song at its position if its id is in [trackIds].
+  /// After an edit its file was replaced, and the engine may still read the
+  /// old one.
+  Future<void> reloadIfCurrent(Set<int> trackIds) async {
+    final current = _queue.current;
+    if (current == null || !trackIds.contains(current.trackId)) return;
+    final position = _position;
+    await _start(_queue, play: state.playing);
+    if (_queue.current == current) await seek(position);
+  }
+
   /// Shuffle on or off; the current song keeps playing.
   void toggleShuffle() =>
       _set(_queue.shuffled ? _queue.shuffleOff() : _queue.shuffleOn(_spread));

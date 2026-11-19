@@ -8,6 +8,7 @@ import 'package:owntune/edit/tag_saver.dart';
 import 'package:owntune/edit/track_tags.dart';
 import 'package:owntune/library/songs_screen.dart' show DialogAction;
 import 'package:owntune/library/sort_key.dart';
+import 'package:owntune/player/player_controller.dart';
 
 /// Opens the editor for [tracks] (one song, or all songs of an album or an
 /// artist) as a full-screen page above everything.
@@ -95,6 +96,12 @@ class _EditInfoScreenState extends ConsumerState<EditInfoScreen> {
     } on Object catch (e) {
       failures = [for (final t in widget.tracks) SaveFailure(t, '$e')];
     }
+    if (!mounted) return;
+    final failed = {for (final f in failures) f.track.id};
+    await ref.read(playerProvider.notifier).reloadIfCurrent({
+      for (final t in widget.tracks)
+        if (!failed.contains(t.id)) t.id,
+    });
     if (!mounted) return;
     if (failures.isNotEmpty) await _showFailures(failures);
     if (mounted) Navigator.of(context).pop();
@@ -186,6 +193,8 @@ class _EditInfoScreenState extends ConsumerState<EditInfoScreen> {
           ),
           Expanded(
             child: ListView(
+              // The iOS number pad has no key that closes it.
+              keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
               padding: EdgeInsets.fromLTRB(
                 16,
                 8,
@@ -231,6 +240,7 @@ class _EditInfoScreenState extends ConsumerState<EditInfoScreen> {
               style: TextStyle(fontSize: 17, color: c.text),
               cursorColor: c.accent,
               keyboardType: f.isNumber ? TextInputType.number : null,
+              textInputAction: TextInputAction.next,
               textCapitalization: f.isNumber
                   ? TextCapitalization.none
                   : TextCapitalization.words,

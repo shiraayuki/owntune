@@ -154,4 +154,37 @@ void main() {
     await t.pumpAndSettle();
     expect(find.text('Edit Info'), findsNothing);
   });
+
+  testWidgets('saving the playing song reloads it', (t) async {
+    t.view.physicalSize = const Size(800, 1800);
+    t.view.devicePixelRatio = 1;
+    addTearDown(t.view.reset);
+    final engine = FakeAudioEngine();
+    await pumpApp(t, songs: [_one, _two], storage: _storage, engine: engine);
+    await t.tap(find.text('After the Rain'));
+    await t.pumpAndSettle();
+    expect(engine.loaded, ['hash1.mp3']);
+
+    openEditInfo(t.element(find.text('Songs').first), [_one]);
+    await t.pumpAndSettle();
+    await t.enterText(_field(TagField.genre), 'Folk');
+    await t.pump();
+    await t.tap(find.byKey(const Key('edit-save')));
+    await t.pumpAndSettle();
+    expect(engine.loaded, ['hash1.mp3', 'hash1.mp3']);
+  });
+
+  testWidgets('the form closes the keyboard on scroll', (t) async {
+    await open(t, [_one]);
+    final list = t.widget<ListView>(
+      find.descendant(
+        of: find.byType(EditInfoScreen),
+        matching: find.byType(ListView),
+      ),
+    );
+    expect(
+      list.keyboardDismissBehavior,
+      ScrollViewKeyboardDismissBehavior.onDrag,
+    );
+  });
 }
