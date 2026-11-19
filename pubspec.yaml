@@ -50,6 +50,7 @@ dependencies:
   just_audio_media_kit: ^2.1.0
   media_kit_libs_linux: ^1.2.1
   audio_session: ^0.2.4
+  audio_service: ^0.18.19
 
 dev_dependencies:
   flutter_test:
