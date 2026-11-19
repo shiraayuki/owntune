@@ -1,4 +1,5 @@
-import 'package:cupertino_ui/cupertino_ui.dart' show CupertinoIcons;
+import 'package:cupertino_ui/cupertino_ui.dart'
+    show CupertinoDialogAction, CupertinoIcons;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:owntune/app/buttons.dart';
@@ -100,53 +101,184 @@ class SongRow extends ConsumerWidget {
       if (album != null && album.isNotEmpty) album,
     ].join(' · ');
 
-    return ConstrainedBox(
-      constraints: const BoxConstraints(minHeight: 64),
-      child: Stack(
-        children: [
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 8),
-            child: Row(
-              children: [
-                Artwork(file: cover == null ? null : storage.coverFile(cover)),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        displayTitle(track.title, track.originalName),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontSize: 17,
-                          fontWeight: FontWeight.w600,
-                          color: c.text,
-                        ),
-                      ),
-                      Text(
-                        subtitle,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(fontSize: 15, color: c.muted),
-                      ),
-                    ],
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onLongPressStart: (details) =>
+          showSongMenu(context, ref, track, details.globalPosition),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(minHeight: 64),
+        child: Stack(
+          children: [
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: Row(
+                children: [
+                  Artwork(
+                    file: cover == null ? null : storage.coverFile(cover),
                   ),
-                ),
-              ],
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          displayTitle(track.title, track.originalName),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 17,
+                            fontWeight: FontWeight.w600,
+                            color: c.text,
+                          ),
+                        ),
+                        Text(
+                          subtitle,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(fontSize: 15, color: c.muted),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
-          if (divider)
-            Positioned(
-              left: 60,
-              right: 0,
-              bottom: 0,
-              child: Container(height: 0.5, color: c.line),
-            ),
-        ],
+            if (divider)
+              Positioned(
+                left: 60,
+                right: 0,
+                bottom: 0,
+                child: Container(height: 0.5, color: c.line),
+              ),
+          ],
+        ),
       ),
     );
+  }
+}
+
+/// iOS system red (`--red` in the mockup), light and dark.
+Color _red(BuildContext context) =>
+    Theme.of(context).brightness == Brightness.dark
+    ? const Color(0xffff453a)
+    : const Color(0xffff3b30);
+
+enum _SongAction { delete }
+
+/// The long-press context menu of a song row, opened at [position].
+Future<void> showSongMenu(
+  BuildContext context,
+  WidgetRef ref,
+  Track track,
+  Offset position,
+) async {
+  final dark = Theme.of(context).brightness == Brightness.dark;
+  final red = _red(context);
+  final overlay = Overlay.of(context).context.findRenderObject()! as RenderBox;
+  final action = await showMenu<_SongAction>(
+    context: context,
+    position: RelativeRect.fromRect(
+      position & Size.zero,
+      Offset.zero & overlay.size,
+    ),
+    color: dark
+        ? const Color.fromRGBO(37, 37, 42, 0.96)
+        : const Color.fromRGBO(250, 250, 250, 0.96),
+    elevation: 12,
+    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(13)),
+    constraints: const BoxConstraints.tightFor(width: 250),
+    menuPadding: EdgeInsets.zero,
+    items: [
+      PopupMenuItem(
+        value: _SongAction.delete,
+        height: 44,
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(
+                'Delete from Library',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(fontSize: 17, color: red),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Icon(CupertinoIcons.trash, size: 20, color: red),
+          ],
+        ),
+      ),
+    ],
+  );
+  if (action == _SongAction.delete && context.mounted) {
+    await confirmDeleteSong(context, ref, track);
+  }
+}
+
+/// Asks before deleting [track]; only `Delete` removes it from the library.
+Future<void> confirmDeleteSong(
+  BuildContext context,
+  WidgetRef ref,
+  Track track,
+) async {
+  final title = displayTitle(track.title, track.originalName);
+  final confirmed = await showAdaptiveDialog<bool>(
+    context: context,
+    builder: (context) => AlertDialog.adaptive(
+      title: Text('Delete "$title"?'),
+      content: const Text(
+        'The song will be removed from owntune and its file deleted.',
+      ),
+      actions: [
+        _DialogAction(
+          label: 'Cancel',
+          onPressed: () => Navigator.pop(context, false),
+        ),
+        _DialogAction(
+          label: 'Delete',
+          destructive: true,
+          onPressed: () => Navigator.pop(context, true),
+        ),
+      ],
+    ),
+  );
+  if (confirmed ?? false) {
+    await ref.read(trackRepositoryProvider).delete(track.id);
+  }
+}
+
+/// A dialog button: Cupertino on iOS/macOS, a text button elsewhere.
+class _DialogAction extends StatelessWidget {
+  const _DialogAction({
+    required this.label,
+    required this.onPressed,
+    this.destructive = false,
+  });
+
+  final String label;
+  final VoidCallback onPressed;
+  final bool destructive;
+
+  @override
+  Widget build(BuildContext context) {
+    switch (Theme.of(context).platform) {
+      case TargetPlatform.iOS:
+      case TargetPlatform.macOS:
+        return CupertinoDialogAction(
+          isDestructiveAction: destructive,
+          onPressed: onPressed,
+          child: Text(label),
+        );
+      default:
+        return TextButton(
+          style: destructive
+              ? TextButton.styleFrom(foregroundColor: _red(context))
+              : null,
+          onPressed: onPressed,
+          child: Text(label),
+        );
+    }
   }
 }
 

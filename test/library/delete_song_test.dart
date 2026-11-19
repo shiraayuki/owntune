@@ -1,0 +1,98 @@
+import 'package:cupertino_ui/cupertino_ui.dart' show CupertinoAlertDialog;
+import 'package:flutter_test/flutter_test.dart';
+import 'package:material_ui/material_ui.dart';
+import 'package:owntune/app/providers.dart';
+import 'package:owntune/data/track_repository.dart';
+
+import '../support/fakes.dart';
+
+/// Records `delete` calls; every other member is unused here.
+class FakeTrackRepository implements TrackRepository {
+  final deleted = <int>[];
+
+  @override
+  Future<void> delete(int id) async => deleted.add(id);
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+void main() {
+  final songs = [
+    track(1, title: 'After the Rain', artist: 'Juno Vale'),
+    track(7, title: 'Amber Lights', artist: 'Neon Harbor'),
+  ];
+
+  Future<FakeTrackRepository> pump(WidgetTester t) async {
+    final repo = FakeTrackRepository();
+    await pumpApp(
+      t,
+      songs: songs,
+      overrides: [trackRepositoryProvider.overrideWithValue(repo)],
+    );
+    return repo;
+  }
+
+  Future<void> openDialog(WidgetTester t) async {
+    await t.longPress(find.text('Amber Lights'));
+    await t.pumpAndSettle();
+    await t.tap(find.text('Delete from Library'));
+    await t.pumpAndSettle();
+  }
+
+  testWidgets('long press on a song shows Delete from Library', (t) async {
+    await pump(t);
+    expect(find.text('Delete from Library'), findsNothing);
+
+    await t.longPress(find.text('Amber Lights'));
+    await t.pumpAndSettle();
+
+    expect(find.text('Delete from Library'), findsOneWidget);
+  });
+
+  testWidgets('Delete from Library asks for confirmation', (t) async {
+    final repo = await pump(t);
+    await openDialog(t);
+
+    expect(find.text('Delete "Amber Lights"?'), findsOneWidget);
+    expect(
+      find.text('The song will be removed from owntune and its file deleted.'),
+      findsOneWidget,
+    );
+    expect(find.text('Cancel'), findsOneWidget);
+    expect(find.text('Delete'), findsOneWidget);
+    expect(repo.deleted, isEmpty);
+  });
+
+  testWidgets('Cancel closes the dialog without deleting', (t) async {
+    final repo = await pump(t);
+    await openDialog(t);
+
+    await t.tap(find.text('Cancel'));
+    await t.pumpAndSettle();
+
+    expect(find.text('Delete "Amber Lights"?'), findsNothing);
+    expect(repo.deleted, isEmpty);
+  });
+
+  testWidgets('Delete removes the long-pressed song by id', (t) async {
+    final repo = await pump(t);
+    await openDialog(t);
+
+    await t.tap(find.text('Delete'));
+    await t.pumpAndSettle();
+
+    expect(find.text('Delete "Amber Lights"?'), findsNothing);
+    expect(repo.deleted, [7]);
+  });
+
+  testWidgets('the dialog uses the Cupertino style on iOS', (t) async {
+    final repo = await pump(t);
+    await openDialog(t);
+
+    expect(find.byType(CupertinoAlertDialog), findsOneWidget);
+    await t.tap(find.text('Delete'));
+    await t.pumpAndSettle();
+    expect(repo.deleted, [7]);
+  }, variant: TargetPlatformVariant.only(TargetPlatform.iOS));
+}
