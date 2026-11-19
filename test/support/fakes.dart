@@ -14,7 +14,9 @@ import 'package:owntune/data/track_repository.dart';
 import 'package:owntune/import/audio_file_picker.dart';
 import 'package:owntune/import/importer.dart';
 import 'package:owntune/library/navigation.dart';
+import 'package:owntune/player/audio_engine.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:path/path.dart' as p;
 import 'package:owntune/settings/settings.dart';
 
 Track track(
@@ -99,6 +101,12 @@ class FakeTrackRepository implements TrackRepository {
   final Object? deleteError;
   final deleted = <int>[];
 
+  /// Ids passed to [markPlayed], in order.
+  final played = <int>[];
+
+  @override
+  Future<void> markPlayed(int id) async => played.add(id);
+
   @override
   Future<void> delete(int id) async {
     if (deleteError != null) throw deleteError!;
@@ -126,6 +134,71 @@ class FakeSettingsRepository implements SettingsRepository {
   Future<AppSettings> load() async => AppSettings.defaults;
 }
 
+/// An audio engine without audio: records what it was told and lets the
+/// test emit positions, completion and errors.
+class FakeAudioEngine implements AudioEngine {
+  /// Base names of the loaded files, in load order.
+  final loaded = <String>[];
+  var playing = false;
+  Duration? lastSeek;
+  var unloads = 0;
+
+  /// Base names whose load throws.
+  final failing = <String>{};
+
+  /// When set, [load] waits for it before it returns.
+  Completer<void>? holdLoad;
+
+  final _position = StreamController<Duration>.broadcast();
+  final _completed = StreamController<void>.broadcast();
+  final _errors = StreamController<Object>.broadcast();
+
+  String? get current => loaded.isEmpty ? null : loaded.last;
+
+  @override
+  Future<void> load(File file) async {
+    final name = p.basename(file.path);
+    loaded.add(name);
+    playing = false;
+    final hold = holdLoad;
+    if (hold != null) await hold.future;
+    if (failing.contains(name)) throw StateError('cannot decode $name');
+  }
+
+  @override
+  Future<void> play() async => playing = true;
+
+  @override
+  Future<void> pause() async => playing = false;
+
+  @override
+  Future<void> seek(Duration position) async => lastSeek = position;
+
+  @override
+  Future<void> unload() async {
+    playing = false;
+    unloads++;
+  }
+
+  @override
+  Stream<Duration> get position => _position.stream;
+
+  @override
+  Stream<void> get completed => _completed.stream;
+
+  @override
+  Stream<Object> get errors => _errors.stream;
+
+  void emitPosition(Duration d) => _position.add(d);
+
+  void complete() => _completed.add(null);
+
+  void emitError(Object e) => _errors.add(e);
+
+  @override
+  Future<void> dispose() async {}
+}
+
 class FakePicker implements AudioFilePicker {
   FakePicker([this.result = const []]);
 
@@ -150,6 +223,7 @@ Future<void> pumpApp(
   Stream<List<Track>>? songsStream,
   FakeImporter? importer,
   FakePicker? picker,
+  FakeAudioEngine? engine,
   LibraryStorage? storage,
   void Function(BuildContext)? onOpenSettings,
   List<Override> overrides = const [],
@@ -165,6 +239,7 @@ Future<void> pumpApp(
         ),
         importerProvider.overrideWithValue(importer ?? FakeImporter()),
         filePickerProvider.overrideWithValue(picker ?? FakePicker()),
+        audioEngineProvider.overrideWithValue(engine ?? FakeAudioEngine()),
         ...overrides,
       ],
       child: OwntuneApp(onOpenSettings: onOpenSettings),
