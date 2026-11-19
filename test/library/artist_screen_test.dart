@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:drift/drift.dart' show Value;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:owntune/app/buttons.dart';
@@ -172,5 +173,40 @@ void main() {
       find.descendant(of: find.byType(NavRow), matching: find.text('Library')),
       findsNothing,
     );
+  });
+
+  testWidgets('artist Edit Info edits all their songs', (t) async {
+    await pumpApp(t, songs: _neon);
+    await _open(t, 'Neon Harbor');
+    await t.tap(find.byKey(const Key('detail-more')));
+    await t.pumpAndSettle();
+    await t.tap(find.byKey(const Key('menu-edit')));
+    await t.pumpAndSettle();
+    expect(find.text('Edit Info'), findsOneWidget);
+    expect(
+      find.text(
+        '${_neon.where((s) => s.artist == 'Neon Harbor').length} Songs',
+      ),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('artist page follows a rename', (t) async {
+    final library = StreamController<List<Track>>();
+    addTearDown(library.close);
+    await pumpApp(t, songsStream: library.stream);
+    library.add(_neon);
+    await t.pumpAndSettle();
+    await _open(t, 'Neon Harbor');
+
+    library.add([
+      for (final s in _neon)
+        s.artist == 'Neon Harbor'
+            ? s.copyWith(artist: const Value('Neon Harbour'))
+            : s,
+    ]);
+    await t.pumpAndSettle();
+    expect(find.byType(ArtistScreen), findsOneWidget);
+    expect(find.text('Neon Harbour'), findsWidgets);
   });
 }

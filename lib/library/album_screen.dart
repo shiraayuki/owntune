@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:cupertino_ui/cupertino_ui.dart' show CupertinoIcons;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:owntune/edit/edit_info_screen.dart';
 import 'package:owntune/app/buttons.dart';
 import 'package:owntune/app/providers.dart';
 import 'package:owntune/app/theme.dart';
@@ -17,7 +18,10 @@ import 'package:owntune/player/player_controller.dart';
 
 /// Album detail (mockup 07): cover, title, artist, meta, Play/Shuffle and
 /// the tracks by disc and number.
-class AlbumScreen extends StatelessWidget {
+///
+/// The page follows its songs: when the album is renamed (title or album
+/// artist), it shows the album those songs are in now.
+class AlbumScreen extends ConsumerStatefulWidget {
   const AlbumScreen({
     super.key,
     required this.albumKey,
@@ -28,6 +32,34 @@ class AlbumScreen extends StatelessWidget {
   final String backLabel;
 
   @override
+  ConsumerState<AlbumScreen> createState() => _AlbumScreenState();
+}
+
+class _AlbumScreenState extends ConsumerState<AlbumScreen> {
+  late AlbumKey _key = widget.albumKey;
+  var _songIds = const <int>[];
+
+  Album? _resolve(Library library) {
+    final album = library.album(_key) ?? _followSongs(library);
+    if (album != null) {
+      _key = album.key;
+      _songIds = [for (final t in album.tracks) t.id];
+    }
+    return album;
+  }
+
+  Album? _followSongs(Library library) {
+    final ids = _songIds.toSet();
+    for (final t in library.tracks) {
+      if (!ids.contains(t.id)) continue;
+      final key = albumKeyOf(t);
+      final album = key == null ? null : library.album(key);
+      if (album != null) return album;
+    }
+    return null;
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       extendBody: true,
@@ -35,10 +67,18 @@ class AlbumScreen extends StatelessWidget {
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          NavRow(backLabel: backLabel),
+          NavRow(
+            backLabel: widget.backLabel,
+            trailing: DetailMoreButton(
+              onEdit: () {
+                final album = ref.read(libraryProvider).value?.album(_key);
+                if (album != null) openEditInfo(context, album.tracks);
+              },
+            ),
+          ),
           Expanded(
             child: LiveDetail<Album>(
-              resolve: (library) => library.album(albumKey),
+              resolve: _resolve,
               builder: (context, album) => _AlbumBody(album: album),
             ),
           ),

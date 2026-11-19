@@ -1,5 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:owntune/edit/edit_info_screen.dart';
+import 'package:owntune/app/providers.dart';
 import 'package:owntune/app/theme.dart';
 import 'package:owntune/data/db/database.dart';
 import 'package:owntune/library/album_screen.dart';
@@ -19,7 +21,10 @@ String _albumLine(Track t) => t.album?.trim() ?? '';
 
 /// Artist detail (mockup 09): avatar, name, counts, Play/Shuffle, the
 /// artist's albums and the first songs.
-class ArtistScreen extends StatelessWidget {
+///
+/// The page follows its songs: when the artist is renamed, it shows the
+/// artist those songs have now.
+class ArtistScreen extends ConsumerStatefulWidget {
   const ArtistScreen({
     super.key,
     required this.artistKey,
@@ -30,6 +35,33 @@ class ArtistScreen extends StatelessWidget {
   final String backLabel;
 
   @override
+  ConsumerState<ArtistScreen> createState() => _ArtistScreenState();
+}
+
+class _ArtistScreenState extends ConsumerState<ArtistScreen> {
+  late String _key = widget.artistKey;
+  var _songIds = const <int>[];
+
+  Artist? _resolve(Library library) {
+    final artist = library.artist(_key) ?? _followSongs(library);
+    if (artist != null) {
+      _key = artist.key;
+      _songIds = [for (final t in artist.songs) t.id];
+    }
+    return artist;
+  }
+
+  Artist? _followSongs(Library library) {
+    final ids = _songIds.toSet();
+    for (final t in library.tracks) {
+      if (!ids.contains(t.id)) continue;
+      final artist = library.artist(artistGroupKey(t.artist));
+      if (artist != null) return artist;
+    }
+    return null;
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       extendBody: true,
@@ -37,10 +69,18 @@ class ArtistScreen extends StatelessWidget {
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          NavRow(backLabel: backLabel),
+          NavRow(
+            backLabel: widget.backLabel,
+            trailing: DetailMoreButton(
+              onEdit: () {
+                final artist = ref.read(libraryProvider).value?.artist(_key);
+                if (artist != null) openEditInfo(context, artist.songs);
+              },
+            ),
+          ),
           Expanded(
             child: LiveDetail<Artist>(
-              resolve: (library) => library.artist(artistKey),
+              resolve: _resolve,
               builder: (context, artist) => _ArtistBody(artist: artist),
             ),
           ),

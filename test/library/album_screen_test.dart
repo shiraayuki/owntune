@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:drift/drift.dart' show Value;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:owntune/app/buttons.dart';
@@ -145,5 +146,41 @@ void main() {
     tracks.add([..._album, _lantern(5, 'Late Arrival', 5)]);
     await t.pumpAndSettle();
     expect(find.text('Late Arrival'), findsOneWidget);
+  });
+
+  testWidgets('album Edit Info edits all its songs', (t) async {
+    await pumpApp(t, songs: _album);
+    await _open(t);
+    await t.tap(find.byKey(const Key('detail-more')));
+    await t.pumpAndSettle();
+    await t.tap(find.byKey(const Key('menu-edit')));
+    await t.pumpAndSettle();
+    expect(find.text('Edit Info'), findsOneWidget);
+    expect(find.text('4 Songs'), findsOneWidget);
+    expect(
+      t
+          .widget<TextField>(find.byKey(const Key('edit-field-album')))
+          .controller!
+          .text,
+      'Paper Lanterns',
+    );
+  });
+
+  testWidgets('renaming the album keeps its page open', (t) async {
+    final library = StreamController<List<Track>>();
+    addTearDown(library.close);
+    await pumpApp(t, songsStream: library.stream);
+    library.add(_album);
+    await t.pumpAndSettle();
+    await _open(t);
+    expect(find.byType(AlbumScreen), findsOneWidget);
+
+    library.add([
+      for (final s in _album) s.copyWith(album: const Value('Lanterns')),
+    ]);
+    await t.pumpAndSettle();
+    expect(find.byType(AlbumScreen), findsOneWidget);
+    expect(find.text('Lanterns'), findsWidgets);
+    expect(find.text('After the Rain'), findsOneWidget);
   });
 }
