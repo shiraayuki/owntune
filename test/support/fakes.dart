@@ -8,9 +8,11 @@ import 'package:owntune/app/app_shell.dart';
 import 'package:owntune/app/providers.dart';
 import 'package:owntune/data/db/database.dart';
 import 'package:owntune/data/library_storage.dart';
+import 'package:owntune/data/track_repository.dart';
 import 'package:owntune/import/audio_file_picker.dart';
 import 'package:owntune/import/importer.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:owntune/settings/settings.dart';
 
 Track track(
   int id, {
@@ -68,6 +70,39 @@ class FakeImporter implements Importer {
   void finish(ImportSummary summary) => _pending!.complete(summary);
 
   void fail(Object error) => _pending!.completeError(error);
+}
+
+/// Records `delete` calls and returns fixed library stats; other members are
+/// unused in widget tests.
+class FakeTrackRepository implements TrackRepository {
+  FakeTrackRepository({this.songCount = 0, this.bytes = 0});
+
+  final int songCount;
+  final int bytes;
+  final deleted = <int>[];
+
+  @override
+  Future<void> delete(int id) async => deleted.add(id);
+
+  @override
+  Future<int> count() async => songCount;
+
+  @override
+  Future<int> storageBytes() async => bytes;
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+/// Records every saved [AppSettings].
+class FakeSettingsRepository implements SettingsRepository {
+  final saved = <AppSettings>[];
+
+  @override
+  Future<void> save(AppSettings s) async => saved.add(s);
+
+  @override
+  Future<AppSettings> load() async => AppSettings.defaults;
 }
 
 class FakePicker implements AudioFilePicker {

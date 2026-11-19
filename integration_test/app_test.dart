@@ -131,4 +131,40 @@ void main() {
     // Dispose the providers (and their database streams) before teardown.
     await t.pumpWidget(const SizedBox());
   });
+
+  testWidgets('settings show real stats and persist the appearance', (t) async {
+    final ready = result as StartupReady;
+    await t.pumpWidget(
+      ProviderScope(
+        overrides: [
+          databaseProvider.overrideWithValue(ready.db),
+          storageProvider.overrideWithValue(ready.storage),
+          initialSettingsProvider.overrideWithValue(ready.settings),
+        ],
+        child: const OwntuneApp(),
+      ),
+    );
+    await pumpUntil(t, find.text('After the Rain'));
+
+    await t.tap(find.byTooltip('More'));
+    await t.pumpAndSettle();
+    await t.tap(find.text('Settings'));
+    // The five songs imported by the previous test and the pubspec version.
+    await pumpUntil(t, find.text('5'));
+    await pumpUntil(t, find.textContaining(RegExp(r'^\d+\.\d+\.\d+$')));
+    expect(find.textContaining(RegExp(r'^\d+ MB$')), findsOneWidget);
+
+    await t.tap(find.text('Dark'));
+    await t.tap(find.bySemanticsLabel('Teal'));
+    await t.pumpAndSettle();
+
+    // A fresh load from the database is what the next start sees.
+    final stored = await t.runAsync(() => SettingsRepository(ready.db).load());
+    expect(
+      stored,
+      const AppSettings(mode: AppearanceMode.dark, accent: Color(0xff3ee0c4)),
+    );
+
+    await t.pumpWidget(const SizedBox());
+  });
 }

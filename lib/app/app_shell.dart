@@ -11,8 +11,10 @@ import 'package:owntune/import/import_sheets.dart';
 import 'package:owntune/library/placeholder_tab.dart';
 import 'package:owntune/library/songs_screen.dart';
 import 'package:owntune/settings/settings.dart';
+import 'package:owntune/settings/settings_sheet.dart';
 
-/// Opens the settings; gets a context below the app's navigator.
+/// Opens the settings; gets a context below the app's navigator. Defaults to
+/// [showSettingsSheet].
 typedef OpenSettings = void Function(BuildContext context);
 
 class OwntuneApp extends ConsumerWidget {
@@ -79,7 +81,8 @@ class _AppShellState extends ConsumerState<AppShell> {
                 bottom: false,
                 child: _TitleRow(
                   title: _tabs[_index].label,
-                  onOpenSettings: () => widget.onOpenSettings?.call(context),
+                  onOpenSettings: () =>
+                      (widget.onOpenSettings ?? showSettingsSheet)(context),
                   onImport: running
                       ? null
                       : () => ref

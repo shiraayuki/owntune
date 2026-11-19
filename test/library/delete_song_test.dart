@@ -2,20 +2,8 @@ import 'package:cupertino_ui/cupertino_ui.dart' show CupertinoAlertDialog;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:owntune/app/providers.dart';
-import 'package:owntune/data/track_repository.dart';
 
 import '../support/fakes.dart';
-
-/// Records `delete` calls; every other member is unused here.
-class FakeTrackRepository implements TrackRepository {
-  final deleted = <int>[];
-
-  @override
-  Future<void> delete(int id) async => deleted.add(id);
-
-  @override
-  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
-}
 
 void main() {
   final songs = [
