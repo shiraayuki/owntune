@@ -65,13 +65,54 @@ void main() {
     expect(_mini, findsOneWidget);
   });
 
-  testWidgets('tapping the grabber closes the player', (t) async {
+  testWidgets('the down arrow at the top left closes the player', (t) async {
     await pumpApp(t, songs: _songs);
     await _open(t, 'After the Rain');
 
-    await t.tap(find.byKey(const Key('player-grabber')));
+    final close = find.byKey(const Key('player-close'));
+    expect(
+      find.descendant(
+        of: close,
+        matching: find.byIcon(CupertinoIcons.chevron_down),
+      ),
+      findsOneWidget,
+    );
+    final sheetBox = t.getRect(_sheet);
+    expect(t.getCenter(close).dx, lessThan(sheetBox.center.dx));
+
+    await t.tap(close);
     await t.pumpAndSettle();
     expect(_sheet, findsNothing);
+    expect(_mini, findsOneWidget);
+  });
+
+  testWidgets('the menu button sits at the top right, once', (t) async {
+    await pumpApp(t, songs: _songs);
+    await _open(t, 'After the Rain');
+
+    final more = find.byKey(const Key('player-more'));
+    expect(more, findsOneWidget);
+    final close = find.byKey(const Key('player-close'));
+    expect(t.getCenter(more).dx, greaterThan(t.getRect(_sheet).center.dx));
+    expect(t.getCenter(more).dy, closeTo(t.getCenter(close).dy, 1));
+    // Above the title, not next to it.
+    expect(
+      t.getCenter(more).dy,
+      lessThan(
+        t
+            .getTopLeft(
+              find.descendant(
+                of: _sheet,
+                matching: find.text('After the Rain'),
+              ),
+            )
+            .dy,
+      ),
+    );
+
+    await t.tap(find.byKey(const Key('player-up-next')));
+    await t.pumpAndSettle();
+    expect(more, findsOneWidget);
   });
 
   testWidgets('play and next work in the player', (t) async {

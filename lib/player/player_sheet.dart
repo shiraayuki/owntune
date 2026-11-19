@@ -42,8 +42,11 @@ class _PlayerSheetState extends ConsumerState<PlayerSheet> {
 
   void _close() {
     final route = ModalRoute.of(context);
-    // A dialog (e.g. the delete confirmation) may sit above the sheet.
-    if (route != null && route.isActive) {
+    if (route == null || !route.isActive) return;
+    if (route.isCurrent) {
+      Navigator.of(context).pop();
+    } else {
+      // A dialog (e.g. the delete confirmation) sits above the sheet.
       Navigator.of(context).removeRoute(route);
     }
   }
@@ -150,22 +153,22 @@ class _Content extends ConsumerWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        GestureDetector(
-          key: const Key('player-grabber'),
-          behavior: HitTestBehavior.opaque,
-          onTap: onClose,
-          child: SizedBox(
-            height: 40,
-            child: Center(
-              child: Container(
-                width: 38,
-                height: 5,
-                decoration: BoxDecoration(
-                  color: c.faint,
-                  borderRadius: BorderRadius.circular(3),
-                ),
+        // Down arrow (back to the mini player) and the song menu.
+        Padding(
+          padding: const EdgeInsets.fromLTRB(12, 4, 16, 0),
+          child: Row(
+            children: [
+              IconButton(
+                key: const Key('player-close'),
+                onPressed: onClose,
+                tooltip: 'Close',
+                icon: const Icon(CupertinoIcons.chevron_down, size: 26),
+                color: c.text,
+                style: IconButton.styleFrom(fixedSize: const Size.square(44)),
               ),
-            ),
+              const Spacer(),
+              _MoreButton(track: track),
+            ],
           ),
         ),
         if (!showQueue) ...[
@@ -226,8 +229,6 @@ class _Content extends ConsumerWidget {
                     ],
                   ),
                 ),
-                const SizedBox(width: 12),
-                _MoreButton(track: track),
               ],
             ),
           ),
@@ -309,8 +310,6 @@ class _NowRow extends StatelessWidget {
               ],
             ),
           ),
-          const SizedBox(width: 12),
-          _MoreButton(track: track),
         ],
       ),
     );
