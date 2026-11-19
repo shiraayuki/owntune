@@ -79,7 +79,7 @@ void main() {
     await t.pumpAndSettle();
     expect(find.byType(AlbumScreen), findsOneWidget);
     expect(
-      find.descendant(of: find.byType(NavRow), matching: find.text('Albums')),
+      find.descendant(of: find.byType(NavRow), matching: find.text('Library')),
       findsOneWidget,
     );
   });

@@ -91,7 +91,7 @@ class _AlbumGrid extends StatelessWidget {
             return AlbumCard(
               album: album,
               subtitle: album.artist,
-              onTap: () => openAlbum(context, album.key, backLabel: 'Albums'),
+              onTap: () => openAlbum(context, album.key, backLabel: 'Library'),
             );
           },
         );

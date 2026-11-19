@@ -27,7 +27,9 @@ void main() {
   Finder backLabel(String label) =>
       find.descendant(of: find.byType(NavRow), matching: find.text(label));
 
-  testWidgets('Go to Album opens the album with back label Songs', (t) async {
+  testWidgets('Go to Album from Library › Songs shows back label Library', (
+    t,
+  ) async {
     await pumpApp(
       t,
       songs: songs,
@@ -43,7 +45,7 @@ void main() {
     await t.tap(find.text('Go to Album'));
     await t.pumpAndSettle();
     expect(find.byType(AlbumScreen), findsOneWidget);
-    expect(backLabel('Songs'), findsOneWidget);
+    expect(backLabel('Library'), findsOneWidget);
   });
 
   testWidgets('Go to Album is missing for a track without album', (t) async {

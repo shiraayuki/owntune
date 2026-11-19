@@ -176,7 +176,7 @@ class _SongListState extends State<SongList> {
       itemBuilder: (context, i) => switch (items[i]) {
         final Track t => SongRow(
           track: t,
-          scope: const SongMenuScope(backLabel: 'Songs'),
+          scope: const SongMenuScope(backLabel: 'Library'),
           divider: i + 1 < items.length,
         ),
         final String l => _SectionHeader(
