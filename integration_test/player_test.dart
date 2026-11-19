@@ -5,6 +5,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:owntune/player/audio_engine.dart';
 import 'package:owntune/player/audio_setup.dart';
+import 'package:owntune/player/system_controls.dart';
+
+import '../test/support/fakes.dart' show track;
 
 import 'support/fixtures.dart';
 
@@ -101,4 +104,33 @@ void main() {
     expect(error, isNotNull);
     expect(errors, isEmpty);
   });
+
+  testWidgets('the system controls take a song', (t) async {
+    final controls = await AudioServiceControls.init();
+    final commands = _RecordingCommands();
+    controls
+      ..connect(commands)
+      ..show(
+        NowPlaying(
+          track: track(1, title: 'After the Rain', durationMs: 1000),
+          playing: true,
+          position: Duration.zero,
+          hasNext: true,
+        ),
+      )
+      ..show(null);
+  }, skip: !(Platform.isAndroid || Platform.isIOS));
+}
+
+class _RecordingCommands implements SystemCommands {
+  @override
+  Future<void> play() async {}
+  @override
+  Future<void> pause() async {}
+  @override
+  Future<void> next() async {}
+  @override
+  Future<void> previous() async {}
+  @override
+  Future<void> seek(Duration position) async {}
 }

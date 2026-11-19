@@ -6,6 +6,7 @@ import 'package:owntune/data/db/database.dart';
 import 'package:owntune/library/sort_key.dart';
 import 'package:owntune/player/audio_engine.dart';
 import 'package:owntune/player/play_queue.dart';
+import 'package:owntune/player/player_snapshot.dart';
 
 /// What the player shows: the queue and whether it is playing. The position
 /// is a stream of its own ([playerPositionProvider]) so that it does not
@@ -40,6 +41,9 @@ final currentTrackProvider = Provider<Track?>((ref) {
 /// After this long into a song, Previous restarts it instead of going back.
 const _restartThreshold = Duration(seconds: 3);
 
+/// While playing, the position is saved this often.
+const _saveEvery = Duration(seconds: 5);
+
 /// Owns the queue and drives the [AudioEngine], one file at a time.
 ///
 /// It stores track ids and follows [tracksProvider]: deleted songs leave the
@@ -57,6 +61,14 @@ class PlayerController extends Notifier<PlayerState> {
   /// Songs that failed in a row; reset by a successful load.
   var _failures = 0;
 
+  /// The saved state of the last run, until the first library snapshot
+  /// lets it be restored.
+  PlayerSnapshot? _pendingRestore;
+
+  /// What was saved last: queue signature and position.
+  String? _savedQueue;
+  var _savedPosition = Duration.zero;
+
   Stream<String> get notices => _notices.stream;
 
   PlayQueue get _queue => state.queue;
@@ -65,7 +77,8 @@ class PlayerController extends Notifier<PlayerState> {
   PlayerState build() {
     _engine = ref.watch(audioEngineProvider);
     final subs = [
-      _engine.position.listen((p) => _position = p),
+      _engine.position.listen(_onPosition),
+      _engine.playingChanges.listen(_onEnginePlaying),
       _engine.completed.listen((_) => _onCompleted()),
       _engine.errors.listen((_) => _onFailure(_queue, play: true)),
     ];
@@ -76,7 +89,13 @@ class PlayerController extends Notifier<PlayerState> {
     });
     // Not fireImmediately: _onTracks reads `state`, which does not exist
     // until build returns.
-    _tracks = _byId(ref.read(tracksProvider).value ?? const []);
+    final initial = ref.read(tracksProvider).value;
+    _tracks = _byId(initial ?? const []);
+    _pendingRestore = ref.read(initialPlayerSnapshotProvider);
+    if (initial != null && _pendingRestore != null) {
+      Future.microtask(_restoreIfPending);
+    }
+    listenSelf((_, next) => _saveQueueIfChanged(next));
     ref.listen(tracksProvider, (_, next) {
       final tracks = next.value;
       if (tracks != null) _onTracks(tracks);
@@ -104,6 +123,7 @@ class PlayerController extends Notifier<PlayerState> {
     if (state.playing) {
       state = PlayerState(queue: _queue);
       await _engine.pause();
+      _save();
     } else {
       state = PlayerState(queue: _queue, playing: true);
       await _engine.play();
@@ -143,6 +163,7 @@ class PlayerController extends Notifier<PlayerState> {
   Future<void> seek(Duration position) async {
     _position = position;
     await _engine.seek(position);
+    _save();
   }
 
   void cycleRepeat() => _set(_queue.withRepeat(_queue.repeat.next));
@@ -183,6 +204,9 @@ class PlayerController extends Notifier<PlayerState> {
     }
     state = PlayerState(queue: queue, playing: play);
     _position = Duration.zero;
+    // just_audio keeps playing into a newly loaded file.
+    if (!play) await _engine.pause();
+    if (generation != _generation) return;
     final track = _tracks[entry.trackId];
     try {
       if (track == null) throw StateError('track ${entry.trackId} is gone');
@@ -237,12 +261,86 @@ class PlayerController extends Notifier<PlayerState> {
     await _start(_queue.withIndex(next), play: true);
   }
 
+  /// The engine changed its play state, possibly on its own (a call, a
+  /// system pause); the player state follows it.
+  void _onEnginePlaying(bool playing) {
+    if (_queue.isEmpty || playing == state.playing) return;
+    state = PlayerState(queue: _queue, playing: playing);
+  }
+
+  /// Brings back the saved player, paused at its position. Songs deleted
+  /// since are dropped like any deletion.
+  Future<void> _restoreIfPending() async {
+    final saved = _pendingRestore;
+    _pendingRestore = null;
+    if (saved == null || !_queue.isEmpty) return;
+    final (:queue, :currentRemoved) = PlayQueue.of(
+      saved.trackIds,
+      start: saved.index,
+      source: saved.source,
+      repeat: saved.repeat,
+    ).retain(_tracks.keys.toSet());
+    if (queue.isEmpty) {
+      _save();
+      return;
+    }
+    await _start(queue, play: false);
+    if (!currentRemoved && _queue.current == queue.current) {
+      await seek(saved.position);
+    }
+  }
+
+  void _onPosition(Duration p) {
+    _position = p;
+    if (state.playing && (p - _savedPosition).abs() >= _saveEvery) _save();
+  }
+
+  /// Saves when the queue, its index, source or repeat changed.
+  void _saveQueueIfChanged(PlayerState next) {
+    final q = next.queue;
+    final signature = [
+      for (final e in q.entries) e.key,
+      '|',
+      q.index,
+      q.source,
+      q.repeat.name,
+    ].join(',');
+    if (signature == _savedQueue) return;
+    _savedQueue = signature;
+    _save();
+  }
+
+  /// Best effort: a failed save only costs the restore.
+  void _save() {
+    _savedPosition = _position;
+    final q = _queue;
+    final snapshot = q.isEmpty
+        ? null
+        : PlayerSnapshot(
+            trackIds: [for (final e in q.entries) e.trackId],
+            index: q.index,
+            source: q.source,
+            repeat: q.repeat,
+            position: _position,
+          );
+    unawaited(
+      ref
+          .read(playerStateStoreProvider)
+          .save(snapshot)
+          .catchError((Object _) {}),
+    );
+  }
+
   static Map<int, Track> _byId(List<Track> tracks) => {
     for (final t in tracks) t.id: t,
   };
 
   void _onTracks(List<Track> tracks) {
     _tracks = _byId(tracks);
+    if (_pendingRestore != null) {
+      _restoreIfPending();
+      return;
+    }
     if (_queue.isEmpty) return;
     final ids = _tracks.keys.toSet();
     final followed = _queue.upcoming.any((e) => ids.contains(e.trackId));

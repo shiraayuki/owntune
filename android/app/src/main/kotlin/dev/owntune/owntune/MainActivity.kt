@@ -1,5 +1,7 @@
 package dev.owntune.owntune
 
-import io.flutter.embedding.android.FlutterActivity
+import com.ryanheise.audioservice.AudioServiceActivity
 
-class MainActivity : FlutterActivity()
+// audio_service needs its activity so the playback service can share the
+// Flutter engine.
+class MainActivity : AudioServiceActivity()

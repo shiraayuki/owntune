@@ -1,7 +1,11 @@
+import 'dart:io';
+
 import 'package:owntune/data/db/database.dart';
 import 'package:owntune/data/library_storage.dart';
 import 'package:owntune/data/track_repository.dart';
 import 'package:owntune/player/audio_setup.dart' as audio;
+import 'package:owntune/player/player_snapshot.dart';
+import 'package:owntune/player/system_controls.dart';
 import 'package:owntune/settings/settings.dart';
 import 'package:owntune/src/rust/frb_generated.dart';
 
@@ -11,11 +15,23 @@ sealed class StartupResult {
 }
 
 final class StartupReady extends StartupResult {
-  const StartupReady(this.db, this.storage, this.settings);
+  const StartupReady(
+    this.db,
+    this.storage,
+    this.settings, {
+    this.player,
+    this.controls = const NoSystemControls(),
+  });
 
   final AppDatabase db;
   final LibraryStorage storage;
   final AppSettings settings;
+
+  /// The player as the last run left it; null if nothing (usable) was saved.
+  final PlayerSnapshot? player;
+
+  /// Lock screen / notification controls (none on Linux).
+  final SystemControls controls;
 }
 
 final class StartupFailed extends StartupResult {
@@ -33,6 +49,7 @@ final class StartupFailed extends StartupResult {
 Future<StartupResult> startUp({
   Future<void> Function()? initRust,
   Future<void> Function()? initAudio,
+  Future<SystemControls> Function()? initSystemControls,
   Future<LibraryStorage> Function()? openStorage,
   AppDatabase Function()? openDatabase,
 }) async {
@@ -40,6 +57,7 @@ Future<StartupResult> startUp({
   try {
     await (initRust ?? RustLib.init)();
     await (initAudio ?? audio.initAudio)();
+    final controls = await (initSystemControls ?? _defaultSystemControls)();
     final storage = await (openStorage ?? LibraryStorage.open)();
     await storage.ensure();
     db = (openDatabase ?? AppDatabase.open)();
@@ -47,7 +65,19 @@ Future<StartupResult> startUp({
     // database file fails here and not later in the UI.
     await TrackRepository(db, storage).cleanupOrphans();
     final settings = await SettingsRepository(db).load();
-    return StartupReady(db, storage, settings);
+    PlayerSnapshot? player;
+    try {
+      player = await DbPlayerStateStore(db).load();
+    } on Object {
+      // A lost player state is not worth a startup failure.
+    }
+    return StartupReady(
+      db,
+      storage,
+      settings,
+      player: player,
+      controls: controls,
+    );
   } on Object catch (e) {
     try {
       await db?.close();
@@ -57,3 +87,9 @@ Future<StartupResult> startUp({
     return StartupFailed(e.toString());
   }
 }
+
+/// audio_service on phones; Linux (a development target) has none.
+Future<SystemControls> _defaultSystemControls() async =>
+    Platform.isIOS || Platform.isAndroid
+    ? await AudioServiceControls.init()
+    : const NoSystemControls();

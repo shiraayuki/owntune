@@ -38,6 +38,7 @@ void main() {
           LibraryStorage(Directory('/nonexistent/owntune')),
         ),
         tracksProvider.overrideWith((ref) => library.stream),
+        playerStateStoreProvider.overrideWithValue(FakePlayerStateStore()),
       ],
     );
     container.listen(playerProvider, (_, _) {});
@@ -299,6 +300,7 @@ void main() {
       overrides: [
         audioEngineProvider.overrideWithValue(FakeAudioEngine()),
         tracksProvider.overrideWith((ref) => Stream.value([a, b])),
+        playerStateStoreProvider.overrideWithValue(FakePlayerStateStore()),
         storageProvider.overrideWithValue(
           LibraryStorage(Directory('/nonexistent/owntune')),
         ),
@@ -331,5 +333,20 @@ void main() {
     await player().skipBack();
     expect(engine.loaded, ['hash1.mp3']);
     expect(engine.lastSeek, Duration.zero);
+  });
+
+  test('a pause by the system shows in the player state', () async {
+    await playAt(0);
+    engine.emitPlaying(false);
+    await pumpEventQueue();
+    expect(state().playing, isFalse);
+  });
+
+  test('a resume by the system shows too', () async {
+    await playAt(0);
+    await player().togglePlay();
+    engine.emitPlaying(true);
+    await pumpEventQueue();
+    expect(state().playing, isTrue);
   });
 }
