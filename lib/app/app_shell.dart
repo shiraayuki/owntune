@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:ui' show ImageFilter;
 
 import 'package:cupertino_ui/cupertino_ui.dart' show CupertinoIcons;
@@ -13,6 +14,8 @@ import 'package:owntune/library/library_tab.dart';
 import 'package:owntune/library/playlists_screen.dart';
 import 'package:owntune/library/search_screen.dart';
 import 'package:owntune/library/song_sort.dart';
+import 'package:owntune/player/mini_player.dart';
+import 'package:owntune/player/player_controller.dart';
 import 'package:owntune/settings/settings.dart';
 import 'package:owntune/settings/settings_sheet.dart';
 
@@ -39,8 +42,11 @@ class OwntuneApp extends ConsumerWidget {
       },
       // The import sheets sit above the navigator, so they also show over
       // pushed screens (album, artist, search).
-      builder: (context, child) =>
-          Stack(children: [child!, const _ImportLayer()]),
+      // The import sheets and the player's notices sit above the navigator,
+      // so they also show over pushed screens and the full-screen player.
+      builder: (context, child) => Stack(
+        children: [child!, const _ImportLayer(), const _PlayerNotices()],
+      ),
       home: AppShell(onOpenSettings: onOpenSettings),
     );
   }
@@ -69,6 +75,84 @@ class _ImportLayerState extends State<_ImportLayer> {
   @override
   Widget build(BuildContext context) =>
       Positioned.fill(child: Overlay(initialEntries: [_entry]));
+}
+
+/// Shows the player's notices (e.g. a song that could not be played) as a
+/// banner at the top, above every screen including the full-screen player.
+/// It subscribes to the stream itself, so two equal notices in a row both
+/// show, and it never takes taps.
+class _PlayerNotices extends ConsumerStatefulWidget {
+  const _PlayerNotices();
+
+  @override
+  ConsumerState<_PlayerNotices> createState() => _PlayerNoticesState();
+}
+
+class _PlayerNoticesState extends ConsumerState<_PlayerNotices> {
+  static const _visibleFor = Duration(seconds: 3);
+
+  StreamSubscription<String>? _sub;
+  Timer? _hide;
+  String? _text;
+  var _visible = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _sub = ref.read(playerProvider.notifier).notices.listen((text) {
+      _hide?.cancel();
+      setState(() {
+        _text = text;
+        _visible = true;
+      });
+      _hide = Timer(_visibleFor, () {
+        if (mounted) setState(() => _visible = false);
+      });
+    });
+  }
+
+  @override
+  void dispose() {
+    _sub?.cancel();
+    _hide?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final text = _text;
+    if (text == null) return const SizedBox.shrink();
+    final c = Theme.of(context).extension<OwntuneColors>()!;
+    return Positioned(
+      top: MediaQuery.viewPaddingOf(context).top + 8,
+      left: 16,
+      right: 16,
+      child: IgnorePointer(
+        child: AnimatedOpacity(
+          opacity: _visible ? 1 : 0,
+          duration: const Duration(milliseconds: 200),
+          child: Center(
+            child: Material(
+              color: c.surface2,
+              elevation: 8,
+              shape: const StadiumBorder(),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 10,
+                ),
+                child: Text(
+                  text,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 15, color: c.text),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class _Tab {
@@ -161,9 +245,12 @@ class _AppShellState extends ConsumerState<AppShell> {
           ),
         ],
       ),
-      bottomNavigationBar: _TabBar(
-        index: _index,
-        onSelect: (i) => setState(() => _index = i),
+      bottomNavigationBar: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const MiniPlayer(overTabBar: true),
+          _TabBar(index: _index, onSelect: (i) => setState(() => _index = i)),
+        ],
       ),
     );
   }

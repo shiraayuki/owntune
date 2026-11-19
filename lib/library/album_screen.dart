@@ -12,6 +12,8 @@ import 'package:owntune/library/library.dart';
 import 'package:owntune/library/navigation.dart';
 import 'package:owntune/library/songs_screen.dart';
 import 'package:owntune/library/sort_key.dart';
+import 'package:owntune/player/mini_player.dart';
+import 'package:owntune/player/player_controller.dart';
 
 /// Album detail (mockup 07): cover, title, artist, meta, Play/Shuffle and
 /// the tracks by disc and number.
@@ -28,6 +30,8 @@ class AlbumScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      extendBody: true,
+      bottomNavigationBar: const MiniPlayer(),
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -71,6 +75,9 @@ class _AlbumBody extends ConsumerWidget {
       final nextDisc = last ? null : album.tracks[i + 1].discNumber;
       rows.add(
         AlbumTrackRow(
+          onTap: () => ref
+              .read(playerProvider.notifier)
+              .playList(album.tracks, start: i, source: album.title),
           track: t,
           scope: SongMenuScope(backLabel: album.title, currentAlbum: album.key),
           showArtist: artistGroupKey(t.artist) != albumArtist,
@@ -132,7 +139,11 @@ class _AlbumBody extends ConsumerWidget {
             ),
           ],
           const SizedBox(height: 16),
-          const PlayShuffleButtons(),
+          PlayShuffleButtons(
+            onPlay: () => ref
+                .read(playerProvider.notifier)
+                .playList(album.tracks, start: 0, source: album.title),
+          ),
           const SizedBox(height: 6),
           ...rows,
         ],
@@ -141,12 +152,14 @@ class _AlbumBody extends ConsumerWidget {
   }
 }
 
-/// Play and Shuffle, disabled until playback arrives in M2.
+/// Play and Shuffle; Shuffle stays disabled until shuffle exists.
 class PlayShuffleButtons extends StatelessWidget {
-  const PlayShuffleButtons({super.key});
+  const PlayShuffleButtons({super.key, required this.onPlay});
+
+  final VoidCallback? onPlay;
 
   @override
-  Widget build(BuildContext context) => const Row(
+  Widget build(BuildContext context) => Row(
     children: [
       Expanded(
         child: PillButton(
@@ -154,11 +167,11 @@ class PlayShuffleButtons extends StatelessWidget {
           icon: CupertinoIcons.play_fill,
           secondary: true,
           expand: true,
-          onPressed: null,
+          onPressed: onPlay,
         ),
       ),
-      SizedBox(width: 14),
-      Expanded(
+      const SizedBox(width: 14),
+      const Expanded(
         child: PillButton(
           label: 'Shuffle',
           icon: CupertinoIcons.shuffle,
@@ -202,6 +215,7 @@ class AlbumTrackRow extends ConsumerWidget {
     required this.scope,
     required this.showArtist,
     this.divider = true,
+    this.onTap,
   });
 
   final Track track;
@@ -209,9 +223,15 @@ class AlbumTrackRow extends ConsumerWidget {
   final bool showArtist;
   final bool divider;
 
+  /// Plays the album from this track.
+  final VoidCallback? onTap;
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final c = Theme.of(context).extension<OwntuneColors>()!;
+    final playing = ref.watch(
+      currentTrackProvider.select((t) => t?.id == track.id),
+    );
     final muted = TextStyle(
       fontSize: 15,
       color: c.muted,
@@ -227,11 +247,20 @@ class AlbumTrackRow extends ConsumerWidget {
               children: [
                 SizedBox(
                   width: 22,
-                  child: Text(
-                    track.trackNumber?.toString() ?? '',
-                    textAlign: TextAlign.right,
-                    style: muted,
-                  ),
+                  child: playing
+                      ? Align(
+                          alignment: Alignment.centerRight,
+                          child: Icon(
+                            CupertinoIcons.chart_bar_alt_fill,
+                            size: 18,
+                            color: c.accent,
+                          ),
+                        )
+                      : Text(
+                          track.trackNumber?.toString() ?? '',
+                          textAlign: TextAlign.right,
+                          style: muted,
+                        ),
                 ),
                 const SizedBox(width: 14),
                 Expanded(
@@ -246,7 +275,7 @@ class AlbumTrackRow extends ConsumerWidget {
                         style: TextStyle(
                           fontSize: 17,
                           fontWeight: FontWeight.w600,
-                          color: c.text,
+                          color: playing ? c.accent : c.text,
                         ),
                       ),
                       if (showArtist)
@@ -276,6 +305,7 @@ class AlbumTrackRow extends ConsumerWidget {
     );
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
+      onTap: onTap,
       onLongPressStart: (details) =>
           showSongMenu(context, ref, track, details.globalPosition, scope),
       child: row,

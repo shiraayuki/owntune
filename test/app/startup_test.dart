@@ -20,10 +20,12 @@ void main() {
 
   Future<StartupResult> run({
     Future<void> Function()? initRust,
+    Future<void> Function()? initAudio,
     Future<LibraryStorage> Function()? openStorage,
     AppDatabase Function()? openDatabase,
   }) => startUp(
     initRust: initRust ?? () async {},
+    initAudio: initAudio ?? () async {},
     openStorage: openStorage ?? () async => storage,
     openDatabase: openDatabase ?? () => AppDatabase(NativeDatabase.memory()),
   );
@@ -130,4 +132,12 @@ void main() {
       expect((result as StartupFailed).message, contains('no support dir'));
     },
   );
+
+  test('startUp returns StartupFailed when audio setup fails', () async {
+    final result = await run(
+      initAudio: () async => throw StateError('no audio'),
+    );
+    expect(result, isA<StartupFailed>());
+    expect((result as StartupFailed).message, contains('no audio'));
+  });
 }

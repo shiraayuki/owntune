@@ -1,6 +1,7 @@
 import 'package:owntune/data/db/database.dart';
 import 'package:owntune/data/library_storage.dart';
 import 'package:owntune/data/track_repository.dart';
+import 'package:owntune/player/audio_setup.dart' as audio;
 import 'package:owntune/settings/settings.dart';
 import 'package:owntune/src/rust/frb_generated.dart';
 
@@ -23,7 +24,7 @@ final class StartupFailed extends StartupResult {
   final String message;
 }
 
-/// Loads the Rust core, opens the library storage and the database, removes
+/// Loads the Rust core, sets up audio, opens the library storage and the database, removes
 /// leftovers of interrupted imports and loads the settings.
 ///
 /// Never throws: every error is returned as [StartupFailed] so the app can
@@ -31,12 +32,14 @@ final class StartupFailed extends StartupResult {
 /// iPhone. The parameters exist for tests; production passes none.
 Future<StartupResult> startUp({
   Future<void> Function()? initRust,
+  Future<void> Function()? initAudio,
   Future<LibraryStorage> Function()? openStorage,
   AppDatabase Function()? openDatabase,
 }) async {
   AppDatabase? db;
   try {
     await (initRust ?? RustLib.init)();
+    await (initAudio ?? audio.initAudio)();
     final storage = await (openStorage ?? LibraryStorage.open)();
     await storage.ensure();
     db = (openDatabase ?? AppDatabase.open)();

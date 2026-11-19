@@ -1,0 +1,335 @@
+import 'dart:async';
+import 'dart:io';
+
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:owntune/app/providers.dart';
+import 'package:owntune/data/db/database.dart';
+import 'package:owntune/data/library_storage.dart';
+import 'package:owntune/player/play_queue.dart';
+import 'package:owntune/player/player_controller.dart';
+
+import '../support/fakes.dart';
+
+final a = track(1, title: 'A');
+final b = track(2, title: 'B');
+final c = track(3, title: 'C');
+
+void main() {
+  late FakeAudioEngine engine;
+  late FakeTrackRepository repo;
+  late StreamController<List<Track>> library;
+  late ProviderContainer container;
+  late List<String> notices;
+
+  PlayerController player() => container.read(playerProvider.notifier);
+  PlayerState state() => container.read(playerProvider);
+  List<int> queueIds() => [for (final e in state().queue.entries) e.trackId];
+
+  setUp(() async {
+    engine = FakeAudioEngine();
+    repo = FakeTrackRepository();
+    library = StreamController<List<Track>>();
+    container = ProviderContainer(
+      overrides: [
+        audioEngineProvider.overrideWithValue(engine),
+        trackRepositoryProvider.overrideWithValue(repo),
+        storageProvider.overrideWithValue(
+          LibraryStorage(Directory('/nonexistent/owntune')),
+        ),
+        tracksProvider.overrideWith((ref) => library.stream),
+      ],
+    );
+    container.listen(playerProvider, (_, _) {});
+    container.listen(currentTrackProvider, (_, _) {});
+    notices = [];
+    final sub = player().notices.listen(notices.add);
+    addTearDown(sub.cancel);
+    library.add([a, b, c]);
+    await pumpEventQueue();
+  });
+
+  tearDown(() async {
+    container.dispose();
+    await library.close();
+  });
+
+  Future<void> playAt(int start, {String source = 'Songs'}) async {
+    await player().playList([a, b, c], start: start, source: source);
+    await pumpEventQueue();
+  }
+
+  test('playList loads and plays the tapped song', () async {
+    await playAt(1);
+    expect(engine.loaded, ['hash2.mp3']);
+    expect(engine.playing, isTrue);
+    expect(state().playing, isTrue);
+    expect(state().queue.source, 'Songs');
+    expect(container.read(currentTrackProvider)!.id, 2);
+  });
+
+  test('previous restarts after three seconds', () async {
+    await playAt(1);
+    engine.emitPosition(const Duration(seconds: 4));
+    await pumpEventQueue();
+    await player().previous();
+    expect(engine.lastSeek, Duration.zero);
+    expect(state().queue.index, 1);
+  });
+
+  test('previous goes back within the first three seconds', () async {
+    await playAt(1);
+    engine.emitPosition(const Duration(seconds: 2));
+    await pumpEventQueue();
+    await player().previous();
+    await pumpEventQueue();
+    expect(state().queue.index, 0);
+    expect(engine.current, 'hash1.mp3');
+    expect(engine.playing, isTrue);
+  });
+
+  test('previous on the first song restarts it', () async {
+    await playAt(0);
+    await player().previous();
+    expect(engine.lastSeek, Duration.zero);
+    expect(engine.loaded, ['hash1.mp3']);
+  });
+
+  test('next on the last song with repeat off does nothing', () async {
+    await playAt(2);
+    await player().next();
+    await pumpEventQueue();
+    expect(engine.loaded, ['hash3.mp3']);
+    expect(state().queue.index, 2);
+  });
+
+  test('next keeps a paused player paused', () async {
+    await playAt(0);
+    await player().togglePlay();
+    await player().next();
+    await pumpEventQueue();
+    expect(engine.current, 'hash2.mp3');
+    expect(engine.playing, isFalse);
+    expect(state().playing, isFalse);
+  });
+
+  test('end of queue pauses on the last song at zero', () async {
+    await playAt(2);
+    engine.complete();
+    await pumpEventQueue();
+    expect(state().playing, isFalse);
+    expect(engine.playing, isFalse);
+    expect(engine.lastSeek, Duration.zero);
+    expect(state().queue.current!.trackId, 3);
+    expect(container.read(currentTrackProvider)!.id, 3);
+  });
+
+  test('repeat all wraps after the last song', () async {
+    await playAt(2);
+    player().cycleRepeat();
+    expect(state().queue.repeat, QueueRepeat.all);
+    engine.complete();
+    await pumpEventQueue();
+    expect(engine.current, 'hash1.mp3');
+    expect(engine.playing, isTrue);
+  });
+
+  test(
+    'repeat one replays when the song ends but next still advances',
+    () async {
+      await playAt(0);
+      player()
+        ..cycleRepeat()
+        ..cycleRepeat();
+      expect(state().queue.repeat, QueueRepeat.one);
+      engine.complete();
+      await pumpEventQueue();
+      expect(engine.loaded, ['hash1.mp3', 'hash1.mp3']);
+      expect(engine.playing, isTrue);
+      await player().next();
+      await pumpEventQueue();
+      expect(engine.current, 'hash2.mp3');
+    },
+  );
+
+  test('a finished song counts as played, a skipped one does not', () async {
+    await playAt(0);
+    engine.complete();
+    await pumpEventQueue();
+    expect(repo.played, [1]);
+    await player().next();
+    await pumpEventQueue();
+    expect(repo.played, [1]);
+  });
+
+  test('an unplayable song is skipped with a notice', () async {
+    engine.failing.add('hash2.mp3');
+    await playAt(1);
+    expect(notices, ["Couldn't play “B”"]);
+    expect(engine.current, 'hash3.mp3');
+    expect(engine.playing, isTrue);
+    expect(state().queue.current!.trackId, 3);
+  });
+
+  test('an error during playback skips to the next song', () async {
+    await playAt(0);
+    engine.emitError(StateError('decoder'));
+    await pumpEventQueue();
+    expect(notices, ["Couldn't play “A”"]);
+    expect(engine.current, 'hash2.mp3');
+  });
+
+  test('stops when every song fails', () async {
+    engine.failing.addAll({'hash1.mp3', 'hash2.mp3', 'hash3.mp3'});
+    player().cycleRepeat(); // repeat all must not loop forever
+    await playAt(0);
+    expect(notices, hasLength(3));
+    expect(state().queue.isEmpty, isTrue);
+    expect(state().playing, isFalse);
+    expect(container.read(currentTrackProvider), isNull);
+  });
+
+  test('deleting the current song moves on and keeps playing', () async {
+    await playAt(0);
+    library.add([b, c]);
+    await pumpEventQueue();
+    expect(engine.current, 'hash2.mp3');
+    expect(engine.playing, isTrue);
+    expect(queueIds(), [2, 3]);
+  });
+
+  test('deleting the current last song falls back paused', () async {
+    await playAt(2);
+    library.add([a, b]);
+    await pumpEventQueue();
+    expect(engine.current, 'hash2.mp3');
+    expect(engine.playing, isFalse);
+    expect(state().playing, isFalse);
+  });
+
+  test('deleting the last song left unloads', () async {
+    await player().playList([a], start: 0, source: 'Songs');
+    await pumpEventQueue();
+    library.add([b, c]);
+    await pumpEventQueue();
+    expect(state().queue.isEmpty, isTrue);
+    expect(engine.unloads, 1);
+    expect(container.read(currentTrackProvider), isNull);
+  });
+
+  test('deleting an upcoming song only removes it', () async {
+    await playAt(0);
+    library.add([a, c]);
+    await pumpEventQueue();
+    expect(queueIds(), [1, 3]);
+    expect(engine.loaded, ['hash1.mp3']);
+  });
+
+  test('play next with nothing loaded starts the song', () async {
+    await player().playNext(b);
+    await pumpEventQueue();
+    expect(engine.current, 'hash2.mp3');
+    expect(engine.playing, isTrue);
+    expect(state().queue.source, isNull);
+  });
+
+  test('play next and play later add to a running queue', () async {
+    await playAt(0);
+    await player().playLater(a);
+    await player().playNext(c);
+    expect(queueIds(), [1, 3, 2, 3, 1]);
+    expect(engine.loaded, ['hash1.mp3']);
+  });
+
+  test(
+    'jumpTo, remove, moveUpcoming and clearUpcoming edit the queue',
+    () async {
+      await playAt(0);
+      final entries = state().queue.entries;
+      player().moveUpcoming(0, 1);
+      expect(queueIds(), [1, 3, 2]);
+      await player().remove(entries[2].key);
+      expect(queueIds(), [1, 2]);
+      await player().jumpTo(entries[1].key);
+      await pumpEventQueue();
+      expect(engine.current, 'hash2.mp3');
+      player().clearUpcoming();
+      expect(queueIds(), [1, 2]);
+      expect(state().queue.current!.trackId, 2);
+    },
+  );
+
+  test('an import while playing does not reload', () async {
+    await playAt(0);
+    library.add([a, b, c, track(4, title: 'D')]);
+    await pumpEventQueue();
+    expect(engine.loaded, ['hash1.mp3']);
+    expect(engine.playing, isTrue);
+    expect(queueIds(), [1, 2, 3]);
+  });
+
+  test('a stale load does not win', () async {
+    final hold = engine.holdLoad = Completer<void>();
+    unawaited(player().playList([a, b, c], start: 0, source: 'Songs'));
+    await pumpEventQueue();
+    engine.holdLoad = null;
+    await playAt(1);
+    // The real engine interrupts the abandoned load, which then throws.
+    engine.failing.add('hash1.mp3');
+    hold.complete();
+    await pumpEventQueue();
+    expect(notices, isEmpty);
+    expect(container.read(currentTrackProvider)!.id, 2);
+    expect(engine.current, 'hash2.mp3');
+    expect(engine.playing, isTrue);
+  });
+
+  test('togglePlay pauses and resumes', () async {
+    await playAt(0);
+    await player().togglePlay();
+    expect(engine.playing, isFalse);
+    expect(state().playing, isFalse);
+    await player().togglePlay();
+    expect(engine.playing, isTrue);
+    expect(state().playing, isTrue);
+  });
+
+  test('builds when the library is loaded before the player', () async {
+    final early = ProviderContainer(
+      overrides: [
+        audioEngineProvider.overrideWithValue(FakeAudioEngine()),
+        tracksProvider.overrideWith((ref) => Stream.value([a, b])),
+        storageProvider.overrideWithValue(
+          LibraryStorage(Directory('/nonexistent/owntune')),
+        ),
+      ],
+    );
+    addTearDown(early.dispose);
+    early.listen(tracksProvider, (_, _) {});
+    await pumpEventQueue();
+    expect(early.read(tracksProvider).value, hasLength(2));
+
+    expect(early.read(playerProvider).queue.isEmpty, isTrue);
+    await early
+        .read(playerProvider.notifier)
+        .playList([a, b], start: 1, source: 'Songs');
+    expect(early.read(currentTrackProvider)!.id, 2);
+  });
+
+  test('skipBack goes to the previous song even late in a song', () async {
+    await playAt(1);
+    engine.emitPosition(const Duration(seconds: 30));
+    await pumpEventQueue();
+    await player().skipBack();
+    await pumpEventQueue();
+    expect(state().queue.index, 0);
+    expect(engine.current, 'hash1.mp3');
+  });
+
+  test('skipBack on the first song restarts it', () async {
+    await playAt(0);
+    await player().skipBack();
+    expect(engine.loaded, ['hash1.mp3']);
+    expect(engine.lastSeek, Duration.zero);
+  });
+}

@@ -45,6 +45,17 @@ class TrackRepository {
     }
   }
 
+  /// Counts a play of the track that just ended: play count + 1 and
+  /// `lastPlayedAt` now.
+  Future<void> markPlayed(int id) async {
+    await _db.customUpdate(
+      'UPDATE tracks SET play_count = play_count + 1, last_played_at = ? '
+      'WHERE id = ?',
+      variables: [Variable(DateTime.now()), Variable(id)],
+      updates: {_db.tracks},
+    );
+  }
+
   Future<int> count() async {
     final countExp = _db.tracks.id.count();
     final query = _db.selectOnly(_db.tracks)..addColumns([countExp]);

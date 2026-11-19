@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 owntune is a mobile music player for **local files** (iOS & Android): import, play, and manage metadata/covers/albums/playlists. No streaming, no account, fully offline.
 
-**Status:** M1 is split into two releases. **v0.2.0** contains: import (copy + hash duplicates + tags/cover via Rust), drift database, Songs tab, delete from library, and Settings (appearance + accent). **v0.3.0** completes M1: Albums, Artists, Playlists (empty placeholder until M4) and Search alongside Songs, with inline per-tab filtering, album/artist detail screens, Songs sort menu (stored in the settings) with A–Z index, a "+" menu (Import Music; New Playlist and Search Online disabled placeholders), and "Go to Album/Artist" in the song menu. **v0.3.1** regroups the tabs: four tabs (Home as a placeholder, Search, Library with Songs | Albums | Artists sub-tabs, each with its own search, and Playlists); the app opens on Library while Home is a placeholder. M1's "done when" still has to be checked on the iPhone. Next: **M2** (player). Specs, plans and mockups live in `docs/superpowers/`, `docs/mockups/m1-v3/` (the M1 screens) and `docs/mockups/m2-v1/` (the four-tab layout and the M2 player).
+**Status:** M1 is split into two releases. **v0.2.0** contains: import (copy + hash duplicates + tags/cover via Rust), drift database, Songs tab, delete from library, and Settings (appearance + accent). **v0.3.0** completes M1: Albums, Artists, Playlists (empty placeholder until M4) and Search alongside Songs, with inline per-tab filtering, album/artist detail screens, Songs sort menu (stored in the settings) with A–Z index, a "+" menu (Import Music; New Playlist and Search Online disabled placeholders), and "Go to Album/Artist" in the song menu. **v0.3.1** regroups the tabs: four tabs (Home as a placeholder, Search, Library with Songs | Albums | Artists sub-tabs, each with its own search, and Playlists); the app opens on Library while Home is a placeholder. M1's "done when" still has to be checked on the iPhone. **v0.4.0** (first half of M2) plays music inside the app: tap a song and its list becomes the queue, mini player on every screen, full-screen Now Playing with scrubber and repeat (off/all/one), Up Next (reorder, remove, clear), Play Next/Later in the song menu, Play on album/artist pages, play counts. Shuffle controls are shown disabled. Next: **v0.4.1** (background playback, lock screen / Control Center via audio_service, restore the player after a restart). Specs, plans and mockups live in `docs/superpowers/`, `docs/mockups/m1-v3/` (the M1 screens) and `docs/mockups/m2-v1/` (the four-tab layout and the M2 player).
 
 **Language:** Everything in the repo — code, comments, tests, docs, commit messages, CI step names, UI strings — is in English. (Commits before 2026-11-18 are partly German; history is not rewritten.)
 
@@ -27,7 +27,10 @@ Flutter **3.50.0** (pinned in both workflows via `FLUTTER_VERSION`) · Dart 3.14
 - Since Flutter 3.47, `package:flutter/material.dart` is deprecated → import **`package:material_ui/material_ui.dart`** (otherwise `flutter analyze` reports infos and CI fails).
 - Since 3.50, `package:flutter/cupertino.dart` is deprecated too → import **`package:cupertino_ui/cupertino_ui.dart`** (icons: `CupertinoIcons`).
 - In use since v0.2.0: flutter_riverpod 3 (no codegen), drift + drift_flutter (+ drift_dev/build_runner), file_picker, path_provider, package_info_plus; Rust side: blake3.
-- Planned for later milestones (not added yet): just_audio + audio_service (Linux: `just_audio_media_kit`). Add packages only with the milestone that needs them.
+- In use since v0.4.0: just_audio (iOS/Android), just_audio_media_kit + media_kit_libs_linux (Linux, needs system libmpv; CI installs `libmpv-dev`), audio_session (iOS/Android: music category, so the silent switch does not mute).
+- Planned for v0.4.1 (not added yet): audio_service. Add packages only with the milestone that needs them.
+- **Linux runner links `libgcc_s` first** (`linux/runner/CMakeLists.txt`): `libflutter_linux_gtk.so` exports its own `_Unwind_*`, and LuaJIT inside libmpv segfaulted when it unwound through them. Keep that line when regenerating the Linux runner.
+- **media_kit reports an unreadable file only as an event with an error code** and never completes the load; `JustAudioEngine.load` therefore also ends on that event.
 
 ## Commands
 
@@ -64,6 +67,7 @@ lib/
   home/                # Home tab (placeholder until its content is decided)
   import/              # Importer (copy, hash duplicates, rollback), ImportController, picker, import sheets
   library/             # Library.from (albums/artists derived from tracks), sorting, search, Library tab with sub-tabs, detail screens, navigation
+  player/              # AudioEngine (just_audio) + audio setup, PlayQueue, PlayerController, mini player, Now Playing, Up Next
   settings/            # AppSettings + SettingsRepository, settings sheet
   src/rust/            # GENERATED by flutter_rust_bridge – do not edit by hand
 rust/                  # Rust crate rust_lib_owntune
@@ -77,9 +81,11 @@ integration_test/      # tests against the real native library and a real databa
 tool/                  # build/release scripts
 ```
 
-Planned for later milestones: `lib/data/sources/` (a "source" abstraction for a later download feature), `lib/services/` (audio).
+Planned for later milestones: `lib/data/sources/` (a "source" abstraction for a later download feature).
 
-**Startup sequence** (`lib/app/startup.dart`): `RustLib.init()` → `LibraryStorage.open()` + `ensure()` (`<ApplicationSupport>/library/{audio,covers}`) → `AppDatabase.open()` (`<ApplicationSupport>/owntune.sqlite`) → `cleanupOrphans()` (best effort: leftover `.part` files and files without a row) → load settings. Any error → `StartupFailed`.
+**Player** (`lib/player/`): `PlayerController` (Riverpod notifier) owns a pure `PlayQueue` (entries with their own keys, current index, source label, repeat) and drives an `AudioEngine` that plays one file at a time; tests use `FakeAudioEngine` (`pumpApp` overrides `audioEngineProvider`). The controller stores track ids and follows `tracksProvider`, so deleted songs leave the queue. `audio_service` (v0.4.1) is meant to sit in front of the controller. The mini player lives in each Scaffold's bottom bar (shell and detail screens), so menus dim it.
+
+**Startup sequence** (`lib/app/startup.dart`): `RustLib.init()` → `initAudio()` (media_kit on Linux, audio session on phones) → `LibraryStorage.open()` + `ensure()` (`<ApplicationSupport>/library/{audio,covers}`) → `AppDatabase.open()` (`<ApplicationSupport>/owntune.sqlite`) → `cleanupOrphans()` (best effort: leftover `.part` files and files without a row) → load settings. Any error → `StartupFailed`.
 
 **Data rules:** The DB stores file names only (`<blake3>.<ext>`, covers `<blake3-of-image>.<ext>`), never absolute paths, because the iOS container path changes on app updates. Each file is copied to `audio/<random>.part.<ext>` (lofty picks the parser by extension), renamed to `<blake3>.<ext>`, and only then gets its row; covers are written via `covers/<random>.part`.
 
@@ -101,7 +107,7 @@ Planned for later milestones: `lib/data/sources/` (a "source" abstraction for a 
 
 - **M0 Skeleton** – ✅ done (release `v0.1.0`).
 - **M1 Import & library** – MP3, M4A/AAC, FLAC, WAV (OGG later); multi-file import, copying, hash duplicates, read tags + cover; Songs/Albums/Artists views with search and sorting. *Done when:* 50 files imported and grouped correctly. Released in two parts: `v0.2.0` (import, database, Songs, delete, settings) and `v0.3.0` (Albums, Artists, details, search, sort); `v0.3.1` regroups them into four tabs with a Library tab.
-- **M2 Player** – controls, queue, shuffle/repeat, mini and full-screen player, background + lock screen (`UIBackgroundModes: audio`), restore state after restart. *Done when:* plays on the iPhone with the screen locked and can be controlled.
+- **M2 Player** – controls, queue, shuffle/repeat, mini and full-screen player, background + lock screen (`UIBackgroundModes: audio`), restore state after restart. *Done when:* plays on the iPhone with the screen locked and can be controlled. Released in two parts: `v0.4.0` (in-app playback, no shuffle) and `v0.4.1` (background, lock screen, restore).
 - **M3 Metadata editor** – edit fields, pick/crop/remove covers, bulk editing, write back to tags.
 - **M4 Albums & playlists** – custom albums, playlists with drag & drop and custom cover.
 - **M5 Polish** – share sheet / "Open with …", dynamic colors from the cover, statistics (dark mode already ships in v0.2.0).

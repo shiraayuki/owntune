@@ -170,4 +170,17 @@ void main() {
       startsWith(storage.root.path),
     );
   });
+
+  test('markPlayed increments the play count and sets lastPlayedAt', () async {
+    await repo.insert(row('h1'));
+    final id = (await repo.watchAll().first).single.id;
+    final before = DateTime.now().subtract(const Duration(seconds: 1));
+
+    await repo.markPlayed(id);
+    await repo.markPlayed(id);
+
+    final t = (await repo.watchAll().first).single;
+    expect(t.playCount, 2);
+    expect(t.lastPlayedAt!.isAfter(before), isTrue);
+  });
 }

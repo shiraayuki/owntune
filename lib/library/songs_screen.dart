@@ -18,6 +18,7 @@ import 'package:owntune/library/search_screen.dart';
 import 'package:owntune/library/section_index.dart';
 import 'package:owntune/library/song_sort.dart';
 import 'package:owntune/library/sort_key.dart';
+import 'package:owntune/player/player_controller.dart';
 
 /// The Songs tab: all tracks in the chosen order with letter sections, or
 /// the empty state.
@@ -51,7 +52,7 @@ class _SongsScreenState extends ConsumerState<SongsScreen> {
         children: [
           _Meta(count: songs.length, sort: sort),
           Expanded(
-            child: SongList(songs: songs, sort: sort),
+            child: SongList(songs: songs, sort: sort, source: 'Songs'),
           ),
         ],
       );
@@ -59,7 +60,12 @@ class _SongsScreenState extends ConsumerState<SongsScreen> {
     final matches = songs.where((t) => songMatches(t, q)).toList();
     return matches.isEmpty
         ? NoResults(query: _query.text)
-        : SongList(songs: matches, sort: sort, sections: false);
+        : SongList(
+            songs: matches,
+            sort: sort,
+            sections: false,
+            source: 'Songs',
+          );
   }
 
   @override
@@ -112,11 +118,12 @@ class _Meta extends StatelessWidget {
 /// Sorted songs with a section header wherever the [sort]'s section letter
 /// changes (none for sorts without sections), plus the A–Z index when there
 /// are sections.
-class SongList extends StatefulWidget {
+class SongList extends ConsumerStatefulWidget {
   const SongList({
     super.key,
     required this.songs,
     required this.sort,
+    required this.source,
     this.sections = true,
   });
 
@@ -127,11 +134,14 @@ class SongList extends StatefulWidget {
   /// False for a filtered list: no section headers and no index.
   final bool sections;
 
+  /// "Playing from" label of the queue a tap starts.
+  final String source;
+
   @override
-  State<SongList> createState() => _SongListState();
+  ConsumerState<SongList> createState() => _SongListState();
 }
 
-class _SongListState extends State<SongList> {
+class _SongListState extends ConsumerState<SongList> {
   final _controller = ScrollController();
 
   @override
@@ -150,13 +160,16 @@ class _SongListState extends State<SongList> {
     final offsets = <String, double>{};
     var offset = 0.0;
     String? letter;
-    for (final t in widget.songs) {
+    // Position in widget.songs of each Track in items.
+    final songIndex = <int, int>{};
+    for (final (j, t) in widget.songs.indexed) {
       final l = widget.sections ? songSection(t, widget.sort) : null;
       if (l != null && l != letter) {
         items.add(letter = l);
         offsets.putIfAbsent(l, () => offset);
         offset += headerExtent;
       }
+      songIndex[items.length] = j;
       items.add(t);
       offset += rowExtent;
     }
@@ -178,6 +191,13 @@ class _SongListState extends State<SongList> {
           track: t,
           scope: const SongMenuScope(backLabel: 'Library'),
           divider: i + 1 < items.length,
+          onTap: () => ref
+              .read(playerProvider.notifier)
+              .playList(
+                widget.songs,
+                start: songIndex[i]!,
+                source: widget.source,
+              ),
         ),
         final String l => _SectionHeader(
           key: ValueKey('section-$l'),
@@ -259,6 +279,7 @@ class SongRow extends ConsumerWidget {
     required this.scope,
     this.divider = true,
     this.subtitle,
+    this.onTap,
   });
 
   final Track track;
@@ -267,6 +288,9 @@ class SongRow extends ConsumerWidget {
 
   /// Replaces the default `artist · album` line.
   final String? subtitle;
+
+  /// Plays the song, usually with its list as the queue.
+  final VoidCallback? onTap;
 
   /// Height of a row at [scaler]: 64pt, more when the two text lines need
   /// it.
@@ -277,6 +301,9 @@ class SongRow extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final c = Theme.of(context).extension<OwntuneColors>()!;
     final storage = ref.watch(storageProvider);
+    final playing = ref.watch(
+      currentTrackProvider.select((t) => t?.id == track.id),
+    );
     final cover = track.coverFile;
     final album = track.album?.trim();
     final subtitle =
@@ -288,6 +315,7 @@ class SongRow extends ConsumerWidget {
 
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
+      onTap: onTap,
       onLongPressStart: (details) =>
           showSongMenu(context, ref, track, details.globalPosition, scope),
       child: ConstrainedBox(
@@ -315,7 +343,7 @@ class SongRow extends ConsumerWidget {
                             fontSize: 17,
                             height: _lineHeight,
                             fontWeight: FontWeight.w600,
-                            color: c.text,
+                            color: playing ? c.accent : c.text,
                           ),
                         ),
                         Text(
@@ -354,7 +382,7 @@ Color _red(BuildContext context) =>
     ? const Color(0xffff453a)
     : const Color(0xffff3b30);
 
-enum _SongAction { album, artist, delete }
+enum _SongAction { playNext, playLater, album, artist, delete }
 
 /// Where a song row is shown, for its context menu: the back label of
 /// screens it opens, and the album/artist screen it is already on (whose
@@ -364,11 +392,16 @@ class SongMenuScope {
     required this.backLabel,
     this.currentAlbum,
     this.currentArtist,
+    this.inPlayer = false,
   });
 
   final String backLabel;
   final AlbumKey? currentAlbum;
   final String? currentArtist;
+
+  /// Opened from the player: no Play Next/Later, and "Go to" closes the
+  /// player before it opens the screen.
+  final bool inPlayer;
 }
 
 /// The long-press context menu of a song row, opened at [position].
@@ -384,6 +417,7 @@ Future<void> showSongMenu(
   SongMenuScope scope,
 ) async {
   final repo = ref.read(trackRepositoryProvider);
+  final player = ref.read(playerProvider.notifier);
   final navigator = Navigator.of(context);
   final dark = Theme.of(context).brightness == Brightness.dark;
   final fg = dark ? const Color(0xffffffff) : const Color(0xff000000);
@@ -398,8 +432,10 @@ Future<void> showSongMenu(
     _SongAction value,
     String label,
     IconData icon,
-    Color color,
-  ) => PopupMenuItem(
+    Color color, {
+    Key? key,
+  }) => PopupMenuItem(
+    key: key,
     value: value,
     height: 44,
     padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -433,6 +469,23 @@ Future<void> showSongMenu(
     constraints: const BoxConstraints.tightFor(width: 250),
     menuPadding: EdgeInsets.zero,
     items: [
+      if (!scope.inPlayer) ...[
+        item(
+          _SongAction.playNext,
+          'Play Next',
+          CupertinoIcons.text_insert,
+          fg,
+          key: const Key('menu-play-next'),
+        ),
+        item(
+          _SongAction.playLater,
+          'Play Later',
+          CupertinoIcons.text_append,
+          fg,
+          key: const Key('menu-play-later'),
+        ),
+        menuGap(context),
+      ],
       if (showAlbum)
         item(_SongAction.album, 'Go to Album', CupertinoIcons.square_stack, fg),
       if (showArtist)
@@ -447,7 +500,15 @@ Future<void> showSongMenu(
     ],
   );
   if (!navigator.mounted) return;
+  if (scope.inPlayer &&
+      (action == _SongAction.album || action == _SongAction.artist)) {
+    navigator.pop();
+  }
   switch (action) {
+    case _SongAction.playNext:
+      await player.playNext(track);
+    case _SongAction.playLater:
+      await player.playLater(track);
     case _SongAction.album:
       await openAlbum(navigator.context, albumKey!, backLabel: scope.backLabel);
     case _SongAction.artist:

@@ -1,9 +1,12 @@
+import 'package:owntune/app/app_shell.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:owntune/app/providers.dart';
 import 'package:owntune/library/album_screen.dart';
 import 'package:owntune/library/artist_screen.dart';
 import 'package:owntune/library/navigation.dart';
+import 'package:owntune/player/player_controller.dart';
 
 import '../support/fakes.dart';
 
@@ -118,5 +121,72 @@ void main() {
     await longPress(t, 'Amber Lights');
     expect(find.text('Go to Artist'), findsNothing);
     expect(find.text('Go to Album'), findsOneWidget);
+  });
+
+  group('Play Next and Play Later', () {
+    final abc = [
+      track(1, title: 'A song'),
+      track(2, title: 'B song'),
+      track(3, title: 'C song'),
+    ];
+
+    final repo = [
+      trackRepositoryProvider.overrideWithValue(FakeTrackRepository()),
+    ];
+
+    List<int> queueIds(WidgetTester t) => [
+      for (final e in ProviderScope.containerOf(
+        t.element(find.byType(OwntuneApp)),
+      ).read(playerProvider).queue.entries)
+        e.trackId,
+    ];
+
+    testWidgets('Play Next inserts after the current song', (t) async {
+      await pumpApp(t, songs: abc, overrides: repo);
+      await t.tap(find.text('A song'));
+      await t.pumpAndSettle();
+
+      await longPress(t, 'C song');
+      await t.tap(find.byKey(const Key('menu-play-next')));
+      await t.pumpAndSettle();
+
+      expect(queueIds(t), [1, 3, 2, 3]);
+    });
+
+    testWidgets('Play Later appends to the queue', (t) async {
+      await pumpApp(t, songs: abc, overrides: repo);
+      await t.tap(find.text('B song'));
+      await t.pumpAndSettle();
+
+      await longPress(t, 'A song');
+      await t.tap(find.byKey(const Key('menu-play-later')));
+      await t.pumpAndSettle();
+
+      expect(queueIds(t), [1, 2, 3, 1]);
+    });
+
+    testWidgets('Play Next with nothing playing starts the song', (t) async {
+      final engine = FakeAudioEngine();
+      await pumpApp(t, songs: abc, engine: engine, overrides: repo);
+
+      await longPress(t, 'B song');
+      await t.tap(find.byKey(const Key('menu-play-next')));
+      await t.pumpAndSettle();
+
+      expect(engine.current, 'hash2.mp3');
+      expect(engine.playing, isTrue);
+    });
+
+    testWidgets('menu shows Play Next and Play Later above Go to Album', (
+      t,
+    ) async {
+      await pumpApp(t, songs: songs, overrides: repo);
+      await longPress(t, 'Amber Lights');
+
+      double y(String text) => t.getTopLeft(find.text(text)).dy;
+      expect(y('Play Next'), lessThan(y('Play Later')));
+      expect(y('Play Later'), lessThan(y('Go to Album')));
+      expect(y('Go to Artist'), lessThan(y('Delete from Library')));
+    });
   });
 }

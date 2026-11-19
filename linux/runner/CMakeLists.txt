@@ -19,6 +19,13 @@ apply_standard_settings(${BINARY_NAME})
 # Add preprocessor definitions for the application ID.
 add_definitions(-DAPPLICATION_ID="${APPLICATION_ID}")
 
+# libgcc_s comes first so its _Unwind_* symbols win over the copies that
+# libflutter_linux_gtk.so exports. Otherwise LuaJIT inside libmpv (the
+# media_kit audio backend) unwinds through Flutter's unwinder and crashes
+# with SIGSEGV as soon as one of mpv's built-in Lua scripts raises an error.
+target_link_libraries(${BINARY_NAME} PRIVATE
+  "-Wl,--push-state,--no-as-needed" gcc_s "-Wl,--pop-state")
+
 # Add dependency libraries. Add any application-specific dependencies here.
 target_link_libraries(${BINARY_NAME} PRIVATE flutter)
 target_link_libraries(${BINARY_NAME} PRIVATE PkgConfig::GTK)
