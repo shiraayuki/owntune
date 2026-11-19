@@ -37,11 +37,6 @@ final currentTrackProvider = Provider<Track?>((ref) {
   return null;
 });
 
-/// Short messages for the user, e.g. a song that could not be played.
-final playerNoticesProvider = StreamProvider<String>(
-  (ref) => ref.watch(playerProvider.notifier).notices,
-);
-
 /// After this long into a song, Previous restarts it instead of going back.
 const _restartThreshold = Duration(seconds: 3);
 
@@ -79,10 +74,13 @@ class PlayerController extends Notifier<PlayerState> {
         s.cancel();
       }
     });
+    // Not fireImmediately: _onTracks reads `state`, which does not exist
+    // until build returns.
+    _tracks = _byId(ref.read(tracksProvider).value ?? const []);
     ref.listen(tracksProvider, (_, next) {
       final tracks = next.value;
       if (tracks != null) _onTracks(tracks);
-    }, fireImmediately: true);
+    });
     return const PlayerState();
   }
 
@@ -227,8 +225,12 @@ class PlayerController extends Notifier<PlayerState> {
     await _start(_queue.withIndex(next), play: true);
   }
 
+  static Map<int, Track> _byId(List<Track> tracks) => {
+    for (final t in tracks) t.id: t,
+  };
+
   void _onTracks(List<Track> tracks) {
-    _tracks = {for (final t in tracks) t.id: t};
+    _tracks = _byId(tracks);
     if (_queue.isEmpty) return;
     final ids = _tracks.keys.toSet();
     final followed = _queue.upcoming.any((e) => ids.contains(e.trackId));

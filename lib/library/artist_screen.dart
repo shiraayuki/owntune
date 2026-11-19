@@ -8,6 +8,7 @@ import 'package:owntune/library/artists_screen.dart';
 import 'package:owntune/library/library.dart';
 import 'package:owntune/library/navigation.dart';
 import 'package:owntune/library/songs_screen.dart';
+import 'package:owntune/player/player_controller.dart';
 
 /// Number of songs shown on the artist screen before "See All".
 const _previewCount = 5;
@@ -81,7 +82,11 @@ class _ArtistBody extends ConsumerWidget {
           style: TextStyle(fontSize: 13, color: c.muted),
         ),
         const SizedBox(height: 16),
-        const PlayShuffleButtons(),
+        PlayShuffleButtons(
+          onPlay: () => ref
+              .read(playerProvider.notifier)
+              .playList(artist.songs, start: 0, source: artist.name),
+        ),
         if (artist.albums.isNotEmpty) ...[
           const _SectionTitle(title: 'Albums'),
           SizedBox(
@@ -118,6 +123,10 @@ class _ArtistBody extends ConsumerWidget {
         ),
         for (final (i, t) in preview.indexed)
           SongRow(
+            // The preview is the start of artist.songs; queue all of them.
+            onTap: () => ref
+                .read(playerProvider.notifier)
+                .playList(artist.songs, start: i, source: artist.name),
             track: t,
             scope: SongMenuScope(
               backLabel: artist.name,
@@ -184,7 +193,7 @@ class _SeeAll extends StatelessWidget {
 }
 
 /// All songs of an artist ("See All"), titled with the artist's name.
-class ArtistSongsScreen extends StatelessWidget {
+class ArtistSongsScreen extends ConsumerWidget {
   const ArtistSongsScreen({
     super.key,
     required this.artistKey,
@@ -195,7 +204,7 @@ class ArtistSongsScreen extends StatelessWidget {
   final String backLabel;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final c = Theme.of(context).extension<OwntuneColors>()!;
     return Scaffold(
       body: Column(
@@ -232,6 +241,13 @@ class ArtistSongsScreen extends StatelessWidget {
                   }
                   final t = artist.songs[i - 1];
                   return SongRow(
+                    onTap: () => ref
+                        .read(playerProvider.notifier)
+                        .playList(
+                          artist.songs,
+                          start: i - 1,
+                          source: artist.name,
+                        ),
                     track: t,
                     scope: SongMenuScope(
                       backLabel: artist.name,

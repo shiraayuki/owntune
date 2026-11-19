@@ -10,6 +10,7 @@ import 'package:owntune/library/navigation.dart';
 import 'package:owntune/library/search.dart';
 import 'package:owntune/library/songs_screen.dart';
 import 'package:owntune/library/sort_key.dart';
+import 'package:owntune/player/player_controller.dart';
 
 /// The rounded 36pt search box (`.search`).
 class _SearchBox extends StatelessWidget {
@@ -252,6 +253,9 @@ class _Results extends ConsumerWidget {
           const _GroupHeader(title: 'Songs'),
           for (final (i, t) in results.songs.indexed)
             SongRow(
+              onTap: () => ref
+                  .read(playerProvider.notifier)
+                  .playList(results.songs, start: i, source: 'Search'),
               track: t,
               scope: scope,
               subtitle: 'Song · ${displayArtist(t.artist)}',

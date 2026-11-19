@@ -293,4 +293,26 @@ void main() {
     expect(engine.playing, isTrue);
     expect(state().playing, isTrue);
   });
+
+  test('builds when the library is loaded before the player', () async {
+    final early = ProviderContainer(
+      overrides: [
+        audioEngineProvider.overrideWithValue(FakeAudioEngine()),
+        tracksProvider.overrideWith((ref) => Stream.value([a, b])),
+        storageProvider.overrideWithValue(
+          LibraryStorage(Directory('/nonexistent/owntune')),
+        ),
+      ],
+    );
+    addTearDown(early.dispose);
+    early.listen(tracksProvider, (_, _) {});
+    await pumpEventQueue();
+    expect(early.read(tracksProvider).value, hasLength(2));
+
+    expect(early.read(playerProvider).queue.isEmpty, isTrue);
+    await early
+        .read(playerProvider.notifier)
+        .playList([a, b], start: 1, source: 'Songs');
+    expect(early.read(currentTrackProvider)!.id, 2);
+  });
 }

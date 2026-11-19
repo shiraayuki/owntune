@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:ui' show ImageFilter;
 
 import 'package:cupertino_ui/cupertino_ui.dart' show CupertinoIcons;
@@ -13,12 +14,16 @@ import 'package:owntune/library/library_tab.dart';
 import 'package:owntune/library/playlists_screen.dart';
 import 'package:owntune/library/search_screen.dart';
 import 'package:owntune/library/song_sort.dart';
+import 'package:owntune/player/player_controller.dart';
 import 'package:owntune/settings/settings.dart';
 import 'package:owntune/settings/settings_sheet.dart';
 
 /// Opens the settings; gets a context below the app's navigator. Defaults to
 /// [showSettingsSheet].
 typedef OpenSettings = void Function(BuildContext context);
+
+/// Shows snack bars on whichever screen is on top.
+final _messengerKey = GlobalKey<ScaffoldMessengerState>();
 
 class OwntuneApp extends ConsumerWidget {
   const OwntuneApp({super.key, this.onOpenSettings});
@@ -30,6 +35,7 @@ class OwntuneApp extends ConsumerWidget {
     final settings = ref.watch(settingsProvider);
     return MaterialApp(
       title: 'owntune',
+      scaffoldMessengerKey: _messengerKey,
       theme: buildTheme(Brightness.light, settings.accent),
       darkTheme: buildTheme(Brightness.dark, settings.accent),
       themeMode: switch (settings.mode) {
@@ -39,8 +45,9 @@ class OwntuneApp extends ConsumerWidget {
       },
       // The import sheets sit above the navigator, so they also show over
       // pushed screens (album, artist, search).
-      builder: (context, child) =>
-          Stack(children: [child!, const _ImportLayer()]),
+      builder: (context, child) => Stack(
+        children: [child!, const _PlayerNotices(), const _ImportLayer()],
+      ),
       home: AppShell(onOpenSettings: onOpenSettings),
     );
   }
@@ -69,6 +76,42 @@ class _ImportLayerState extends State<_ImportLayer> {
   @override
   Widget build(BuildContext context) =>
       Positioned.fill(child: Overlay(initialEntries: [_entry]));
+}
+
+/// Shows the player's notices (e.g. a song that could not be played) as
+/// snack bars. Subscribes to the stream itself, so two equal notices in a
+/// row both show.
+class _PlayerNotices extends ConsumerStatefulWidget {
+  const _PlayerNotices();
+
+  @override
+  ConsumerState<_PlayerNotices> createState() => _PlayerNoticesState();
+}
+
+class _PlayerNoticesState extends ConsumerState<_PlayerNotices> {
+  StreamSubscription<String>? _sub;
+
+  @override
+  void initState() {
+    super.initState();
+    _sub = ref
+        .read(playerProvider.notifier)
+        .notices
+        .listen(
+          (text) => _messengerKey.currentState
+            ?..hideCurrentSnackBar()
+            ..showSnackBar(SnackBar(content: Text(text))),
+        );
+  }
+
+  @override
+  void dispose() {
+    _sub?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => const SizedBox.shrink();
 }
 
 class _Tab {

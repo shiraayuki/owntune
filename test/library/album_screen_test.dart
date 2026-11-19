@@ -99,15 +99,14 @@ void main() {
     );
   });
 
-  testWidgets('Play and Shuffle are shown but disabled', (t) async {
+  testWidgets('Play is active, Shuffle stays disabled', (t) async {
     await pumpApp(t, songs: _album);
     await _open(t);
-    for (final label in ['Play', 'Shuffle']) {
-      final button = t.widget<PillButton>(
-        find.ancestor(of: find.text(label), matching: find.byType(PillButton)),
-      );
-      expect(button.onPressed, isNull, reason: label);
-    }
+    PillButton button(String label) => t.widget<PillButton>(
+      find.ancestor(of: find.text(label), matching: find.byType(PillButton)),
+    );
+    expect(button('Play').onPressed, isNotNull);
+    expect(button('Shuffle').onPressed, isNull);
   });
 
   testWidgets('back returns to the albums tab', (t) async {
