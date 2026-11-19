@@ -349,4 +349,131 @@ void main() {
     await pumpEventQueue();
     expect(state().playing, isTrue);
   });
+
+  group('shuffle', () {
+    List<int> sorted(List<int> xs) => [...xs]..sort();
+
+    test('toggle shuffle keeps the song playing', () async {
+      await playAt(1);
+      final loads = engine.loaded.length;
+      player().toggleShuffle();
+      await pumpEventQueue();
+      expect(state().queue.shuffled, isTrue);
+      expect(state().queue.current!.trackId, 2);
+      expect(state().queue.index, 0);
+      expect(sorted(queueIds()), [1, 2, 3]);
+      expect(state().playing, isTrue);
+      expect(engine.loaded.length, loads);
+    });
+
+    test('toggle twice restores the list order', () async {
+      await playAt(1);
+      player()
+        ..toggleShuffle()
+        ..toggleShuffle();
+      await pumpEventQueue();
+      expect(state().queue.shuffled, isFalse);
+      expect(queueIds(), [1, 2, 3]);
+      expect(state().queue.current!.trackId, 2);
+    });
+
+    test('tapping a song with shuffle on plays it first', () async {
+      await playAt(0);
+      player().toggleShuffle();
+      await player().playList([a, b, c], start: 2, source: 'Songs');
+      await pumpEventQueue();
+      expect(state().queue.shuffled, isTrue);
+      expect(state().queue.current!.trackId, 3);
+      expect(state().queue.index, 0);
+      expect(sorted(queueIds()), [1, 2, 3]);
+      expect(engine.loaded.last, 'hash3.mp3');
+    });
+
+    test('album Shuffle starts shuffled', () async {
+      await player().playList(
+        [a, b, c],
+        start: 0,
+        source: 'Album',
+        shuffle: true,
+      );
+      await pumpEventQueue();
+      expect(state().queue.shuffled, isTrue);
+      expect(state().queue.index, 0);
+      expect(sorted(queueIds()), [1, 2, 3]);
+      expect(state().playing, isTrue);
+    });
+
+    test('Play turns shuffle off', () async {
+      await playAt(0);
+      player().toggleShuffle();
+      await player().playList(
+        [a, b, c],
+        start: 0,
+        source: 'Album',
+        shuffle: false,
+      );
+      await pumpEventQueue();
+      expect(state().queue.shuffled, isFalse);
+      expect(queueIds(), [1, 2, 3]);
+      expect(state().queue.current!.trackId, 1);
+    });
+
+    test('shuffle survives an emptied queue', () async {
+      await playAt(0);
+      player().toggleShuffle();
+      library.add([]);
+      await pumpEventQueue();
+      expect(state().queue.isEmpty, isTrue);
+      library.add([a, b, c]);
+      await pumpEventQueue();
+      await playAt(0);
+      expect(state().queue.shuffled, isTrue);
+    });
+
+    test('next under repeat all reshuffles at the end', () async {
+      await playAt(0);
+      player()
+        ..toggleShuffle()
+        ..cycleRepeat();
+      expect(state().queue.repeat, QueueRepeat.all);
+      await player().next();
+      await player().next();
+      await pumpEventQueue();
+      expect(state().queue.index, 2);
+      final ended = state().queue.current;
+      await player().next();
+      await pumpEventQueue();
+      expect(state().queue.index, 0);
+      expect(state().queue.current, isNot(ended));
+      expect(state().queue.shuffled, isTrue);
+      expect(sorted(queueIds()), [1, 2, 3]);
+    });
+  });
+
+  test('skipping broken songs under shuffle and repeat all reaches the '
+      'playable one', () async {
+    final six = [
+      for (var i = 1; i <= 6; i++) track(i, title: 'S$i', artist: 'Artist $i'),
+    ];
+    library.add(six);
+    await pumpEventQueue();
+    for (var i = 2; i <= 6; i++) {
+      engine.failing.add('hash$i.mp3');
+    }
+    player().cycleRepeat();
+    // The order is random; several rounds make a wrap-around reshuffle
+    // during the skips all but certain.
+    for (var round = 0; round < 10; round++) {
+      await player().playList(six, start: 0, source: 'Songs', shuffle: true);
+      await pumpEventQueue();
+      final order = [...state().queue.entries];
+      final playable = order.indexWhere((e) => e.trackId == 1);
+      if (playable == order.length - 1) continue; // no wrap from here
+      // Start right after the playable song: the skips must wrap around.
+      await player().jumpTo(order[playable + 1].key);
+      await pumpEventQueue();
+      expect(state().queue.current?.trackId, 1, reason: 'round $round');
+      expect(state().queue.entries, order, reason: 'round $round');
+    }
+  });
 }

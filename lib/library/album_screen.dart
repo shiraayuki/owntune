@@ -142,7 +142,20 @@ class _AlbumBody extends ConsumerWidget {
           PlayShuffleButtons(
             onPlay: () => ref
                 .read(playerProvider.notifier)
-                .playList(album.tracks, start: 0, source: album.title),
+                .playList(
+                  album.tracks,
+                  start: 0,
+                  source: album.title,
+                  shuffle: false,
+                ),
+            onShuffle: () => ref
+                .read(playerProvider.notifier)
+                .playList(
+                  album.tracks,
+                  start: 0,
+                  source: album.title,
+                  shuffle: true,
+                ),
           ),
           const SizedBox(height: 6),
           ...rows,
@@ -152,11 +165,16 @@ class _AlbumBody extends ConsumerWidget {
   }
 }
 
-/// Play and Shuffle; Shuffle stays disabled until shuffle exists.
+/// Play (from the first song, shuffle off) and Shuffle (shuffle on).
 class PlayShuffleButtons extends StatelessWidget {
-  const PlayShuffleButtons({super.key, required this.onPlay});
+  const PlayShuffleButtons({
+    super.key,
+    required this.onPlay,
+    required this.onShuffle,
+  });
 
   final VoidCallback? onPlay;
+  final VoidCallback? onShuffle;
 
   @override
   Widget build(BuildContext context) => Row(
@@ -171,13 +189,13 @@ class PlayShuffleButtons extends StatelessWidget {
         ),
       ),
       const SizedBox(width: 14),
-      const Expanded(
+      Expanded(
         child: PillButton(
           label: 'Shuffle',
           icon: CupertinoIcons.shuffle,
           secondary: true,
           expand: true,
-          onPressed: null,
+          onPressed: onShuffle,
         ),
       ),
     ],

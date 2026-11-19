@@ -125,14 +125,14 @@ void main() {
     expect(find.text('Songs'), findsOneWidget);
   });
 
-  testWidgets('Play is active, Shuffle stays disabled', (t) async {
+  testWidgets('Play and Shuffle are active', (t) async {
     await pumpApp(t, songs: _neon);
     await _open(t, 'Neon Harbor');
     PillButton button(String label) => t.widget<PillButton>(
       find.ancestor(of: find.text(label), matching: find.byType(PillButton)),
     );
     expect(button('Play').onPressed, isNotNull);
-    expect(button('Shuffle').onPressed, isNull);
+    expect(button('Shuffle').onPressed, isNotNull);
   });
 
   testWidgets('deleting the artist\'s last song pops the artist screen', (

@@ -50,4 +50,38 @@ void main() {
     )!;
     expect(s.repeat, QueueRepeat.off);
   });
+
+  test('round-trips shuffleOrder', () {
+    const s = PlayerSnapshot(
+      trackIds: [3, 1, 2],
+      index: 0,
+      shuffleOrder: [1, 2, 0],
+    );
+    expect(PlayerSnapshot.tryParse(s.toJson())!.shuffleOrder, [1, 2, 0]);
+    expect(
+      PlayerSnapshot.tryParse(
+        const PlayerSnapshot(trackIds: [1], index: 0).toJson(),
+      )!.shuffleOrder,
+      isNull,
+    );
+  });
+
+  test('a v0.4.1 snapshot has no shuffleOrder', () {
+    final back = PlayerSnapshot.tryParse(
+      '{"trackIds":[1,2],"index":1,"repeat":"all","positionMs":5000}',
+    )!;
+    expect(back.trackIds, [1, 2]);
+    expect(back.shuffleOrder, isNull);
+  });
+
+  test('a broken shuffleOrder is dropped', () {
+    for (final order in ['[0,0]', '[5,0]', '[0]', '"x"', '[0,"1"]']) {
+      final back = PlayerSnapshot.tryParse(
+        '{"trackIds":[1,2],"index":1,"shuffleOrder":$order}',
+      );
+      expect(back, isNotNull, reason: order);
+      expect(back!.trackIds, [1, 2], reason: order);
+      expect(back.shuffleOrder, isNull, reason: order);
+    }
+  });
 }

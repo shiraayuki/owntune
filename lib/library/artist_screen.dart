@@ -88,7 +88,20 @@ class _ArtistBody extends ConsumerWidget {
         PlayShuffleButtons(
           onPlay: () => ref
               .read(playerProvider.notifier)
-              .playList(artist.songs, start: 0, source: artist.name),
+              .playList(
+                artist.songs,
+                start: 0,
+                source: artist.name,
+                shuffle: false,
+              ),
+          onShuffle: () => ref
+              .read(playerProvider.notifier)
+              .playList(
+                artist.songs,
+                start: 0,
+                source: artist.name,
+                shuffle: true,
+              ),
         ),
         if (artist.albums.isNotEmpty) ...[
           const _SectionTitle(title: 'Albums'),

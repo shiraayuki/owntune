@@ -55,6 +55,22 @@ void main() {
     );
   });
 
+  testWidgets('the top row sits below the status bar', (t) async {
+    t.view.devicePixelRatio = 3;
+    t.view.padding = const FakeViewPadding(top: 141);
+    t.view.viewPadding = const FakeViewPadding(top: 141);
+    addTearDown(t.view.resetDevicePixelRatio);
+    addTearDown(t.view.resetPadding);
+    addTearDown(t.view.resetViewPadding);
+    await pumpApp(t, songs: _songs);
+    await _open(t, 'After the Rain');
+
+    expect(
+      t.getTopLeft(find.byKey(const Key('player-close'))).dy,
+      greaterThanOrEqualTo(47),
+    );
+  });
+
   testWidgets('swiping down closes the player', (t) async {
     await pumpApp(t, songs: _songs);
     await _open(t, 'After the Rain');
@@ -153,13 +169,19 @@ void main() {
     expect(_state(t).queue.repeat, QueueRepeat.off);
   });
 
-  testWidgets('shuffle is disabled', (t) async {
+  testWidgets('shuffle toggles in Now Playing', (t) async {
     await pumpApp(t, songs: _songs);
     await _open(t, 'After the Rain');
-    final shuffle = t.widget<IconButton>(
-      find.byKey(const Key('player-shuffle')),
-    );
-    expect(shuffle.onPressed, isNull);
+    final shuffle = find.byKey(const Key('player-shuffle'));
+
+    expect(_state(t).queue.shuffled, isFalse);
+    await t.tap(shuffle);
+    await t.pumpAndSettle();
+    expect(_state(t).queue.shuffled, isTrue);
+    expect(_state(t).queue.current!.trackId, 1);
+    await t.tap(shuffle);
+    await t.pumpAndSettle();
+    expect(_state(t).queue.shuffled, isFalse);
   });
 
   testWidgets('scrubbing seeks on release only', (t) async {

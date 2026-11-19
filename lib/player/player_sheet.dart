@@ -63,6 +63,10 @@ class _PlayerSheetState extends ConsumerState<PlayerSheet> {
     final cover = track?.coverFile;
     final coverFile = cover == null ? null : storage.coverFile(cover);
     final padding = MediaQuery.viewPaddingOf(context);
+    // The sheet route (and the Scaffold bar the player opens from) remove the
+    // top padding from the MediaQuery; the screen's own inset is the status
+    // bar / Dynamic Island.
+    final topInset = MediaQueryData.fromView(View.of(context)).viewPadding.top;
 
     return SizedBox(
       key: const Key('player-sheet'),
@@ -104,7 +108,7 @@ class _PlayerSheetState extends ConsumerState<PlayerSheet> {
               ),
               Padding(
                 padding: EdgeInsets.only(
-                  top: padding.top,
+                  top: topInset,
                   bottom: padding.bottom + 16,
                 ),
                 child: track == null
@@ -343,7 +347,7 @@ class _MoreButton extends ConsumerWidget {
   );
 }
 
-/// Shuffle (disabled), previous, play/pause, next and repeat (`.p-ctrls`).
+/// Shuffle, previous, play/pause, next and repeat (`.p-ctrls`).
 class PlayerControls extends ConsumerWidget {
   const PlayerControls({super.key});
 
@@ -354,6 +358,7 @@ class PlayerControls extends ConsumerWidget {
     final playing = ref.watch(playerProvider.select((s) => s.playing));
     final hasNext = ref.watch(playerProvider.select((s) => s.queue.hasNext));
     final repeat = ref.watch(playerProvider.select((s) => s.queue.repeat));
+    final shuffled = ref.watch(playerProvider.select((s) => s.queue.shuffled));
     final player = ref.read(playerProvider.notifier);
 
     Widget toggle({
@@ -395,7 +400,8 @@ class PlayerControls extends ConsumerWidget {
           key: const Key('player-shuffle'),
           icon: CupertinoIcons.shuffle,
           tooltip: 'Shuffle',
-          on: false,
+          on: shuffled,
+          onPressed: player.toggleShuffle,
         ),
         skip(
           const Key('player-previous'),

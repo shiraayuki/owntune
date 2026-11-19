@@ -1,12 +1,15 @@
 import 'dart:async';
+import 'dart:math';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:owntune/app/providers.dart';
 import 'package:owntune/data/db/database.dart';
+import 'package:owntune/library/library.dart';
 import 'package:owntune/library/sort_key.dart';
 import 'package:owntune/player/audio_engine.dart';
 import 'package:owntune/player/play_queue.dart';
 import 'package:owntune/player/player_snapshot.dart';
+import 'package:owntune/player/shuffle.dart';
 
 /// What the player shows: the queue and whether it is playing. The position
 /// is a stream of its own ([playerPositionProvider]) so that it does not
@@ -37,6 +40,9 @@ final currentTrackProvider = Provider<Track?>((ref) {
   }
   return null;
 });
+
+/// The randomness behind shuffle; tests override it with a seeded one.
+final randomProvider = Provider<Random>((ref) => Random());
 
 /// After this long into a song, Previous restarts it instead of going back.
 const _restartThreshold = Duration(seconds: 3);
@@ -104,18 +110,50 @@ class PlayerController extends Notifier<PlayerState> {
   }
 
   /// Plays [tracks] from [start]; the list becomes the queue.
+  ///
+  /// [shuffle] null keeps the shuffle mode (when on, the tapped song plays
+  /// first and the rest is shuffled); true turns it on and starts with a
+  /// shuffled song ([start] is ignored); false turns it off.
   Future<void> playList(
     List<Track> tracks, {
     required int start,
     required String source,
-  }) => _start(
-    PlayQueue.of(
+    bool? shuffle,
+  }) {
+    var queue = PlayQueue.of(
       [for (final t in tracks) t.id],
       start: start,
       source: source,
       repeat: _queue.repeat,
-    ),
-    play: true,
+    );
+    if (shuffle ?? _queue.shuffled) {
+      queue = queue.shuffleOn(_spread, keepCurrent: shuffle != true);
+    }
+    return _start(queue, play: true);
+  }
+
+  /// Shuffle on or off; the current song keeps playing.
+  void toggleShuffle() =>
+      _set(_queue.shuffled ? _queue.shuffleOff() : _queue.shuffleOn(_spread));
+
+  /// Spreads entries by artist and album as the library groups them.
+  List<QueueEntry> _spread(List<QueueEntry> entries) => spread(
+    entries,
+    artist: (e) {
+      final t = _tracks[e.trackId];
+      return t == null ? null : artistGroupKey(t.artist);
+    },
+    album: (e) {
+      final t = _tracks[e.trackId];
+      return t == null ? null : albumKeyOf(t);
+    },
+    random: ref.read(randomProvider),
+  );
+
+  /// An empty queue that keeps the repeat and shuffle modes.
+  PlayQueue get _emptyQueue => PlayQueue(
+    repeat: _queue.repeat,
+    original: _queue.shuffled ? const [] : null,
   );
 
   Future<void> togglePlay() async {
@@ -133,7 +171,7 @@ class PlayerController extends Notifier<PlayerState> {
   Future<void> next() async {
     if (!_queue.hasNext) return;
     await _start(
-      _queue.withIndex(_queue.nextIndex(auto: false)!),
+      _queue.following(auto: false, spread: _spread)!,
       play: state.playing,
     );
   }
@@ -185,10 +223,7 @@ class PlayerController extends Notifier<PlayerState> {
 
   Future<void> _add(Track t, {required bool next}) async {
     if (_queue.isEmpty) {
-      await _start(
-        PlayQueue(repeat: _queue.repeat).insertNext(t.id),
-        play: true,
-      );
+      await _start(_emptyQueue.insertNext(t.id), play: true);
       return;
     }
     _set(next ? _queue.insertNext(t.id) : _queue.append(t.id));
@@ -231,6 +266,8 @@ class PlayerController extends Notifier<PlayerState> {
       "Couldn't play “${track == null ? 'song' : displayTitle(track.title, track.originalName)}”",
     );
     _failures++;
+    // Skips keep the order (no reshuffle on wrapping), so counting failures
+    // up to the queue length means every entry was tried once.
     final next = queue.nextIndex(auto: false);
     if (next == null || _failures >= queue.entries.length) {
       _failures = 0;
@@ -251,14 +288,14 @@ class PlayerController extends Notifier<PlayerState> {
             (Object _) {}, // a lost play count is not worth bothering the user
           ),
     );
-    final next = _queue.nextIndex(auto: true);
+    final next = _queue.following(auto: true, spread: _spread);
     if (next == null) {
       state = PlayerState(queue: _queue);
       await _engine.pause();
       await seek(Duration.zero);
       return;
     }
-    await _start(_queue.withIndex(next), play: true);
+    await _start(next, play: true);
   }
 
   /// The engine changed its play state, possibly on its own (a call, a
@@ -279,6 +316,7 @@ class PlayerController extends Notifier<PlayerState> {
       start: saved.index,
       source: saved.source,
       repeat: saved.repeat,
+      originalOrder: saved.shuffleOrder,
     ).retain(_tracks.keys.toSet());
     if (queue.isEmpty) {
       _save();
@@ -295,7 +333,7 @@ class PlayerController extends Notifier<PlayerState> {
     if (state.playing && (p - _savedPosition).abs() >= _saveEvery) _save();
   }
 
-  /// Saves when the queue, its index, source or repeat changed.
+  /// Saves when the queue, its index, source, repeat or shuffle changed.
   void _saveQueueIfChanged(PlayerState next) {
     final q = next.queue;
     final signature = [
@@ -304,6 +342,9 @@ class PlayerController extends Notifier<PlayerState> {
       q.index,
       q.source,
       q.repeat.name,
+      '|',
+      ...?q.original?.map((e) => e.key),
+      q.shuffled,
     ].join(',');
     if (signature == _savedQueue) return;
     _savedQueue = signature;
@@ -322,6 +363,7 @@ class PlayerController extends Notifier<PlayerState> {
             source: q.source,
             repeat: q.repeat,
             position: _position,
+            shuffleOrder: _shuffleOrder(q),
           );
     unawaited(
       ref
@@ -329,6 +371,14 @@ class PlayerController extends Notifier<PlayerState> {
           .save(snapshot)
           .catchError((Object _) {}),
     );
+  }
+
+  /// Positions of [q]'s unshuffled order in its entries; null unshuffled.
+  static List<int>? _shuffleOrder(PlayQueue q) {
+    final original = q.original;
+    if (original == null) return null;
+    final at = {for (final (i, e) in q.entries.indexed) e.key: i};
+    return [for (final e in original) at[e.key]!];
   }
 
   static Map<int, Track> _byId(List<Track> tracks) => {
@@ -356,7 +406,7 @@ class PlayerController extends Notifier<PlayerState> {
 
   Future<void> _stop() async {
     ++_generation;
-    state = PlayerState(queue: PlayQueue(repeat: _queue.repeat));
+    state = PlayerState(queue: _emptyQueue);
     _position = Duration.zero;
     await _engine.unload();
   }
