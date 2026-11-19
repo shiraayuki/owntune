@@ -8,6 +8,7 @@ import 'package:owntune/app/providers.dart';
 import 'package:owntune/app/theme.dart';
 import 'package:owntune/import/import_controller.dart';
 import 'package:owntune/import/import_sheets.dart';
+import 'package:owntune/library/albums_screen.dart';
 import 'package:owntune/library/placeholder_tab.dart';
 import 'package:owntune/library/song_sort.dart';
 import 'package:owntune/library/songs_screen.dart';
@@ -102,7 +103,7 @@ class _AppShellState extends ConsumerState<AppShell> {
                 index: _index,
                 children: const [
                   SongsScreen(),
-                  PlaceholderTab(message: 'Albums arrive in v0.3.'),
+                  AlbumsScreen(),
                   PlaceholderTab(message: 'Artists arrive in v0.3.'),
                 ],
               ),

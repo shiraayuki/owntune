@@ -139,9 +139,10 @@ void main() {
     // rebuilt elsewhere and its element is disposed.
     controller.add(const []);
     await t.pumpAndSettle();
+    // The Songs and the (offstage) Albums tab both show the empty state.
     expect(
       find.text('Your library is empty', skipOffstage: false),
-      findsOneWidget,
+      findsWidgets,
     );
     expect(find.byType(SongRow, skipOffstage: false), findsNothing);
     await t.tap(find.text('Delete'));

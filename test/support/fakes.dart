@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:cupertino_ui/cupertino_ui.dart' show CupertinoIcons;
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:flutter_test/flutter_test.dart';
@@ -11,6 +13,7 @@ import 'package:owntune/data/library_storage.dart';
 import 'package:owntune/data/track_repository.dart';
 import 'package:owntune/import/audio_file_picker.dart';
 import 'package:owntune/import/importer.dart';
+import 'package:owntune/library/navigation.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:owntune/settings/settings.dart';
 
@@ -169,4 +172,15 @@ Future<void> pumpApp(
   );
   await t.pump();
   await t.pump();
+}
+
+/// Taps the back button of the current screen's [NavRow].
+Future<void> tapBack(WidgetTester t) async {
+  await t.tap(
+    find.descendant(
+      of: find.byType(NavRow),
+      matching: find.byIcon(CupertinoIcons.chevron_left),
+    ),
+  );
+  await t.pumpAndSettle();
 }

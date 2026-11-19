@@ -19,12 +19,12 @@ void main() {
     expect(find.text('Artists'), findsOneWidget);
   });
 
-  testWidgets('switches to the placeholder tabs', (t) async {
+  testWidgets('switches between the tabs', (t) async {
     await pumpApp(t);
 
     await t.tap(find.text('Albums'));
     await t.pumpAndSettle();
-    expect(find.text('Albums arrive in v0.3.'), findsOneWidget);
+    expect(find.text('Your library is empty'), findsOneWidget);
     expect(find.byIcon(CupertinoIcons.square_stack_fill), findsOneWidget);
 
     await t.tap(find.text('Artists'));

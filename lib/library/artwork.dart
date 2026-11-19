@@ -8,10 +8,13 @@ import 'package:owntune/app/theme.dart';
 /// (`cacheWidth`), so full-size embedded covers do not fill the memory.
 /// Without a cover, or if the file cannot be read, a note icon is shown.
 class Artwork extends StatelessWidget {
-  const Artwork({super.key, required this.file, this.size = 48});
+  const Artwork({super.key, required this.file, this.size = 48, this.radius});
 
   final File? file;
   final double size;
+
+  /// Corner radius; defaults to an eighth of [size].
+  final double? radius;
 
   @override
   Widget build(BuildContext context) {
@@ -28,7 +31,7 @@ class Artwork extends StatelessWidget {
     );
     final file = this.file;
     return ClipRRect(
-      borderRadius: BorderRadius.circular(size / 8),
+      borderRadius: BorderRadius.circular(radius ?? size / 8),
       child: SizedBox.square(
         dimension: size,
         child: file == null

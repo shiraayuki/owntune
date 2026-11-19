@@ -41,6 +41,12 @@ class SongsScreen extends ConsumerWidget {
   }
 }
 
+/// `m:ss`, e.g. 251000 → `4:11`.
+String formatDuration(int ms) {
+  final seconds = ms ~/ 1000;
+  return '${seconds ~/ 60}:${(seconds % 60).toString().padLeft(2, '0')}';
+}
+
 /// "47 songs · sorted by title" (`.meta`).
 class _Meta extends StatelessWidget {
   const _Meta({required this.count, required this.sort});
