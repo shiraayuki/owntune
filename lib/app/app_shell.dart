@@ -9,6 +9,7 @@ import 'package:owntune/app/theme.dart';
 import 'package:owntune/import/import_controller.dart';
 import 'package:owntune/import/import_sheets.dart';
 import 'package:owntune/library/placeholder_tab.dart';
+import 'package:owntune/library/song_sort.dart';
 import 'package:owntune/library/songs_screen.dart';
 import 'package:owntune/settings/settings.dart';
 import 'package:owntune/settings/settings_sheet.dart';
@@ -81,6 +82,7 @@ class _AppShellState extends ConsumerState<AppShell> {
                 bottom: false,
                 child: _TitleRow(
                   title: _tabs[_index].label,
+                  showSort: _index == 0,
                   onOpenSettings: () =>
                       (widget.onOpenSettings ?? showSettingsSheet)(context),
                   onImport: running
@@ -121,11 +123,13 @@ class _AppShellState extends ConsumerState<AppShell> {
 class _TitleRow extends StatelessWidget {
   const _TitleRow({
     required this.title,
+    required this.showSort,
     required this.onOpenSettings,
     required this.onImport,
   });
 
   final String title;
+  final bool showSort;
   final VoidCallback onOpenSettings;
   final VoidCallback? onImport;
 
@@ -152,7 +156,7 @@ class _TitleRow extends StatelessWidget {
                 ),
               ),
             ),
-            _MoreMenu(onOpenSettings: onOpenSettings),
+            _MoreMenu(onOpenSettings: onOpenSettings, showSort: showSort),
             const SizedBox(width: 8),
             RoundIconButton(
               key: const Key('import-button'),
@@ -168,20 +172,56 @@ class _TitleRow extends StatelessWidget {
   }
 }
 
-enum _MenuItem { settings }
+/// Values of the "…" menu besides the sort orders ([SongSort]).
+enum _MenuItem { ascending, descending, settings }
 
-/// The "…" pull-down menu. v0.2.0 has a single entry.
-class _MoreMenu extends StatelessWidget {
-  const _MoreMenu({required this.onOpenSettings});
+const _sortNames = {
+  SongSort.title: 'Title',
+  SongSort.artist: 'Artist',
+  SongSort.album: 'Album',
+  SongSort.added: 'Recently Added',
+};
+
+/// The "…" pull-down menu: sort options (Songs tab only) and Settings.
+class _MoreMenu extends ConsumerWidget {
+  const _MoreMenu({required this.onOpenSettings, required this.showSort});
 
   final VoidCallback onOpenSettings;
+  final bool showSort;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final dark = Theme.of(context).brightness == Brightness.dark;
+    final c = Theme.of(context).extension<OwntuneColors>()!;
     final fg = dark ? const Color(0xffffffff) : const Color(0xff000000);
+    final settings = ref.watch(settingsProvider);
+
+    PopupMenuItem<Object> item(Object value, String label, {IconData? icon}) =>
+        PopupMenuItem<Object>(
+          value: value,
+          height: 44,
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(fontSize: 17, color: fg),
+                ),
+              ),
+              if (icon != null) ...[
+                const SizedBox(width: 10),
+                Icon(icon, size: 20, color: fg),
+              ],
+            ],
+          ),
+        );
+    IconData? check(bool on) => on ? CupertinoIcons.checkmark : null;
+
     return RoundIconSurface(
-      child: PopupMenuButton<_MenuItem>(
+      child: PopupMenuButton<Object>(
         tooltip: 'More',
         padding: EdgeInsets.zero,
         offset: const Offset(0, 52),
@@ -192,22 +232,47 @@ class _MoreMenu extends StatelessWidget {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(13)),
         constraints: const BoxConstraints.tightFor(width: 250),
         menuPadding: EdgeInsets.zero,
-        onSelected: (item) => switch (item) {
-          _MenuItem.settings => onOpenSettings(),
+        onSelected: (value) {
+          final notifier = ref.read(settingsProvider.notifier);
+          final current = ref.read(settingsProvider);
+          switch (value) {
+            case final SongSort sort:
+              notifier.set(current.copyWith(songSort: sort));
+            case _MenuItem.ascending:
+              notifier.set(current.copyWith(songSortDescending: false));
+            case _MenuItem.descending:
+              notifier.set(current.copyWith(songSortDescending: true));
+            case _MenuItem.settings:
+              onOpenSettings();
+          }
         },
         itemBuilder: (context) => [
-          PopupMenuItem(
-            value: _MenuItem.settings,
-            height: 44,
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Row(
-              children: [
-                Text('Settings', style: TextStyle(fontSize: 17, color: fg)),
-                const Spacer(),
-                Icon(CupertinoIcons.gear, size: 20, color: fg),
-              ],
+          if (showSort) ...[
+            PopupMenuItem<Object>(
+              enabled: false,
+              height: 32,
+              padding: const EdgeInsets.fromLTRB(16, 10, 16, 4),
+              child: Text(
+                'Sort By',
+                style: TextStyle(fontSize: 13, color: c.muted),
+              ),
             ),
-          ),
+            for (final MapEntry(key: sort, value: label) in _sortNames.entries)
+              item(sort, label, icon: check(settings.songSort == sort)),
+            const PopupMenuDivider(height: 8, thickness: 8),
+            item(
+              _MenuItem.ascending,
+              'Ascending',
+              icon: check(!settings.songSortDescending),
+            ),
+            item(
+              _MenuItem.descending,
+              'Descending',
+              icon: check(settings.songSortDescending),
+            ),
+            const PopupMenuDivider(height: 8, thickness: 8),
+          ],
+          item(_MenuItem.settings, 'Settings', icon: CupertinoIcons.gear),
         ],
         child: const RoundIcon(icon: CupertinoIcons.ellipsis),
       ),

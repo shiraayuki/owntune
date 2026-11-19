@@ -1,6 +1,7 @@
 import 'package:material_ui/material_ui.dart';
 
 import '../data/db/database.dart';
+import '../library/song_sort.dart';
 
 enum AppearanceMode { system, light, dark }
 
@@ -22,7 +23,12 @@ const List<AccentPreset> kAccentPresets = [
 ];
 
 class AppSettings {
-  const AppSettings({required this.mode, required this.accent});
+  const AppSettings({
+    required this.mode,
+    required this.accent,
+    this.songSort = SongSort.title,
+    this.songSortDescending = false,
+  });
 
   static const defaults = AppSettings(
     mode: AppearanceMode.system,
@@ -32,15 +38,32 @@ class AppSettings {
   final AppearanceMode mode;
   final Color accent;
 
-  AppSettings copyWith({AppearanceMode? mode, Color? accent}) =>
-      AppSettings(mode: mode ?? this.mode, accent: accent ?? this.accent);
+  /// Order of the Songs tab.
+  final SongSort songSort;
+  final bool songSortDescending;
+
+  AppSettings copyWith({
+    AppearanceMode? mode,
+    Color? accent,
+    SongSort? songSort,
+    bool? songSortDescending,
+  }) => AppSettings(
+    mode: mode ?? this.mode,
+    accent: accent ?? this.accent,
+    songSort: songSort ?? this.songSort,
+    songSortDescending: songSortDescending ?? this.songSortDescending,
+  );
 
   @override
   bool operator ==(Object other) =>
-      other is AppSettings && other.mode == mode && other.accent == accent;
+      other is AppSettings &&
+      other.mode == mode &&
+      other.accent == accent &&
+      other.songSort == songSort &&
+      other.songSortDescending == songSortDescending;
 
   @override
-  int get hashCode => Object.hash(mode, accent);
+  int get hashCode => Object.hash(mode, accent, songSort, songSortDescending);
 }
 
 /// Persists [AppSettings] in the `settings_entries` key/value table.
@@ -52,6 +75,8 @@ class SettingsRepository {
 
   static const _appearanceKey = 'appearance';
   static const _accentKey = 'accent';
+  static const _songSortKey = 'songs_sort';
+  static const _songSortDescKey = 'songs_sort_desc';
   static final _hex6 = RegExp(r'^[0-9a-f]{6}$');
 
   Future<AppSettings> load() async {
@@ -60,6 +85,11 @@ class SettingsRepository {
     return AppSettings(
       mode: _parseMode(values[_appearanceKey]),
       accent: _parseAccent(values[_accentKey]),
+      songSort: SongSort.values.firstWhere(
+        (s) => s.name == values[_songSortKey],
+        orElse: () => AppSettings.defaults.songSort,
+      ),
+      songSortDescending: values[_songSortDescKey] == 'true',
     );
   }
 
@@ -71,6 +101,14 @@ class SettingsRepository {
           value: s.mode.name,
         ),
         SettingsEntriesCompanion.insert(key: _accentKey, value: _hex(s.accent)),
+        SettingsEntriesCompanion.insert(
+          key: _songSortKey,
+          value: s.songSort.name,
+        ),
+        SettingsEntriesCompanion.insert(
+          key: _songSortDescKey,
+          value: '${s.songSortDescending}',
+        ),
       ]);
     });
   }

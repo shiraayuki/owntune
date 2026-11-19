@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:owntune/app/providers.dart';
+import 'package:owntune/library/song_sort.dart';
 import 'package:owntune/settings/settings.dart';
 
 import '../support/fakes.dart';
@@ -32,14 +33,13 @@ void main() {
     expect(find.byIcon(CupertinoIcons.square_stack), findsOneWidget);
   });
 
-  testWidgets('the … menu has only Settings and calls the callback', (t) async {
+  testWidgets('Settings in the … menu calls the callback', (t) async {
     var opened = 0;
     await pumpApp(t, onOpenSettings: (_) => opened++);
 
     await t.tap(find.byIcon(CupertinoIcons.ellipsis));
     await t.pumpAndSettle();
     expect(find.text('Settings'), findsOneWidget);
-    expect(find.text('Sort By'), findsNothing);
 
     await t.tap(find.text('Settings'));
     await t.pumpAndSettle();
@@ -129,5 +129,74 @@ void main() {
 
     final container = ProviderScope.containerOf(context);
     expect(container.read(settingsProvider).mode, AppearanceMode.dark);
+  });
+
+  testWidgets('the … menu on Songs offers sorting with checkmarks', (t) async {
+    await pumpApp(t, songs: [track(1, title: 'a')]);
+    await t.tap(find.byIcon(CupertinoIcons.ellipsis));
+    await t.pumpAndSettle();
+    for (final label in [
+      'Sort By',
+      'Title',
+      'Artist',
+      'Album',
+      'Recently Added',
+      'Ascending',
+      'Descending',
+      'Settings',
+    ]) {
+      expect(find.text(label), findsOneWidget, reason: label);
+    }
+    expect(find.byIcon(CupertinoIcons.checkmark), findsNWidgets(2));
+  });
+
+  testWidgets('choosing Artist re-sorts the songs and stores it', (t) async {
+    final repo = FakeSettingsRepository();
+    await pumpApp(
+      t,
+      songs: [
+        track(1, title: 'Alpha', artist: 'Zed'),
+        track(2, title: 'Beta', artist: 'Abe'),
+      ],
+      overrides: [settingsRepositoryProvider.overrideWithValue(repo)],
+    );
+    expect(
+      t.getTopLeft(find.text('Alpha')).dy,
+      lessThan(t.getTopLeft(find.text('Beta')).dy),
+    );
+
+    await t.tap(find.byIcon(CupertinoIcons.ellipsis));
+    await t.pumpAndSettle();
+    await t.tap(find.text('Artist'));
+    await t.pumpAndSettle();
+
+    expect(repo.saved.last.songSort, SongSort.artist);
+    expect(find.text('2 songs · sorted by artist'), findsOneWidget);
+    expect(
+      t.getTopLeft(find.text('Beta')).dy,
+      lessThan(t.getTopLeft(find.text('Alpha')).dy),
+    );
+
+    await t.tap(find.byIcon(CupertinoIcons.ellipsis));
+    await t.pumpAndSettle();
+    await t.tap(find.text('Descending'));
+    await t.pumpAndSettle();
+    expect(repo.saved.last.songSortDescending, isTrue);
+    expect(repo.saved.last.songSort, SongSort.artist);
+  });
+
+  testWidgets('the … menu on Albums and Artists has only Settings', (t) async {
+    await pumpApp(t);
+    for (final tab in ['Albums', 'Artists']) {
+      await t.tap(find.text(tab).last);
+      await t.pumpAndSettle();
+      await t.tap(find.byIcon(CupertinoIcons.ellipsis));
+      await t.pumpAndSettle();
+      expect(find.text('Settings'), findsOneWidget, reason: tab);
+      expect(find.text('Sort By'), findsNothing, reason: tab);
+      // Dismiss the menu.
+      await t.tapAt(const Offset(10, 10));
+      await t.pumpAndSettle();
+    }
   });
 }

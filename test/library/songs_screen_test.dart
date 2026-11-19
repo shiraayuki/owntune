@@ -3,7 +3,10 @@ import 'dart:io';
 import 'package:cupertino_ui/cupertino_ui.dart' show CupertinoIcons;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:owntune/app/providers.dart';
 import 'package:owntune/data/library_storage.dart';
+import 'package:owntune/library/song_sort.dart';
+import 'package:owntune/settings/settings.dart';
 
 import '../support/fakes.dart';
 
@@ -120,5 +123,30 @@ void main() {
     expect(picker.picks, 1);
     expect(importer.calls, isEmpty);
     expect(find.text('Importing music…'), findsNothing);
+  });
+
+  testWidgets('shows the song count and sort order', (t) async {
+    await pumpApp(t, songs: songs);
+    expect(find.text('4 songs · sorted by title'), findsOneWidget);
+  });
+
+  testWidgets('a single song is counted in the singular', (t) async {
+    await pumpApp(t, songs: [songs.first]);
+    expect(find.text('1 song · sorted by title'), findsOneWidget);
+  });
+
+  testWidgets('recently added has no section headers', (t) async {
+    await pumpApp(
+      t,
+      songs: songs,
+      overrides: [
+        initialSettingsProvider.overrideWithValue(
+          AppSettings.defaults.copyWith(songSort: SongSort.added),
+        ),
+      ],
+    );
+    expect(find.text('4 songs · sorted by recently added'), findsOneWidget);
+    expect(find.text('A'), findsNothing);
+    expect(find.text('B'), findsNothing);
   });
 }

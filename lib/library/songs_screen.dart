@@ -12,39 +12,70 @@ import 'package:owntune/library/artwork.dart';
 import 'package:owntune/library/song_sort.dart';
 import 'package:owntune/library/sort_key.dart';
 
-/// The Songs tab: all tracks by title with letter sections, or the empty
-/// state.
+/// The Songs tab: all tracks in the chosen order with letter sections, or
+/// the empty state.
 class SongsScreen extends ConsumerWidget {
   const SongsScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final sort = ref.watch(settingsProvider.select((s) => s.songSort));
     return ref
-        .watch(libraryProvider)
+        .watch(sortedSongsProvider)
         .when(
-          data: (library) => library.isEmpty
+          data: (songs) => songs.isEmpty
               ? const EmptyLibrary()
-              : SongList(songs: sortSongs(library.tracks, SongSort.title)),
+              : Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    _Meta(count: songs.length, sort: sort),
+                    Expanded(
+                      child: SongList(songs: songs, sort: sort),
+                    ),
+                  ],
+                ),
           error: (e, _) => _LoadError(message: e.toString()),
           loading: () => const SizedBox.shrink(),
         );
   }
 }
 
-/// Sorted songs with a section header before each new first letter.
-class SongList extends StatelessWidget {
-  const SongList({super.key, required this.songs});
+/// "47 songs · sorted by title" (`.meta`).
+class _Meta extends StatelessWidget {
+  const _Meta({required this.count, required this.sort});
 
-  /// Already sorted by title.
+  final int count;
+  final SongSort sort;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = Theme.of(context).extension<OwntuneColors>()!;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 2, 16, 6),
+      child: Text(
+        '$count ${count == 1 ? 'song' : 'songs'} · sorted by ${sortLabel(sort)}',
+        style: TextStyle(fontSize: 13, color: c.muted),
+      ),
+    );
+  }
+}
+
+/// Sorted songs with a section header wherever the [sort]'s section letter
+/// changes (none for sorts without sections).
+class SongList extends StatelessWidget {
+  const SongList({super.key, required this.songs, required this.sort});
+
+  /// Already in [sort] order.
   final List<Track> songs;
+  final SongSort sort;
 
   @override
   Widget build(BuildContext context) {
     final items = <Object>[];
     String? letter;
     for (final t in songs) {
-      final l = sectionLetter(displayTitle(t.title, t.originalName));
-      if (l != letter) items.add(letter = l);
+      final l = songSection(t, sort);
+      if (l != null && l != letter) items.add(letter = l);
       items.add(t);
     }
     return ListView.builder(
