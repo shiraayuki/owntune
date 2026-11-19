@@ -11,14 +11,15 @@ import 'package:owntune/src/rust/api/library.dart';
 import 'package:owntune/src/rust/api/metadata.dart';
 import 'package:owntune/src/rust/frb_generated.dart';
 
+import 'support/fixtures.dart';
+
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
   setUpAll(() async => RustLib.init());
 
   testWidgets('imports the fixture set with the real Rust reader', (t) async {
-    final fixtures = Directory('${Directory.current.path}/test/fixtures/audio');
-    expect(fixtures.existsSync(), isTrue, reason: 'missing ${fixtures.path}');
+    final fixtures = fixturesDir();
 
     final tmp = Directory.systemTemp.createTempSync('owntune_import_it');
     addTearDown(() => tmp.deleteSync(recursive: true));

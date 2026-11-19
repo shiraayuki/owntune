@@ -5,10 +5,13 @@ import 'package:integration_test/integration_test.dart';
 import 'package:owntune/src/rust/api/library.dart';
 import 'package:owntune/src/rust/frb_generated.dart';
 
-/// Absolute path of an audio fixture. The test process runs in the project
-/// root on Linux desktop; fail loudly if the fixture is not where we expect.
+import 'support/fixtures.dart';
+
+late Directory _fixtures;
+
+/// Absolute path of an audio fixture; fail loudly if it is missing.
 String fixture(String name) {
-  final file = File('${Directory.current.path}/test/fixtures/audio/$name');
+  final file = File('${_fixtures.path}/$name');
   expect(file.existsSync(), isTrue, reason: 'missing fixture ${file.path}');
   return file.path;
 }
@@ -16,7 +19,10 @@ String fixture(String name) {
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
-  setUpAll(() async => RustLib.init());
+  setUpAll(() async {
+    await RustLib.init();
+    _fixtures = fixturesDir();
+  });
 
   testWidgets('readTrack reads the tags of an MP3', (t) async {
     final r = await readTrack(path: fixture('tagged.mp3'));

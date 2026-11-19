@@ -14,6 +14,8 @@ import 'package:owntune/import/audio_file_picker.dart';
 import 'package:owntune/settings/settings.dart';
 import 'package:owntune/src/rust/api/metadata.dart';
 
+import 'support/fixtures.dart';
+
 /// Returns fixed paths instead of opening the system picker.
 class _FixturePicker implements AudioFilePicker {
   _FixturePicker(this.paths);
@@ -72,7 +74,7 @@ void main() {
 
   testWidgets('imports the fixtures through the UI and lists them', (t) async {
     final ready = result as StartupReady;
-    final fixtures = Directory('${Directory.current.path}/test/fixtures/audio');
+    final fixtures = fixturesDir();
     final picked = [
       for (final name in [
         'tagged.mp3',
