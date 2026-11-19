@@ -29,7 +29,7 @@ void main() {
 
     await t.tap(find.text('Artists'));
     await t.pumpAndSettle();
-    expect(find.text('Artists arrive in v0.3.'), findsOneWidget);
+    expect(find.text('Your library is empty'), findsOneWidget);
     expect(find.byIcon(CupertinoIcons.person_fill), findsOneWidget);
     expect(find.byIcon(CupertinoIcons.square_stack), findsOneWidget);
   });

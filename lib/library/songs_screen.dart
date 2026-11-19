@@ -183,12 +183,20 @@ class _SectionHeader extends StatelessWidget {
   }
 }
 
-/// 64pt row: 48pt artwork, title and `artist · album`.
+/// 64pt row: 48pt artwork, title and `artist · album` (or [subtitle]).
 class SongRow extends ConsumerWidget {
-  const SongRow({super.key, required this.track, this.divider = true});
+  const SongRow({
+    super.key,
+    required this.track,
+    this.divider = true,
+    this.subtitle,
+  });
 
   final Track track;
   final bool divider;
+
+  /// Replaces the default `artist · album` line.
+  final String? subtitle;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -196,10 +204,12 @@ class SongRow extends ConsumerWidget {
     final storage = ref.watch(storageProvider);
     final cover = track.coverFile;
     final album = track.album?.trim();
-    final subtitle = [
-      displayArtist(track.artist),
-      if (album != null && album.isNotEmpty) album,
-    ].join(' · ');
+    final subtitle =
+        this.subtitle ??
+        [
+          displayArtist(track.artist),
+          if (album != null && album.isNotEmpty) album,
+        ].join(' · ');
 
     return GestureDetector(
       behavior: HitTestBehavior.opaque,

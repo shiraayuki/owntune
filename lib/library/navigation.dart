@@ -4,6 +4,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:owntune/app/providers.dart';
 import 'package:owntune/app/theme.dart';
 import 'package:owntune/library/album_screen.dart';
+import 'package:owntune/library/artist_screen.dart';
 import 'package:owntune/library/library.dart';
 
 /// Opens the album detail above the tab shell.
@@ -14,6 +15,29 @@ Future<void> openAlbum(
 }) => Navigator.of(context).push(
   MaterialPageRoute<void>(
     builder: (_) => AlbumScreen(albumKey: key, backLabel: backLabel),
+  ),
+);
+
+/// Opens the artist detail above the tab shell.
+Future<void> openArtist(
+  BuildContext context,
+  String artistKey, {
+  required String backLabel,
+}) => Navigator.of(context).push(
+  MaterialPageRoute<void>(
+    builder: (_) => ArtistScreen(artistKey: artistKey, backLabel: backLabel),
+  ),
+);
+
+/// Opens the full song list of an artist ("See All").
+Future<void> openArtistSongs(
+  BuildContext context,
+  String artistKey, {
+  required String backLabel,
+}) => Navigator.of(context).push(
+  MaterialPageRoute<void>(
+    builder: (_) =>
+        ArtistSongsScreen(artistKey: artistKey, backLabel: backLabel),
   ),
 );
 
