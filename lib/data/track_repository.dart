@@ -16,10 +16,11 @@ class TrackRepository {
   Stream<List<Track>> watchAll() => _db.select(_db.tracks).watch();
 
   Future<bool> hasHash(String hash) async {
-    final row = await (_db.select(_db.tracks)
-          ..where((t) => t.contentHash.equals(hash))
-          ..limit(1))
-        .getSingleOrNull();
+    final row =
+        await (_db.select(_db.tracks)
+              ..where((t) => t.contentHash.equals(hash))
+              ..limit(1))
+            .getSingleOrNull();
     return row != null;
   }
 
@@ -30,9 +31,9 @@ class TrackRepository {
   /// Removes the row and its audio file, plus the cover file if no other row
   /// references it.
   Future<void> delete(int id) async {
-    final track = await (_db.select(_db.tracks)
-          ..where((t) => t.id.equals(id)))
-        .getSingleOrNull();
+    final track = await (_db.select(
+      _db.tracks,
+    )..where((t) => t.id.equals(id))).getSingleOrNull();
     if (track == null) return;
 
     await (_db.delete(_db.tracks)..where((t) => t.id.equals(id))).go();
@@ -103,10 +104,11 @@ class TrackRepository {
 
   /// Whether any row uses [cover] as its cover file name.
   Future<bool> isCoverReferenced(String cover) async {
-    final row = await (_db.select(_db.tracks)
-          ..where((t) => t.coverFile.equals(cover))
-          ..limit(1))
-        .getSingleOrNull();
+    final row =
+        await (_db.select(_db.tracks)
+              ..where((t) => t.coverFile.equals(cover))
+              ..limit(1))
+            .getSingleOrNull();
     return row != null;
   }
 

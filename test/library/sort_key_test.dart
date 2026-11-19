@@ -1,20 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:owntune/data/db/database.dart';
 import 'package:owntune/library/sort_key.dart';
-
-Track _track(int id, {String? title, String? artist, String name = 'f.mp3'}) {
-  return Track(
-    id: id,
-    fileName: '$id.mp3',
-    originalName: name,
-    contentHash: 'hash$id',
-    title: title,
-    artist: artist,
-    durationMs: 1000,
-    addedAt: DateTime(2026),
-    playCount: 0,
-  );
-}
 
 void main() {
   group('sortKey', () {
@@ -50,23 +35,18 @@ void main() {
     });
   });
 
-  group('sortByTitle', () {
-    test('orders by title key without mutating input', () {
-      final input = [
-        _track(1, title: 'b'),
-        _track(2, title: 'The a'),
-        _track(3, title: 'Ä c'),
-      ];
-      final sorted = sortByTitle(input);
-      expect(sorted.map((t) => t.title), ['The a', 'Ä c', 'b']);
-      expect(input.map((t) => t.title), ['b', 'The a', 'Ä c']);
+  group('foldKey', () {
+    test('keeps the article', () {
+      expect(foldKey(' The Quiet '), 'the quiet');
+      expect(foldKey('KÖLN'), 'koln');
     });
-    test('ties are broken by artist', () {
-      final sorted = sortByTitle([
-        _track(1, title: 'Same', artist: 'Zed'),
-        _track(2, title: 'Same', artist: 'The Abe'),
-      ]);
-      expect(sorted.map((t) => t.id), [2, 1]);
+  });
+
+  group('compareKeys', () {
+    test('puts # entries after letters', () {
+      final keys = ['99 luftballons', 'zebra', '', 'apple']..sort(compareKeys);
+      expect(keys, ['apple', 'zebra', '', '99 luftballons']);
+      expect(compareKeys(sortKey('99 Luftballons'), sortKey('Zebra')), 1);
     });
   });
 }

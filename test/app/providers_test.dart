@@ -31,14 +31,14 @@ class FakeSettingsRepository implements SettingsRepository {
 }
 
 void main() {
-  test('songsProvider sorts the tracks by title', () async {
+  test('libraryProvider exposes the derived library', () async {
     final container = ProviderContainer(
       overrides: [
         trackRepositoryProvider.overrideWithValue(
           FakeTrackRepository([
-            track(1, title: 'Backroads'),
+            track(1, title: 'Backroads', artist: 'Kettle & Pine'),
             track(2, originalName: 'demo_3.wav'),
-            track(3, title: 'After the Rain'),
+            track(3, title: 'After the Rain', album: 'Paper Lanterns'),
           ]),
         ),
       ],
@@ -46,10 +46,16 @@ void main() {
     addTearDown(container.dispose);
 
     // Riverpod pauses providers without listeners.
-    final sub = container.listen(songsProvider.future, (_, _) {});
+    final sub = container.listen(tracksProvider.future, (_, _) {});
     addTearDown(sub.close);
-    final songs = await sub.read();
-    expect([for (final s in songs) s.id], [3, 1, 2]);
+    await sub.read();
+    final library = container.read(libraryProvider).requireValue;
+    expect(library.tracks, hasLength(3));
+    expect(library.albums.single.title, 'Paper Lanterns');
+    expect(library.artists.map((a) => a.name), [
+      'Kettle & Pine',
+      'Unknown Artist',
+    ]);
   });
 
   test('settingsProvider starts with the startup settings', () {

@@ -165,7 +165,9 @@ void main() {
 
     expect(track.fileName, isNot(contains('/')));
     expect(track.coverFile, isNot(contains('/')));
-    expect(storage.audioFile(track.fileName).path,
-        startsWith(storage.root.path));
+    expect(
+      storage.audioFile(track.fileName).path,
+      startsWith(storage.root.path),
+    );
   });
 }

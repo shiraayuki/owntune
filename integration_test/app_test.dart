@@ -117,12 +117,12 @@ void main() {
     await pumpUntil(t, find.text('After the Rain'));
     expect(find.text('demo_3'), findsOneWidget);
     expect(find.text('Unknown Artist'), findsOneWidget);
-    expect(find.text('D'), findsOneWidget);
+    expect(find.byKey(const ValueKey('section-D')), findsOneWidget);
     // Covers are shown for the tracks that have one.
     expect(find.byType(Image), findsWidgets);
 
     // Second import of the same files: all supported ones are duplicates.
-    await t.tap(find.byKey(const Key('import-button')));
+    await tapImport(t);
     await pumpUntil(t, find.text('Import complete'));
     expect(find.text('0 songs added'), findsOneWidget);
     expect(find.text('5 duplicates skipped'), findsOneWidget);
@@ -169,4 +169,12 @@ void main() {
 
     await t.pumpWidget(const SizedBox());
   });
+}
+
+/// Opens the "+" menu and chooses Import Music.
+Future<void> tapImport(WidgetTester t) async {
+  await t.tap(find.byKey(const Key('import-button')));
+  await t.pumpAndSettle();
+  await t.tap(find.byKey(const Key('menu-import')));
+  await t.pumpAndSettle();
 }

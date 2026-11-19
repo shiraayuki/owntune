@@ -3,6 +3,7 @@ import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:owntune/data/db/database.dart';
+import 'package:owntune/library/song_sort.dart';
 import 'package:owntune/settings/settings.dart';
 
 void main() {
@@ -94,5 +95,38 @@ void main() {
           ),
         );
     expect((await repo.load()).mode, AppearanceMode.system);
+  });
+
+  test('sort order round-trips', () async {
+    await repo.save(
+      AppSettings.defaults.copyWith(
+        songSort: SongSort.added,
+        songSortDescending: true,
+      ),
+    );
+    final loaded = await repo.load();
+    expect(loaded.songSort, SongSort.added);
+    expect(loaded.songSortDescending, isTrue);
+    final row = await (db.select(
+      db.settingsEntries,
+    )..where((t) => t.key.equals('songs_sort'))).getSingle();
+    expect(row.value, 'added');
+  });
+
+  test('unknown stored sort falls back to title ascending', () async {
+    for (final (key, value) in [
+      ('songs_sort', 'genre'),
+      ('songs_sort_desc', 'maybe'),
+    ]) {
+      await db
+          .into(db.settingsEntries)
+          .insertOnConflictUpdate(
+            SettingsEntriesCompanion(key: Value(key), value: Value(value)),
+          );
+    }
+    final loaded = await repo.load();
+    expect(loaded.songSort, SongSort.title);
+    expect(loaded.songSortDescending, isFalse);
+    expect(AppSettings.defaults.songSort, SongSort.title);
   });
 }

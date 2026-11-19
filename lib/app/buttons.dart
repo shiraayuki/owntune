@@ -88,28 +88,30 @@ class RoundIconButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Tooltip(
     message: tooltip,
-    child: InkResponse(
-      onTap: onPressed,
-      radius: 22,
-      child: RoundIconFace(
-        icon: icon,
-        tinted: tinted,
-        dimmed: onPressed == null,
+    child: RoundIconSurface(
+      tinted: tinted,
+      dimmed: onPressed == null,
+      child: InkWell(
+        onTap: onPressed,
+        customBorder: const CircleBorder(),
+        child: RoundIcon(icon: icon, tinted: tinted),
       ),
     ),
   );
 }
 
-/// The look of [RoundIconButton], also used as the child of a menu button.
-class RoundIconFace extends StatelessWidget {
-  const RoundIconFace({
+/// The 44pt circle behind a [RoundIconButton], also used around a menu
+/// button. It is its own [Material], so the tap feedback of the button inside
+/// is painted on top of the fill instead of underneath it.
+class RoundIconSurface extends StatelessWidget {
+  const RoundIconSurface({
     super.key,
-    required this.icon,
+    required this.child,
     this.tinted = false,
     this.dimmed = false,
   });
 
-  final IconData icon;
+  final Widget child;
   final bool tinted;
   final bool dimmed;
 
@@ -118,16 +120,43 @@ class RoundIconFace extends StatelessWidget {
     final c = Theme.of(context).extension<OwntuneColors>()!;
     return Opacity(
       opacity: dimmed ? 0.4 : 1,
-      child: Container(
-        width: 44,
-        height: 44,
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
+      child: SizedBox.square(
+        dimension: 44,
+        child: Material(
+          shape: const CircleBorder(),
+          clipBehavior: Clip.antiAlias,
           color: tinted ? c.accent : c.fill,
+          child: child,
         ),
+      ),
+    );
+  }
+}
+
+/// The centered glyph of a [RoundIconSurface].
+class RoundIcon extends StatelessWidget {
+  const RoundIcon({super.key, required this.icon, this.tinted = false});
+
+  final IconData icon;
+  final bool tinted;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = Theme.of(context).extension<OwntuneColors>()!;
+    return SizedBox.expand(
+      child: Center(
         child: Icon(icon, size: 22, color: tinted ? c.accentText : c.text),
       ),
     );
   }
 }
+
+/// The gap between sections of a pull-down or context menu (`.menu .gap`):
+/// 8pt of a faint tint, not a theme divider line.
+PopupMenuDivider menuGap(BuildContext context) => PopupMenuDivider(
+  height: 8,
+  thickness: 8,
+  color: Theme.of(context).brightness == Brightness.dark
+      ? const Color.fromRGBO(0, 0, 0, 0.3)
+      : const Color.fromRGBO(0, 0, 0, 0.08),
+);

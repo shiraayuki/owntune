@@ -30,6 +30,9 @@ void main() {
   test('file accessors resolve inside the matching directory', () {
     final storage = LibraryStorage(Directory(tmp.path));
     expect(storage.audioFile('a.mp3').path, p.join(tmp.path, 'audio', 'a.mp3'));
-    expect(storage.coverFile('c.jpg').path, p.join(tmp.path, 'covers', 'c.jpg'));
+    expect(
+      storage.coverFile('c.jpg').path,
+      p.join(tmp.path, 'covers', 'c.jpg'),
+    );
   });
 }

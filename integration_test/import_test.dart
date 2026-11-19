@@ -7,6 +7,7 @@ import 'package:owntune/data/db/database.dart';
 import 'package:owntune/data/library_storage.dart';
 import 'package:owntune/data/track_repository.dart';
 import 'package:owntune/import/importer.dart';
+import 'package:owntune/library/library.dart';
 import 'package:owntune/src/rust/api/library.dart';
 import 'package:owntune/src/rust/api/metadata.dart';
 import 'package:owntune/src/rust/frb_generated.dart';
@@ -85,5 +86,23 @@ void main() {
       storage.audioDir.listSync().any((e) => e.path.contains('.part')),
       isFalse,
     );
+
+    // The real tags group into the expected albums and artists.
+    final library = Library.from(rows);
+    expect(
+      library.albums.map((a) => '${a.title}/${a.artist}/${a.year}/${a.genre}'),
+      [
+        'Paper Lanterns/Juno Vale/2021/Indie Folk',
+        'Velvet Hours/Neon Harbor/2021/null',
+        'Low Tide Radio/The Quiet Coast/2019/null',
+      ],
+    );
+    expect(library.artists.map((a) => a.name), [
+      'Ärzte & Söhne',
+      'Juno Vale',
+      'Neon Harbor',
+      'The Quiet Coast',
+      'Unknown Artist',
+    ]);
   });
 }

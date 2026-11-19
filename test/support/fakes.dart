@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:cupertino_ui/cupertino_ui.dart' show CupertinoIcons;
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:flutter_test/flutter_test.dart';
@@ -11,6 +13,7 @@ import 'package:owntune/data/library_storage.dart';
 import 'package:owntune/data/track_repository.dart';
 import 'package:owntune/import/audio_file_picker.dart';
 import 'package:owntune/import/importer.dart';
+import 'package:owntune/library/navigation.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:owntune/settings/settings.dart';
 
@@ -19,6 +22,13 @@ Track track(
   String? title,
   String? artist,
   String? album,
+  String? albumArtist,
+  int? trackNumber,
+  int? discNumber,
+  int? year,
+  String? genre,
+  int durationMs = 1000,
+  DateTime? addedAt,
   String? originalName,
   String? cover,
 }) => Track(
@@ -29,9 +39,14 @@ Track track(
   title: title,
   artist: artist,
   album: album,
-  durationMs: 1000,
+  albumArtist: albumArtist,
+  trackNumber: trackNumber,
+  discNumber: discNumber,
+  year: year,
+  genre: genre,
+  durationMs: durationMs,
   coverFile: cover,
-  addedAt: DateTime(2026, 11, 18),
+  addedAt: addedAt ?? DateTime(2026, 11, 18),
   playCount: 0,
 );
 
@@ -142,7 +157,9 @@ Future<void> pumpApp(
   await t.pumpWidget(
     ProviderScope(
       overrides: [
-        songsProvider.overrideWith((ref) => songsStream ?? Stream.value(songs)),
+        tracksProvider.overrideWith(
+          (ref) => songsStream ?? Stream.value(songs),
+        ),
         storageProvider.overrideWithValue(
           storage ?? LibraryStorage(Directory('/nonexistent/owntune')),
         ),
@@ -155,4 +172,23 @@ Future<void> pumpApp(
   );
   await t.pump();
   await t.pump();
+}
+
+/// Taps the back button of the current screen's [NavRow].
+Future<void> tapBack(WidgetTester t) async {
+  await t.tap(
+    find.descendant(
+      of: find.byType(NavRow),
+      matching: find.byIcon(CupertinoIcons.chevron_left),
+    ),
+  );
+  await t.pumpAndSettle();
+}
+
+/// Opens the "+" menu and chooses Import Music.
+Future<void> tapImport(WidgetTester t) async {
+  await t.tap(find.byKey(const Key('import-button')));
+  await t.pumpAndSettle();
+  await t.tap(find.byKey(const Key('menu-import')));
+  await t.pumpAndSettle();
 }

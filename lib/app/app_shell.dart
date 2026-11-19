@@ -8,7 +8,11 @@ import 'package:owntune/app/providers.dart';
 import 'package:owntune/app/theme.dart';
 import 'package:owntune/import/import_controller.dart';
 import 'package:owntune/import/import_sheets.dart';
-import 'package:owntune/library/placeholder_tab.dart';
+import 'package:owntune/library/albums_screen.dart';
+import 'package:owntune/library/artists_screen.dart';
+import 'package:owntune/library/playlists_screen.dart';
+import 'package:owntune/library/search_screen.dart';
+import 'package:owntune/library/song_sort.dart';
 import 'package:owntune/library/songs_screen.dart';
 import 'package:owntune/settings/settings.dart';
 import 'package:owntune/settings/settings_sheet.dart';
@@ -34,9 +38,38 @@ class OwntuneApp extends ConsumerWidget {
         AppearanceMode.light => ThemeMode.light,
         AppearanceMode.dark => ThemeMode.dark,
       },
+      // The import sheets sit above the navigator, so they also show over
+      // pushed screens (album, artist, search).
+      builder: (context, child) =>
+          Stack(children: [child!, const _ImportLayer()]),
       home: AppShell(onOpenSettings: onOpenSettings),
     );
   }
+}
+
+/// [ImportOverlay] in an [Overlay] of its own: it sits above the
+/// navigator, whose overlay selectable error text would otherwise need.
+class _ImportLayer extends StatefulWidget {
+  const _ImportLayer();
+
+  @override
+  State<_ImportLayer> createState() => _ImportLayerState();
+}
+
+class _ImportLayerState extends State<_ImportLayer> {
+  final _entry = OverlayEntry(builder: (_) => const ImportOverlay());
+
+  @override
+  void dispose() {
+    _entry
+      ..remove()
+      ..dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) =>
+      Positioned.fill(child: Overlay(initialEntries: [_entry]));
 }
 
 class _Tab {
@@ -48,14 +81,20 @@ class _Tab {
 }
 
 const _tabs = [
-  // The note glyph is already solid; there is no separate fill variant.
-  _Tab('Songs', CupertinoIcons.music_note, CupertinoIcons.music_note),
+  // These glyphs are already solid; there is no separate fill variant.
+  _Tab('Songs', CupertinoIcons.music_note_2, CupertinoIcons.music_note_2),
   _Tab('Albums', CupertinoIcons.square_stack, CupertinoIcons.square_stack_fill),
   _Tab('Artists', CupertinoIcons.person, CupertinoIcons.person_fill),
+  _Tab(
+    'Playlists',
+    CupertinoIcons.music_note_list,
+    CupertinoIcons.music_note_list,
+  ),
+  _Tab('Search', CupertinoIcons.search, CupertinoIcons.search),
 ];
 
-/// Title row with the "…" menu and "+", the three tabs, the tab bar and the
-/// import sheets on top.
+/// Title row with the "…" menu and "+", the five tabs and the tab bar. The
+/// import sheets are added above the navigator by [OwntuneApp].
 class AppShell extends ConsumerStatefulWidget {
   const AppShell({super.key, this.onOpenSettings});
 
@@ -71,48 +110,46 @@ class _AppShellState extends ConsumerState<AppShell> {
   @override
   Widget build(BuildContext context) {
     final running = ref.watch(importControllerProvider) is ImportRunning;
-    return Stack(
-      children: [
-        Scaffold(
-          extendBody: true,
-          body: Column(
-            children: [
-              SafeArea(
-                bottom: false,
-                child: _TitleRow(
-                  title: _tabs[_index].label,
-                  onOpenSettings: () =>
-                      (widget.onOpenSettings ?? showSettingsSheet)(context),
-                  onImport: running
-                      ? null
-                      : () => ref
-                            .read(importControllerProvider.notifier)
-                            .pickAndImport(),
-                ),
-              ),
-              Expanded(
-                child: MediaQuery.removePadding(
-                  context: context,
-                  removeTop: true,
-                  child: IndexedStack(
-                    index: _index,
-                    children: const [
-                      SongsScreen(),
-                      PlaceholderTab(message: 'Albums arrive in v0.3.'),
-                      PlaceholderTab(message: 'Artists arrive in v0.3.'),
-                    ],
-                  ),
-                ),
-              ),
-            ],
+    return Scaffold(
+      extendBody: true,
+      body: Column(
+        children: [
+          SafeArea(
+            bottom: false,
+            child: _TitleRow(
+              title: _tabs[_index].label,
+              showSort: _index == 0,
+              onOpenSettings: () =>
+                  (widget.onOpenSettings ?? showSettingsSheet)(context),
+              onImport: running
+                  ? null
+                  : () => ref
+                        .read(importControllerProvider.notifier)
+                        .pickAndImport(),
+            ),
           ),
-          bottomNavigationBar: _TabBar(
-            index: _index,
-            onSelect: (i) => setState(() => _index = i),
+          Expanded(
+            child: MediaQuery.removePadding(
+              context: context,
+              removeTop: true,
+              child: IndexedStack(
+                index: _index,
+                children: const [
+                  SongsScreen(),
+                  AlbumsScreen(),
+                  ArtistsScreen(),
+                  PlaylistsScreen(),
+                  SearchTab(),
+                ],
+              ),
+            ),
           ),
-        ),
-        const ImportOverlay(),
-      ],
+        ],
+      ),
+      bottomNavigationBar: _TabBar(
+        index: _index,
+        onSelect: (i) => setState(() => _index = i),
+      ),
     );
   }
 }
@@ -121,11 +158,13 @@ class _AppShellState extends ConsumerState<AppShell> {
 class _TitleRow extends StatelessWidget {
   const _TitleRow({
     required this.title,
+    required this.showSort,
     required this.onOpenSettings,
     required this.onImport,
   });
 
   final String title;
+  final bool showSort;
   final VoidCallback onOpenSettings;
   final VoidCallback? onImport;
 
@@ -152,15 +191,9 @@ class _TitleRow extends StatelessWidget {
                 ),
               ),
             ),
-            _MoreMenu(onOpenSettings: onOpenSettings),
+            _MoreMenu(onOpenSettings: onOpenSettings, showSort: showSort),
             const SizedBox(width: 8),
-            RoundIconButton(
-              key: const Key('import-button'),
-              icon: CupertinoIcons.plus,
-              tooltip: 'Import Music',
-              tinted: true,
-              onPressed: onImport,
-            ),
+            _AddMenu(key: const Key('import-button'), onImport: onImport),
           ],
         ),
       ),
@@ -168,47 +201,184 @@ class _TitleRow extends StatelessWidget {
   }
 }
 
-enum _MenuItem { settings }
+/// Values of the "…" menu besides the sort orders ([SongSort]).
+enum _MenuItem { ascending, descending, settings }
 
-/// The "…" pull-down menu. v0.2.0 has a single entry.
-class _MoreMenu extends StatelessWidget {
-  const _MoreMenu({required this.onOpenSettings});
+const _sortNames = {
+  SongSort.title: 'Title',
+  SongSort.artist: 'Artist',
+  SongSort.album: 'Album',
+  SongSort.added: 'Recently Added',
+};
 
-  final VoidCallback onOpenSettings;
+/// A 44pt pull-down menu row (`.menu .mi`); disabled rows are greyed out.
+PopupMenuItem<Object> _menuItem(
+  BuildContext context,
+  Object value,
+  String label, {
+  IconData? icon,
+  bool enabled = true,
+  Key? key,
+}) {
+  final dark = Theme.of(context).brightness == Brightness.dark;
+  final base = dark ? const Color(0xffffffff) : const Color(0xff000000);
+  final fg = enabled ? base : base.withValues(alpha: 0.35);
+  return PopupMenuItem<Object>(
+    key: key,
+    value: value,
+    enabled: enabled,
+    height: 44,
+    padding: const EdgeInsets.symmetric(horizontal: 16),
+    child: Row(
+      children: [
+        Expanded(
+          child: Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(fontSize: 17, color: fg),
+          ),
+        ),
+        if (icon != null) ...[
+          const SizedBox(width: 10),
+          Icon(icon, size: 20, color: fg),
+        ],
+      ],
+    ),
+  );
+}
+
+/// Shared look of the "…" and "+" pull-down menus.
+Color _menuColor(BuildContext context) =>
+    Theme.of(context).brightness == Brightness.dark
+    ? const Color.fromRGBO(37, 37, 42, 0.96)
+    : const Color.fromRGBO(250, 250, 250, 0.96);
+
+enum _AddItem { playlist, import, online }
+
+/// The "+" pull-down menu: New Playlist and Search Online are placeholders
+/// for later milestones; Import Music is disabled while an import runs.
+class _AddMenu extends StatelessWidget {
+  const _AddMenu({super.key, required this.onImport});
+
+  final VoidCallback? onImport;
 
   @override
   Widget build(BuildContext context) {
-    final dark = Theme.of(context).brightness == Brightness.dark;
-    final fg = dark ? const Color(0xffffffff) : const Color(0xff000000);
-    return PopupMenuButton<_MenuItem>(
-      tooltip: 'More',
-      padding: EdgeInsets.zero,
-      offset: const Offset(0, 52),
-      color: dark
-          ? const Color.fromRGBO(37, 37, 42, 0.96)
-          : const Color.fromRGBO(250, 250, 250, 0.96),
-      elevation: 12,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(13)),
-      constraints: const BoxConstraints.tightFor(width: 250),
-      menuPadding: EdgeInsets.zero,
-      onSelected: (item) => switch (item) {
-        _MenuItem.settings => onOpenSettings(),
-      },
-      itemBuilder: (context) => [
-        PopupMenuItem(
-          value: _MenuItem.settings,
-          height: 44,
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: Row(
-            children: [
-              Text('Settings', style: TextStyle(fontSize: 17, color: fg)),
-              const Spacer(),
-              Icon(CupertinoIcons.gear, size: 20, color: fg),
-            ],
+    return RoundIconSurface(
+      tinted: true,
+      child: PopupMenuButton<Object>(
+        tooltip: 'Add',
+        padding: EdgeInsets.zero,
+        offset: const Offset(0, 52),
+        color: _menuColor(context),
+        elevation: 12,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(13)),
+        constraints: const BoxConstraints.tightFor(width: 250),
+        menuPadding: EdgeInsets.zero,
+        onSelected: (value) {
+          if (value == _AddItem.import) onImport?.call();
+        },
+        itemBuilder: (context) => [
+          _menuItem(
+            context,
+            _AddItem.playlist,
+            'New Playlist',
+            icon: CupertinoIcons.music_note_list,
+            enabled: false,
           ),
-        ),
-      ],
-      child: const RoundIconFace(icon: CupertinoIcons.ellipsis),
+          _menuItem(
+            context,
+            _AddItem.import,
+            'Import Music',
+            key: const Key('menu-import'),
+            icon: CupertinoIcons.square_arrow_down,
+            enabled: onImport != null,
+          ),
+          _menuItem(
+            context,
+            _AddItem.online,
+            'Search Online',
+            icon: CupertinoIcons.globe,
+            enabled: false,
+          ),
+        ],
+        child: RoundIcon(icon: CupertinoIcons.plus, tinted: true),
+      ),
+    );
+  }
+}
+
+/// The "…" pull-down menu: sort options (Songs tab only) and Settings.
+class _MoreMenu extends ConsumerWidget {
+  const _MoreMenu({required this.onOpenSettings, required this.showSort});
+
+  final VoidCallback onOpenSettings;
+  final bool showSort;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final c = Theme.of(context).extension<OwntuneColors>()!;
+    final settings = ref.watch(settingsProvider);
+
+    PopupMenuItem<Object> item(Object value, String label, {IconData? icon}) =>
+        _menuItem(context, value, label, icon: icon);
+    IconData? check(bool on) => on ? CupertinoIcons.checkmark : null;
+
+    return RoundIconSurface(
+      child: PopupMenuButton<Object>(
+        tooltip: 'More',
+        padding: EdgeInsets.zero,
+        offset: const Offset(0, 52),
+        color: _menuColor(context),
+        elevation: 12,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(13)),
+        constraints: const BoxConstraints.tightFor(width: 250),
+        menuPadding: EdgeInsets.zero,
+        onSelected: (value) {
+          final notifier = ref.read(settingsProvider.notifier);
+          final current = ref.read(settingsProvider);
+          switch (value) {
+            case final SongSort sort:
+              notifier.set(current.copyWith(songSort: sort));
+            case _MenuItem.ascending:
+              notifier.set(current.copyWith(songSortDescending: false));
+            case _MenuItem.descending:
+              notifier.set(current.copyWith(songSortDescending: true));
+            case _MenuItem.settings:
+              onOpenSettings();
+          }
+        },
+        itemBuilder: (context) => [
+          if (showSort) ...[
+            PopupMenuItem<Object>(
+              enabled: false,
+              height: 32,
+              padding: const EdgeInsets.fromLTRB(16, 10, 16, 4),
+              child: Text(
+                'Sort By',
+                style: TextStyle(fontSize: 13, color: c.muted),
+              ),
+            ),
+            for (final MapEntry(key: sort, value: label) in _sortNames.entries)
+              item(sort, label, icon: check(settings.songSort == sort)),
+            menuGap(context),
+            item(
+              _MenuItem.ascending,
+              'Ascending',
+              icon: check(!settings.songSortDescending),
+            ),
+            item(
+              _MenuItem.descending,
+              'Descending',
+              icon: check(settings.songSortDescending),
+            ),
+            menuGap(context),
+          ],
+          item(_MenuItem.settings, 'Settings', icon: CupertinoIcons.gear),
+        ],
+        child: const RoundIcon(icon: CupertinoIcons.ellipsis),
+      ),
     );
   }
 }
@@ -230,24 +400,32 @@ class _TabBar extends StatelessWidget {
         filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
         child: Container(
           constraints: BoxConstraints(minHeight: 49 + bottom),
-          padding: EdgeInsets.fromLTRB(30, 0, 30, bottom),
+          padding: EdgeInsets.fromLTRB(8, 0, 8, bottom),
           decoration: BoxDecoration(
             color: dark
                 ? const Color.fromRGBO(22, 22, 28, 0.82)
                 : const Color.fromRGBO(251, 250, 247, 0.86),
             border: Border(top: BorderSide(color: c.line, width: 0.5)),
           ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              for (var i = 0; i < _tabs.length; i++)
-                _TabItem(
-                  tab: _tabs[i],
-                  selected: i == index,
-                  onTap: () => onSelect(i),
-                ),
-            ],
+          // Own transparent Material: ink splashes of the tab items are
+          // painted on it, above the bar's background, instead of on the
+          // Scaffold's Material underneath.
+          child: Material(
+            type: MaterialType.transparency,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                for (var i = 0; i < _tabs.length; i++)
+                  Expanded(
+                    child: _TabItem(
+                      tab: _tabs[i],
+                      selected: i == index,
+                      onTap: () => onSelect(i),
+                    ),
+                  ),
+              ],
+            ),
           ),
         ),
       ),
@@ -277,7 +455,7 @@ class _TabItem extends StatelessWidget {
         onTap: onTap,
         radius: 36,
         child: SizedBox(
-          width: 80,
+          width: double.infinity,
           child: Padding(
             padding: const EdgeInsets.only(top: 7, bottom: 1),
             child: Column(
