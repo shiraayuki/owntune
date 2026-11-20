@@ -1,6 +1,10 @@
+import 'dart:convert';
+
+import 'package:flutter/foundation.dart' show listEquals;
 import 'package:material_ui/material_ui.dart';
 
 import '../data/db/database.dart';
+import '../data/sources/online_source.dart';
 import '../library/song_sort.dart';
 
 enum AppearanceMode { system, light, dark }
@@ -28,6 +32,8 @@ class AppSettings {
     required this.accent,
     this.songSort = SongSort.title,
     this.songSortDescending = false,
+    this.onlineSource = OnlineSourceId.ytmusic,
+    this.recentSearches = const [],
   });
 
   static const defaults = AppSettings(
@@ -42,16 +48,28 @@ class AppSettings {
   final SongSort songSort;
   final bool songSortDescending;
 
+  /// The last used segment of Search Online.
+  final OnlineSourceId onlineSource;
+
+  /// Search Online queries, newest first, at most [maxRecentSearches].
+  final List<String> recentSearches;
+
+  static const maxRecentSearches = 10;
+
   AppSettings copyWith({
     AppearanceMode? mode,
     Color? accent,
     SongSort? songSort,
     bool? songSortDescending,
+    OnlineSourceId? onlineSource,
+    List<String>? recentSearches,
   }) => AppSettings(
     mode: mode ?? this.mode,
     accent: accent ?? this.accent,
     songSort: songSort ?? this.songSort,
     songSortDescending: songSortDescending ?? this.songSortDescending,
+    onlineSource: onlineSource ?? this.onlineSource,
+    recentSearches: recentSearches ?? this.recentSearches,
   );
 
   @override
@@ -60,10 +78,19 @@ class AppSettings {
       other.mode == mode &&
       other.accent == accent &&
       other.songSort == songSort &&
-      other.songSortDescending == songSortDescending;
+      other.songSortDescending == songSortDescending &&
+      other.onlineSource == onlineSource &&
+      listEquals(other.recentSearches, recentSearches);
 
   @override
-  int get hashCode => Object.hash(mode, accent, songSort, songSortDescending);
+  int get hashCode => Object.hash(
+    mode,
+    accent,
+    songSort,
+    songSortDescending,
+    onlineSource,
+    Object.hashAll(recentSearches),
+  );
 }
 
 /// Persists [AppSettings] in the `settings_entries` key/value table.
@@ -77,6 +104,8 @@ class SettingsRepository {
   static const _accentKey = 'accent';
   static const _songSortKey = 'songs_sort';
   static const _songSortDescKey = 'songs_sort_desc';
+  static const _onlineSourceKey = 'online_source';
+  static const _onlineRecentKey = 'online_recent';
   static final _hex6 = RegExp(r'^[0-9a-f]{6}$');
 
   Future<AppSettings> load() async {
@@ -90,6 +119,11 @@ class SettingsRepository {
         orElse: () => AppSettings.defaults.songSort,
       ),
       songSortDescending: values[_songSortDescKey] == 'true',
+      onlineSource: OnlineSourceId.values.firstWhere(
+        (s) => s.name == values[_onlineSourceKey],
+        orElse: () => AppSettings.defaults.onlineSource,
+      ),
+      recentSearches: _parseRecent(values[_onlineRecentKey]),
     );
   }
 
@@ -109,8 +143,26 @@ class SettingsRepository {
           key: _songSortDescKey,
           value: '${s.songSortDescending}',
         ),
+        SettingsEntriesCompanion.insert(
+          key: _onlineSourceKey,
+          value: s.onlineSource.name,
+        ),
+        SettingsEntriesCompanion.insert(
+          key: _onlineRecentKey,
+          value: jsonEncode(s.recentSearches),
+        ),
       ]);
     });
+  }
+
+  static List<String> _parseRecent(String? v) {
+    if (v == null) return const [];
+    try {
+      final list = jsonDecode(v);
+      return list is List ? list.whereType<String>().toList() : const [];
+    } on FormatException {
+      return const [];
+    }
   }
 
   static AppearanceMode _parseMode(String? v) => AppearanceMode.values

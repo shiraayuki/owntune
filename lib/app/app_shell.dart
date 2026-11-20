@@ -8,6 +8,8 @@ import 'package:owntune/app/buttons.dart';
 import 'package:owntune/app/providers.dart';
 import 'package:owntune/app/theme.dart';
 import 'package:owntune/import/import_controller.dart';
+import 'package:owntune/download/downloads_button.dart';
+import 'package:owntune/download/search_online_screen.dart';
 import 'package:owntune/import/import_sheets.dart';
 import 'package:owntune/home/home_screen.dart';
 import 'package:owntune/library/library_tab.dart';
@@ -296,9 +298,14 @@ class _TitleRow extends StatelessWidget {
                 ),
               ),
             ),
+            const DownloadsButton(),
             _MoreMenu(onOpenSettings: onOpenSettings, showSort: showSort),
             const SizedBox(width: 8),
-            _AddMenu(key: const Key('import-button'), onImport: onImport),
+            _AddMenu(
+              key: const Key('import-button'),
+              onImport: onImport,
+              onSearchOnline: () => openSearchOnline(context, backLabel: title),
+            ),
           ],
         ),
       ),
@@ -361,12 +368,17 @@ Color _menuColor(BuildContext context) =>
 
 enum _AddItem { playlist, import, online }
 
-/// The "+" pull-down menu: New Playlist and Search Online are placeholders
-/// for later milestones; Import Music is disabled while an import runs.
+/// The "+" pull-down menu: New Playlist is a placeholder for M4; Import
+/// Music is disabled while an import runs.
 class _AddMenu extends StatelessWidget {
-  const _AddMenu({super.key, required this.onImport});
+  const _AddMenu({
+    super.key,
+    required this.onImport,
+    required this.onSearchOnline,
+  });
 
   final VoidCallback? onImport;
+  final VoidCallback onSearchOnline;
 
   @override
   Widget build(BuildContext context) {
@@ -383,6 +395,7 @@ class _AddMenu extends StatelessWidget {
         menuPadding: EdgeInsets.zero,
         onSelected: (value) {
           if (value == _AddItem.import) onImport?.call();
+          if (value == _AddItem.online) onSearchOnline();
         },
         itemBuilder: (context) => [
           _menuItem(
@@ -404,8 +417,8 @@ class _AddMenu extends StatelessWidget {
             context,
             _AddItem.online,
             'Search Online',
+            key: const Key('menu-search-online'),
             icon: CupertinoIcons.globe,
-            enabled: false,
           ),
         ],
         child: RoundIcon(icon: CupertinoIcons.plus, tinted: true),

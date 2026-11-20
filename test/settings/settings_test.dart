@@ -2,7 +2,10 @@ import 'package:drift/drift.dart' show Value;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:owntune/app/providers.dart';
 import 'package:owntune/data/db/database.dart';
+import 'package:owntune/data/sources/online_source.dart';
 import 'package:owntune/library/song_sort.dart';
 import 'package:owntune/settings/settings.dart';
 
@@ -128,5 +131,73 @@ void main() {
     expect(loaded.songSort, SongSort.title);
     expect(loaded.songSortDescending, isFalse);
     expect(AppSettings.defaults.songSort, SongSort.title);
+  });
+
+  test('online source and recent searches round-trip', () async {
+    await repo.save(
+      AppSettings.defaults.copyWith(
+        onlineSource: OnlineSourceId.youtube,
+        recentSearches: ['numb', 'get lucky'],
+      ),
+    );
+    final loaded = await repo.load();
+    expect(loaded.onlineSource, OnlineSourceId.youtube);
+    expect(loaded.recentSearches, ['numb', 'get lucky']);
+    expect(AppSettings.defaults.onlineSource, OnlineSourceId.ytmusic);
+    expect(AppSettings.defaults.recentSearches, isEmpty);
+  });
+
+  test('malformed online_recent and unknown online_source fall back', () async {
+    for (final (key, value) in [
+      ('online_recent', '{not json'),
+      ('online_source', 'myspace'),
+    ]) {
+      await db
+          .into(db.settingsEntries)
+          .insertOnConflictUpdate(
+            SettingsEntriesCompanion(key: Value(key), value: Value(value)),
+          );
+    }
+    final loaded = await repo.load();
+    expect(loaded.recentSearches, isEmpty);
+    expect(loaded.onlineSource, OnlineSourceId.ytmusic);
+  });
+
+  group('SettingsNotifier recent searches', () {
+    late ProviderContainer container;
+
+    setUp(() {
+      container = ProviderContainer(
+        overrides: [databaseProvider.overrideWithValue(db)],
+      );
+    });
+    tearDown(() => container.dispose());
+
+    List<String> recent() => container.read(settingsProvider).recentSearches;
+
+    test('addRecentSearch trims, dedupes case-insensitively, newest first, '
+        'keeps 10', () async {
+      final n = container.read(settingsProvider.notifier);
+      for (var i = 0; i < 11; i++) {
+        await n.addRecentSearch('q$i');
+      }
+      expect(recent(), hasLength(10));
+      expect(recent().first, 'q10');
+      expect(recent(), isNot(contains('q0')));
+      await n.addRecentSearch('  Q5 ');
+      expect(recent().first, 'Q5');
+      expect(recent().where((q) => q.toLowerCase() == 'q5'), hasLength(1));
+      await n.addRecentSearch('   ');
+      expect(recent().first, 'Q5');
+      expect((await repo.load()).recentSearches, recent());
+    });
+
+    test('removeRecentSearch removes it', () async {
+      final n = container.read(settingsProvider.notifier);
+      await n.addRecentSearch('numb');
+      await n.addRecentSearch('lucky');
+      await n.removeRecentSearch('numb');
+      expect(recent(), ['lucky']);
+    });
   });
 }

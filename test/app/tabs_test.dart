@@ -135,12 +135,12 @@ void main() {
     expect(find.text('No results for "zzz"'), findsOneWidget);
   });
 
-  testWidgets('+ menu: New Playlist and Search Online are disabled', (t) async {
+  testWidgets('+ menu: New Playlist is disabled', (t) async {
     final picker = FakePicker();
     await pumpApp(t, songs: _songs, picker: picker);
     await t.tap(find.byKey(const Key('import-button')));
     await t.pumpAndSettle();
-    for (final label in ['New Playlist', 'Search Online']) {
+    for (final label in ['New Playlist']) {
       final item = t.widget<PopupMenuItem<Object>>(
         find.ancestor(
           of: find.text(label),

@@ -47,10 +47,14 @@ class TabSearchField extends StatefulWidget {
     super.key,
     required this.label,
     required this.controller,
+    this.onSubmitted,
   });
 
   final String label;
   final TextEditingController controller;
+
+  /// Called with the text when the keyboard's search key is pressed.
+  final ValueChanged<String>? onSubmitted;
 
   @override
   State<TabSearchField> createState() => _TabSearchFieldState();
@@ -93,6 +97,7 @@ class _TabSearchFieldState extends State<TabSearchField> {
                       controller: controller,
                       focusNode: _focus,
                       textInputAction: TextInputAction.search,
+                      onSubmitted: widget.onSubmitted,
                       cursorColor: c.accent,
                       style: TextStyle(fontSize: 17, color: c.text),
                       decoration: InputDecoration.collapsed(

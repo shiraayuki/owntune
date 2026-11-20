@@ -7,8 +7,8 @@ import '../frb_generated.dart';
 
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
-// These functions are ignored because they are not marked as `pub`: `apply`, `clean`, `cover_from`, `cover_of`, `hash_file`, `is_supported`, `part_path`, `unreadable`, `write_via`
-// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `assert_fields_are_eq`, `assert_fields_are_eq`, `assert_fields_are_eq`, `assert_fields_are_eq`, `clone`, `clone`, `clone`, `clone`, `clone`, `eq`, `eq`, `eq`, `eq`, `eq`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`
+// These functions are ignored because they are not marked as `pub`: `apply`, `clean`, `cover_from`, `cover_of`, `cover_picture`, `hash_file`, `is_supported`, `part_path`, `unreadable`, `write_via`
+// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `assert_fields_are_eq`, `assert_fields_are_eq`, `assert_fields_are_eq`, `assert_fields_are_eq`, `assert_fields_are_eq`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`
 
 /// Reads tags, duration, content hash and cover art of one audio file.
 /// Never panics; every failure is reported through `status` and `message`.
@@ -52,6 +52,27 @@ class CoverArt {
           hash == other.hash;
 }
 
+/// A cover image to embed as the front cover.
+class CoverInput {
+  final Uint8List data;
+
+  /// `"image/jpeg"` or `"image/png"`.
+  final String mime;
+
+  const CoverInput({required this.data, required this.mime});
+
+  @override
+  int get hashCode => data.hashCode ^ mime.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is CoverInput &&
+          runtimeType == other.runtimeType &&
+          data == other.data &&
+          mime == other.mime;
+}
+
 class ReadResult {
   final ReadStatus status;
   final TrackInfo? track;
@@ -83,7 +104,8 @@ enum ReadStatus {
   unreadable,
 }
 
-/// The editable tag fields; `None` removes the item from the file.
+/// The editable tag fields; `None` removes the item from the file, except
+/// [`TagValues::cover`], where `None` leaves the pictures untouched.
 class TagValues {
   final String? title;
   final String? artist;
@@ -94,6 +116,9 @@ class TagValues {
   final int? discNumber;
   final int? year;
 
+  /// `Some` replaces all pictures with this one front cover.
+  final CoverInput? cover;
+
   const TagValues({
     this.title,
     this.artist,
@@ -103,6 +128,7 @@ class TagValues {
     this.trackNumber,
     this.discNumber,
     this.year,
+    this.cover,
   });
 
   @override
@@ -114,7 +140,8 @@ class TagValues {
       genre.hashCode ^
       trackNumber.hashCode ^
       discNumber.hashCode ^
-      year.hashCode;
+      year.hashCode ^
+      cover.hashCode;
 
   @override
   bool operator ==(Object other) =>
@@ -128,7 +155,8 @@ class TagValues {
           genre == other.genre &&
           trackNumber == other.trackNumber &&
           discNumber == other.discNumber &&
-          year == other.year;
+          year == other.year &&
+          cover == other.cover;
 }
 
 class TrackInfo {

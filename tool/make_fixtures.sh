@@ -62,6 +62,14 @@ img=(-f lavfi -i "color=c=0x3366cc:s=16x16:d=1")
   -metadata date=2021 \
   "$out/tagged.m4a"
 
+# dash.m4a: AAC in a DASH-fragmented MP4 (major brand "dash"), like the
+# audio YouTube serves; title only, no cover. global_sidx keeps a real
+# duration in the moov box (empty_moov would make lofty read 0 ms).
+"${ff[@]}" "${sine[@]}" "${bx[@]}" -c:a aac -b:a 32k -ar 8000 -ac 1 \
+  -movflags +frag_keyframe+global_sidx -brand dash \
+  -metadata title="Rain Loop" \
+  "$out/dash.m4a"
+
 # demo_3.wav: plain PCM, no tags.
 "${ff[@]}" "${sine[@]}" "${bx[@]}" -c:a pcm_s16le "$out/demo_3.wav"
 

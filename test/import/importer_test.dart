@@ -329,7 +329,20 @@ void main() {
     expect(summary.artists, 4); // Ann, Bob, Cy, Unknown Artist
   });
 
-  test('a second importFiles while one is pending throws StateError', () async {
+  test('stores the source key given for a path', () async {
+    results['a.m4a'] = ok('h1');
+    results['b.m4a'] = ok('h2');
+    final a = pick('a.m4a');
+
+    await importer(extensions: {...supported, 'm4a'})
+        .importFiles([a, pick('b.m4a')], sourceKeys: {a: 'youtube:abc'});
+
+    final rows = await repo.watchAll().first;
+    final byName = {for (final r in rows) r.originalName: r.sourceKey};
+    expect(byName, {'a.m4a': 'youtube:abc', 'b.m4a': null});
+  });
+
+  test('a second importFiles waits for the first and both succeed', () async {
     final gate = Completer<void>();
     final started = Completer<void>();
     final slow = Importer(
@@ -347,26 +360,20 @@ void main() {
 
     final first = slow.importFiles([pick('a.mp3')]);
     await started.future;
-
-    await expectLater(
-      slow.importFiles([pick('b.mp3')]),
-      throwsA(
-        isA<StateError>().having(
-          (e) => e.message,
-          'message',
-          'An import is already running',
-        ),
-      ),
-    );
+    var secondDone = false;
+    final second = slow
+        .importFiles([pick('b.mp3')])
+        .whenComplete(() => secondDone = true);
+    await pumpEventQueue();
+    // The second import has not started (no second part file) while the
+    // first is pending.
+    expect(secondDone, isFalse);
+    expect(audioFiles().where((n) => n.contains('.part')), hasLength(1));
 
     gate.complete();
-    final summary = await first;
-    expect(summary.added, 1);
-    expect(audioFiles(), ['h1.mp3']);
-
-    // The importer is usable again afterwards.
-    results['b.mp3'] = ok('h2');
-    expect((await slow.importFiles([pick('b.mp3')])).added, 1);
+    expect((await first).added, 1);
+    expect((await second).added, 1);
+    expect(audioFiles(), ['h1.mp3', 'h2.mp3']);
   });
 
   group('rollback', () {

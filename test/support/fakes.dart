@@ -17,6 +17,11 @@ import 'package:owntune/import/audio_file_picker.dart';
 import 'package:owntune/import/importer.dart';
 import 'package:owntune/library/navigation.dart';
 import 'package:owntune/player/audio_engine.dart';
+import 'package:owntune/data/sources/http_transport.dart';
+import 'package:owntune/data/sources/online_source.dart';
+import 'package:owntune/download/cover_image.dart';
+import 'package:owntune/download/download_controller.dart';
+import 'package:owntune/download/download_job.dart';
 import 'package:owntune/player/player_snapshot.dart';
 import 'package:owntune/player/system_controls.dart';
 import 'package:material_ui/material_ui.dart';
@@ -37,6 +42,7 @@ Track track(
   DateTime? addedAt,
   String? originalName,
   String? cover,
+  String? sourceKey,
 }) => Track(
   id: id,
   fileName: 'hash$id.mp3',
@@ -54,6 +60,7 @@ Track track(
   coverFile: cover,
   addedAt: addedAt ?? DateTime(2026, 11, 18),
   playCount: 0,
+  sourceKey: sourceKey,
 );
 
 const summary47 = ImportSummary(
@@ -64,11 +71,15 @@ const summary47 = ImportSummary(
   artists: 7,
 );
 
-/// An importer whose runs are completed by the test.
+/// An importer whose runs are completed by the test. Like the real one, a
+/// call made while another runs waits for it; [calls] lists runs that have
+/// started.
 class FakeImporter implements Importer {
   final calls = <List<String>>[];
+  final sourceKeys = <Map<String, String>>[];
   Completer<ImportSummary>? _pending;
   void Function(ImportProgress)? _onProgress;
+  final _waiting = <void Function()>[];
 
   bool get isRunning => _pending != null && !_pending!.isCompleted;
 
@@ -76,12 +87,26 @@ class FakeImporter implements Importer {
   Future<ImportSummary> importFiles(
     List<String> paths, {
     void Function(ImportProgress)? onProgress,
+    Map<String, String> sourceKeys = const {},
   }) {
-    if (isRunning) throw StateError('An import is already running');
-    calls.add(paths);
-    _onProgress = onProgress;
-    _pending = Completer();
-    return _pending!.future;
+    final result = Completer<ImportSummary>();
+    void start() {
+      calls.add(paths);
+      this.sourceKeys.add(sourceKeys);
+      _onProgress = onProgress;
+      _pending = Completer();
+      _pending!.future.then(result.complete, onError: result.completeError);
+      _pending!.future.whenComplete(() {
+        if (_waiting.isNotEmpty) _waiting.removeAt(0)();
+      }).ignore();
+    }
+
+    if (isRunning) {
+      _waiting.add(start);
+    } else {
+      start();
+    }
+    return result.future;
   }
 
   void progress(int done, int total, String name) => _onProgress?.call(
@@ -300,6 +325,8 @@ Future<void> pumpApp(
   void Function(BuildContext)? onOpenSettings,
   FakeTagWriter? tagWriter,
   FakeTrackRepository? editRepo,
+  Map<OnlineSourceId, OnlineSource>? onlineSources,
+  FakeDownloadController? downloads,
   List<Override> overrides = const [],
 }) async {
   final libraryStorage =
@@ -322,6 +349,16 @@ Future<void> pumpApp(
         filePickerProvider.overrideWithValue(picker ?? FakePicker()),
         audioEngineProvider.overrideWithValue(engine ?? FakeAudioEngine()),
         playerStateStoreProvider.overrideWithValue(FakePlayerStateStore()),
+        onlineSourcesProvider.overrideWithValue(
+          onlineSources ??
+              {
+                for (final id in OnlineSourceId.values)
+                  id: FakeOnlineSource(id),
+              },
+        ),
+        downloadControllerProvider.overrideWith(
+          () => downloads ?? FakeDownloadController(),
+        ),
         ...overrides,
       ],
       child: OwntuneApp(onOpenSettings: onOpenSettings),
@@ -349,3 +386,182 @@ Future<void> tapImport(WidgetTester t) async {
   await t.tap(find.byKey(const Key('menu-import')));
   await t.pumpAndSettle();
 }
+
+/// One `postJson` call seen by [FakeHttpTransport].
+typedef PostCall = ({
+  Uri url,
+  Map<String, Object?> body,
+  Map<String, String> headers,
+});
+
+/// Answers requests from handlers set by the test and records `postJson`
+/// calls.
+class FakeHttpTransport implements HttpTransport {
+  FakeHttpTransport({this.onPost, this.onGet});
+
+  Map<String, Object?> Function(Uri url, Map<String, Object?> body)? onPost;
+  Future<HttpBody> Function(Uri url, Map<String, String> headers)? onGet;
+  final posts = <PostCall>[];
+  final gets = <Uri>[];
+
+  @override
+  Future<Map<String, Object?>> postJson(
+    Uri url,
+    Map<String, Object?> body, {
+    Map<String, String> headers = const {},
+  }) async {
+    posts.add((url: url, body: body, headers: headers));
+    return onPost!(url, body);
+  }
+
+  @override
+  Future<HttpBody> get(Uri url, {Map<String, String> headers = const {}}) {
+    gets.add(url);
+    return onGet!(url, headers);
+  }
+}
+
+/// A search result for tests.
+OnlineResult onlineResult(
+  String videoId, {
+  OnlineSourceId source = OnlineSourceId.ytmusic,
+  String title = 'Numb',
+  String? artist = 'Linkin Park',
+  String? album = 'Meteora',
+  String? channel,
+}) => OnlineResult(
+  sourceKey: 'youtube:$videoId',
+  videoId: videoId,
+  source: source,
+  title: title,
+  subtitle: [?artist, ?album].join(' · '),
+  duration: const Duration(minutes: 3, seconds: 8),
+  thumbnail: Uri.parse('https://example.invalid/thumb/$videoId.jpg'),
+  coverUrl: Uri.parse('https://example.invalid/cover/$videoId.jpg'),
+  squareCover: source == OnlineSourceId.ytmusic,
+  channel: channel,
+  tags: source == OnlineSourceId.ytmusic
+      ? TrackTags(title: title, artist: artist, album: album)
+      : const TrackTags(),
+);
+
+/// A source with canned results; [resolve] answers from [streams] (or
+/// throws [resolveError]) and records the ids it was asked for.
+class FakeOnlineSource implements OnlineSource {
+  FakeOnlineSource(this.id, {this.results = const []});
+
+  @override
+  final OnlineSourceId id;
+  List<OnlineResult> results;
+  Object? searchError;
+  final searches = <String>[];
+  final streams = <String, ResolvedStream>{};
+  Object? resolveError;
+  final resolved = <String>[];
+
+  /// When set, [search] waits for it (to see the loading state).
+  Completer<void>? searchGate;
+
+  @override
+  Future<List<OnlineResult>> search(String query) async {
+    searches.add(query);
+    await searchGate?.future;
+    if (searchError case final e?) throw e;
+    return results;
+  }
+
+  @override
+  Future<ResolvedStream> resolve(OnlineResult result) async {
+    resolved.add(result.videoId);
+    if (resolveError case final e?) throw e;
+    return streams[result.videoId] ??
+        ResolvedStream(
+          url: Uri.parse('https://example.invalid/audio/${result.videoId}'),
+          contentLength: 4,
+          extension: 'm4a',
+          bitrate: 128000,
+        );
+  }
+}
+
+/// Records what the downloader writes into files; [error] makes it fail.
+class FakeDownloadTagWriter {
+  final calls = <({String path, TrackTags tags, CoverBytes? cover})>[];
+  String? error;
+
+  Future<String?> call(String path, TrackTags tags, CoverBytes? cover) async {
+    calls.add((path: path, tags: tags, cover: cover));
+    return error;
+  }
+}
+
+/// Serves [bytes] for `range=<start>-<end>` GETs, like googlevideo.
+Future<HttpBody> Function(Uri, Map<String, String>) serveRanges(
+  List<int> bytes, {
+  int Function(int callIndex)? status,
+  int? maxPerResponse,
+}) {
+  var calls = 0;
+  return (url, headers) async {
+    final i = calls++;
+    final code = status?.call(i) ?? 200;
+    if (code != 200) return HttpBody(code, const Stream.empty());
+    final [start, end] = url.queryParameters['range']!
+        .split('-')
+        .map(int.parse)
+        .toList();
+    var last = end + 1 > bytes.length ? bytes.length : end + 1;
+    if (maxPerResponse != null && last - start > maxPerResponse) {
+      last = start + maxPerResponse;
+    }
+    return HttpBody(200, Stream.value(bytes.sublist(start, last)));
+  };
+}
+
+/// A download queue whose state the test sets; records the calls.
+class FakeDownloadController extends DownloadController {
+  FakeDownloadController([this.initial = const []]);
+
+  final List<DownloadJob> initial;
+  final enqueued = <({OnlineResult result, TrackTags tags})>[];
+  final cancelled = <int>[];
+  final retried = <int>[];
+  var cleared = 0;
+
+  @override
+  List<DownloadJob> build() => initial;
+
+  set jobs(List<DownloadJob> jobs) => state = jobs;
+
+  @override
+  void enqueue(OnlineResult result, TrackTags tags) =>
+      enqueued.add((result: result, tags: tags));
+
+  @override
+  void cancel(int id) => cancelled.add(id);
+
+  @override
+  void retry(int id) => retried.add(id);
+
+  @override
+  void clearFinished() => cleared++;
+}
+
+/// A job for tests.
+DownloadJob downloadJob(
+  int id,
+  String videoId, {
+  DownloadPhase phase = DownloadPhase.waiting,
+  int received = 0,
+  int total = 0,
+  String? error,
+  String title = 'Numb',
+}) => DownloadJob(
+  id: id,
+  result: onlineResult(videoId, title: title),
+  tags: TrackTags(title: title, artist: 'Linkin Park'),
+  phase: phase,
+  received: received,
+  total: total,
+  error: error,
+);

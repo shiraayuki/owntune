@@ -26,6 +26,7 @@ void main() {
     Future<SystemControls> Function()? initSystemControls,
     Future<LibraryStorage> Function()? openStorage,
     AppDatabase Function()? openDatabase,
+    Future<Directory> Function()? downloadDir,
   }) => startUp(
     initRust: initRust ?? () async {},
     initAudio: initAudio ?? () async {},
@@ -33,6 +34,7 @@ void main() {
         initSystemControls ?? () async => const NoSystemControls(),
     openStorage: openStorage ?? () async => storage,
     openDatabase: openDatabase ?? () => AppDatabase(NativeDatabase.memory()),
+    downloadDir: downloadDir ?? () async => Directory('${tmp.path}/download'),
   );
 
   test('startUp returns StartupReady with the default settings', () async {
@@ -71,6 +73,25 @@ void main() {
     addTearDown((result as StartupReady).db.close);
     expect(stuck.existsSync(), isTrue);
     expect(orphan.existsSync(), isFalse);
+  });
+
+  test('startup empties the download folder', () async {
+    final leftover = File('${tmp.path}/download/3-123/audio.part.m4a')
+      ..createSync(recursive: true);
+
+    final result = await run();
+    addTearDown((result as StartupReady).db.close);
+
+    expect(leftover.existsSync(), isFalse);
+    expect(Directory('${tmp.path}/download').existsSync(), isFalse);
+  });
+
+  test('a failing download cleanup does not fail startup', () async {
+    final result = await run(
+      downloadDir: () async => throw const FileSystemException('no temp'),
+    );
+    expect(result, isA<StartupReady>(), reason: '$result');
+    addTearDown((result as StartupReady).db.close);
   });
 
   test('startUp loads the stored settings', () async {

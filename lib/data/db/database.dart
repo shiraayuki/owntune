@@ -6,6 +6,10 @@ part 'database.g.dart';
 
 /// Imported audio files. Only file names are stored, never absolute paths,
 /// because the iOS container path changes on app updates.
+///
+/// [sourceKey] is unique through an index, because SQLite cannot add a
+/// UNIQUE column to an existing table; NULLs stay allowed.
+@TableIndex(name: 'tracks_source_key', columns: {#sourceKey}, unique: true)
 class Tracks extends Table {
   IntColumn get id => integer().autoIncrement()();
   TextColumn get fileName => text().unique()();
@@ -24,6 +28,10 @@ class Tracks extends Table {
   DateTimeColumn get addedAt => dateTime()();
   IntColumn get playCount => integer().withDefault(const Constant(0))();
   DateTimeColumn get lastPlayedAt => dateTime().nullable()();
+
+  /// Where a downloaded track came from, e.g. `youtube:<videoId>`; null for
+  /// imported files.
+  TextColumn get sourceKey => text().nullable()();
 }
 
 /// Key/value app settings.
@@ -53,5 +61,15 @@ class AppDatabase extends _$AppDatabase {
   );
 
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 2;
+
+  @override
+  MigrationStrategy get migration => MigrationStrategy(
+    onUpgrade: (m, from, to) async {
+      if (from < 2) {
+        await m.addColumn(tracks, tracks.sourceKey);
+        await m.createIndex(tracksSourceKey);
+      }
+    },
+  );
 }

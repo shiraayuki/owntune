@@ -228,4 +228,13 @@ void main() {
     );
     expect(TrackTags.of(cleared), const TrackTags());
   });
+
+  test('hasSourceKey', () async {
+    await repo.insert(
+      row('h1').copyWith(sourceKey: const Value('youtube:abc')),
+    );
+    await repo.insert(row('h2'));
+    expect(await repo.hasSourceKey('youtube:abc'), isTrue);
+    expect(await repo.hasSourceKey('youtube:xyz'), isFalse);
+  });
 }

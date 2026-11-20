@@ -203,6 +203,18 @@ impl SseDecode for crate::api::library::CoverArt {
     }
 }
 
+impl SseDecode for crate::api::library::CoverInput {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_data = <Vec<u8>>::sse_decode(deserializer);
+        let mut var_mime = <String>::sse_decode(deserializer);
+        return crate::api::library::CoverInput {
+            data: var_data,
+            mime: var_mime,
+        };
+    }
+}
+
 impl SseDecode for i32 {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
@@ -250,6 +262,17 @@ impl SseDecode for Option<crate::api::library::CoverArt> {
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
         if (<bool>::sse_decode(deserializer)) {
             return Some(<crate::api::library::CoverArt>::sse_decode(deserializer));
+        } else {
+            return None;
+        }
+    }
+}
+
+impl SseDecode for Option<crate::api::library::CoverInput> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        if (<bool>::sse_decode(deserializer)) {
+            return Some(<crate::api::library::CoverInput>::sse_decode(deserializer));
         } else {
             return None;
         }
@@ -316,6 +339,7 @@ impl SseDecode for crate::api::library::TagValues {
         let mut var_trackNumber = <Option<u32>>::sse_decode(deserializer);
         let mut var_discNumber = <Option<u32>>::sse_decode(deserializer);
         let mut var_year = <Option<u32>>::sse_decode(deserializer);
+        let mut var_cover = <Option<crate::api::library::CoverInput>>::sse_decode(deserializer);
         return crate::api::library::TagValues {
             title: var_title,
             artist: var_artist,
@@ -325,6 +349,7 @@ impl SseDecode for crate::api::library::TagValues {
             track_number: var_trackNumber,
             disc_number: var_discNumber,
             year: var_year,
+            cover: var_cover,
         };
     }
 }
@@ -436,6 +461,27 @@ impl flutter_rust_bridge::IntoIntoDart<crate::api::library::CoverArt>
     }
 }
 // Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::api::library::CoverInput {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.data.into_into_dart().into_dart(),
+            self.mime.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
+    for crate::api::library::CoverInput
+{
+}
+impl flutter_rust_bridge::IntoIntoDart<crate::api::library::CoverInput>
+    for crate::api::library::CoverInput
+{
+    fn into_into_dart(self) -> crate::api::library::CoverInput {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
 impl flutter_rust_bridge::IntoDart for crate::api::library::ReadResult {
     fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
         [
@@ -491,6 +537,7 @@ impl flutter_rust_bridge::IntoDart for crate::api::library::TagValues {
             self.track_number.into_into_dart().into_dart(),
             self.disc_number.into_into_dart().into_dart(),
             self.year.into_into_dart().into_dart(),
+            self.cover.into_into_dart().into_dart(),
         ]
         .into_dart()
     }
@@ -553,6 +600,14 @@ impl SseEncode for crate::api::library::CoverArt {
     }
 }
 
+impl SseEncode for crate::api::library::CoverInput {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <Vec<u8>>::sse_encode(self.data, serializer);
+        <String>::sse_encode(self.mime, serializer);
+    }
+}
+
 impl SseEncode for i32 {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
@@ -596,6 +651,16 @@ impl SseEncode for Option<crate::api::library::CoverArt> {
         <bool>::sse_encode(self.is_some(), serializer);
         if let Some(value) = self {
             <crate::api::library::CoverArt>::sse_encode(value, serializer);
+        }
+    }
+}
+
+impl SseEncode for Option<crate::api::library::CoverInput> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <bool>::sse_encode(self.is_some(), serializer);
+        if let Some(value) = self {
+            <crate::api::library::CoverInput>::sse_encode(value, serializer);
         }
     }
 }
@@ -657,6 +722,7 @@ impl SseEncode for crate::api::library::TagValues {
         <Option<u32>>::sse_encode(self.track_number, serializer);
         <Option<u32>>::sse_encode(self.disc_number, serializer);
         <Option<u32>>::sse_encode(self.year, serializer);
+        <Option<crate::api::library::CoverInput>>::sse_encode(self.cover, serializer);
     }
 }
 

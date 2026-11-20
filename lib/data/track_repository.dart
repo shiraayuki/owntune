@@ -26,6 +26,15 @@ class TrackRepository {
     return row != null;
   }
 
+  Future<bool> hasSourceKey(String key) async {
+    final row =
+        await (_db.select(_db.tracks)
+              ..where((t) => t.sourceKey.equals(key))
+              ..limit(1))
+            .getSingleOrNull();
+    return row != null;
+  }
+
   Future<void> insert(TracksCompanion row) async {
     await _db.into(_db.tracks).insert(row);
   }

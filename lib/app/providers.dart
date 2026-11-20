@@ -1,7 +1,14 @@
+import 'dart:io';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:owntune/data/db/database.dart';
 import 'package:owntune/data/library_storage.dart';
+import 'package:owntune/data/sources/http_transport.dart';
+import 'package:owntune/data/sources/online_source.dart';
+import 'package:owntune/data/sources/youtube/youtube_sources.dart';
 import 'package:owntune/data/track_repository.dart';
+import 'package:owntune/download/download_controller.dart';
+import 'package:owntune/download/download_job.dart';
 import 'package:owntune/edit/tag_saver.dart';
 import 'package:owntune/import/audio_file_picker.dart';
 import 'package:owntune/import/import_controller.dart';
@@ -32,6 +39,15 @@ final trackRepositoryProvider = Provider<TrackRepository>(
 /// All tracks, unsorted; updates live while an import runs.
 final tracksProvider = StreamProvider<List<Track>>(
   (ref) => ref.watch(trackRepositoryProvider).watchAll(),
+);
+
+/// The source keys (e.g. `youtube:<id>`) of all downloaded tracks; empty
+/// while the library loads.
+final librarySourceKeysProvider = Provider<Set<String>>(
+  (ref) => {
+    for (final t in ref.watch(tracksProvider).value ?? const <Track>[])
+      ?t.sourceKey,
+  },
 );
 
 /// Songs, albums and artists derived from [tracksProvider].
@@ -75,6 +91,28 @@ class SettingsNotifier extends Notifier<AppSettings> {
     state = settings;
     await ref.read(settingsRepositoryProvider).save(settings);
   }
+
+  /// Puts [query] first in the recent Search Online queries (trimmed, no
+  /// case-insensitive duplicates, at most [AppSettings.maxRecentSearches]).
+  Future<void> addRecentSearch(String query) async {
+    final q = query.trim();
+    if (q.isEmpty) return;
+    final recent = [
+      q,
+      for (final r in state.recentSearches)
+        if (r.toLowerCase() != q.toLowerCase()) r,
+    ].take(AppSettings.maxRecentSearches).toList();
+    await set(state.copyWith(recentSearches: recent));
+  }
+
+  Future<void> removeRecentSearch(String query) => set(
+    state.copyWith(
+      recentSearches: [
+        for (final r in state.recentSearches)
+          if (r != query) r,
+      ],
+    ),
+  );
 }
 
 /// The one importer of the app; [ImportController] makes sure it never runs
@@ -104,6 +142,7 @@ final tagSaverProvider = Provider<TagSaver>(
         trackNumber: t.trackNumber,
         discNumber: t.discNumber,
         year: t.year,
+        cover: null,
       ),
     ),
   ),
@@ -131,3 +170,52 @@ final playerStateStoreProvider = Provider<PlayerStateStore>(
 /// The player state saved by the last run, loaded by `startUp()`; `main`
 /// overrides it.
 final initialPlayerSnapshotProvider = Provider<PlayerSnapshot?>((ref) => null);
+
+/// The app's HTTP client for online sources and downloads; tests override
+/// it.
+final httpTransportProvider = Provider<HttpTransport>(
+  (ref) => IoHttpTransport(),
+);
+
+/// The searchable online sources by id.
+final onlineSourcesProvider = Provider<Map<OnlineSourceId, OnlineSource>>((
+  ref,
+) {
+  final youtube = YoutubeSources(ref.watch(httpTransportProvider));
+  return {
+    OnlineSourceId.ytmusic: youtube.music,
+    OnlineSourceId.youtube: youtube.video,
+  };
+});
+
+/// The app-wide download queue.
+final downloadControllerProvider =
+    NotifierProvider<DownloadController, List<DownloadJob>>(
+      DownloadController.new,
+    );
+
+/// Writes tags and cover into a downloaded file (Rust); tests override it.
+final downloadTagWriterProvider = Provider<WriteDownloadTags>(
+  (ref) =>
+      (path, t, cover) => writeTags(
+        path: path,
+        tags: TagValues(
+          title: t.title,
+          artist: t.artist,
+          album: t.album,
+          albumArtist: t.albumArtist,
+          genre: t.genre,
+          trackNumber: t.trackNumber,
+          discNumber: t.discNumber,
+          year: t.year,
+          cover: cover == null
+              ? null
+              : CoverInput(data: cover.data, mime: cover.mime),
+        ),
+      ),
+);
+
+/// Where downloads keep their files until the import; tests override it.
+final downloadDirProvider = Provider<Future<Directory> Function()>(
+  (ref) => defaultDownloadDir,
+);

@@ -109,7 +109,16 @@ pub fn read_track(path: String) -> ReadResult {
     }
 }
 
-/// The editable tag fields; `None` removes the item from the file.
+/// A cover image to embed as the front cover.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CoverInput {
+    pub data: Vec<u8>,
+    /// `"image/jpeg"` or `"image/png"`.
+    pub mime: String,
+}
+
+/// The editable tag fields; `None` removes the item from the file, except
+/// [`TagValues::cover`], where `None` leaves the pictures untouched.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TagValues {
     pub title: Option<String>,
@@ -120,6 +129,8 @@ pub struct TagValues {
     pub track_number: Option<u32>,
     pub disc_number: Option<u32>,
     pub year: Option<u32>,
+    /// `Some` replaces all pictures with this one front cover.
+    pub cover: Option<CoverInput>,
 }
 
 /// Writes `tags` into the primary tag of the file at `path` (created if
@@ -129,11 +140,15 @@ pub struct TagValues {
 /// panics.
 pub fn write_tags(path: String, tags: TagValues) -> Option<String> {
     let path = Path::new(&path);
+    let cover = match tags.cover.as_ref().map(cover_picture).transpose() {
+        Ok(cover) => cover,
+        Err(message) => return Some(message),
+    };
     let part = match part_path(path) {
         Some(part) => part,
         None => return Some(format!("Not an audio file name: {}", path.display())),
     };
-    let result = write_via(path, &part, &tags);
+    let result = write_via(path, &part, &tags, cover);
     if result.is_some() {
         let _ = std::fs::remove_file(&part);
     }
@@ -147,7 +162,20 @@ fn part_path(path: &Path) -> Option<std::path::PathBuf> {
     Some(path.with_file_name(format!("{stem}.part.{ext}")))
 }
 
-fn write_via(path: &Path, part: &Path, tags: &TagValues) -> Option<String> {
+/// The front-cover picture for `cover`, or an error for an unsupported type.
+fn cover_picture(cover: &CoverInput) -> Result<Picture, String> {
+    let mime = match cover.mime.as_str() {
+        "image/jpeg" => MimeType::Jpeg,
+        "image/png" => MimeType::Png,
+        other => return Err(format!("Unsupported cover type: {other}")),
+    };
+    Ok(Picture::unchecked(cover.data.clone())
+        .pic_type(PictureType::CoverFront)
+        .mime_type(mime)
+        .build())
+}
+
+fn write_via(path: &Path, part: &Path, tags: &TagValues, cover: Option<Picture>) -> Option<String> {
     if let Err(e) = std::fs::copy(path, part) {
         return Some(e.to_string());
     }
@@ -163,6 +191,12 @@ fn write_via(path: &Path, part: &Path, tags: &TagValues) -> Option<String> {
         return Some(format!("No {tag_type:?} tag in {}", path.display()));
     };
     apply(tag, tags);
+    if let Some(picture) = cover {
+        while !tag.pictures().is_empty() {
+            tag.remove_picture(0);
+        }
+        tag.push_picture(picture);
+    }
     if let Err(e) = tagged.save_to_path(part, WriteOptions::default()) {
         return Some(e.to_string());
     }
@@ -395,6 +429,7 @@ mod tests {
             track_number: Some(7),
             disc_number: Some(2),
             year: Some(1999),
+            cover: None,
         }
     }
 
@@ -438,6 +473,7 @@ mod tests {
             track_number: None,
             disc_number: None,
             year: None,
+            cover: None,
         };
         assert_eq!(write_tags(path.to_str().unwrap().to_owned(), none), None);
         let t = read_path(&path);
@@ -519,5 +555,97 @@ mod tests {
             .date()
             .unwrap();
         assert_eq!((date.year, date.month, date.day), (2003, Some(4), Some(1)));
+    }
+
+    /// The 16x16 JPEG front cover of `tagged.flac`.
+    fn jpeg_cover() -> CoverInput {
+        CoverInput {
+            data: track("tagged.flac").cover.unwrap().data,
+            mime: "image/jpeg".into(),
+        }
+    }
+
+    fn with_cover(cover: CoverInput) -> TagValues {
+        TagValues {
+            cover: Some(cover),
+            ..all_fields()
+        }
+    }
+
+    #[test]
+    fn write_tags_sets_cover_on_m4a() {
+        let path = copy_fixture("tagged.m4a");
+        let cover = jpeg_cover();
+        let hash = blake3::hash(&cover.data).to_hex().to_string();
+        assert_eq!(
+            write_tags(path.to_str().unwrap().to_owned(), with_cover(cover)),
+            None
+        );
+        let c = read_path(&path).cover.expect("cover");
+        assert_eq!(c.hash, hash);
+        assert_eq!(c.file_extension, "jpg");
+    }
+
+    #[test]
+    fn write_tags_sets_cover_on_dash_m4a() {
+        let path = copy_fixture("dash.m4a");
+        let before = read_path(&path);
+        assert!(
+            before.duration_ms.abs_diff(1128) <= 50,
+            "{}",
+            before.duration_ms
+        );
+        let cover = jpeg_cover();
+        let hash = blake3::hash(&cover.data).to_hex().to_string();
+        assert_eq!(
+            write_tags(path.to_str().unwrap().to_owned(), with_cover(cover)),
+            None
+        );
+        let after = read_path(&path);
+        assert_eq!(after.cover.expect("cover").hash, hash);
+        assert_eq!(after.title.as_deref(), Some("New Title"));
+        assert!(
+            after.duration_ms.abs_diff(1128) <= 50,
+            "{}",
+            after.duration_ms
+        );
+    }
+
+    #[test]
+    fn a_new_cover_replaces_the_old_one() {
+        let path = copy_fixture("tagged.mp3");
+        let cover = jpeg_cover();
+        let hash = blake3::hash(&cover.data).to_hex().to_string();
+        assert_eq!(
+            write_tags(path.to_str().unwrap().to_owned(), with_cover(cover)),
+            None
+        );
+        let tagged = lofty::read_from_path(&path).unwrap();
+        assert_eq!(tagged.primary_tag().unwrap().pictures().len(), 1);
+        assert_eq!(read_path(&path).cover.unwrap().hash, hash);
+    }
+
+    #[test]
+    fn cover_none_keeps_existing_cover() {
+        let path = copy_fixture("tagged.mp3");
+        let before = read_path(&path).cover.unwrap().hash;
+        assert_eq!(
+            write_tags(path.to_str().unwrap().to_owned(), all_fields()),
+            None
+        );
+        assert_eq!(read_path(&path).cover.unwrap().hash, before);
+    }
+
+    #[test]
+    fn unsupported_cover_mime_is_an_error() {
+        let path = copy_fixture("tagged.m4a");
+        let original = std::fs::read(&path).unwrap();
+        let cover = CoverInput {
+            data: vec![1, 2, 3],
+            mime: "image/webp".into(),
+        };
+        let error = write_tags(path.to_str().unwrap().to_owned(), with_cover(cover));
+        assert_eq!(error.as_deref(), Some("Unsupported cover type: image/webp"));
+        assert_eq!(std::fs::read(&path).unwrap(), original);
     }
 }

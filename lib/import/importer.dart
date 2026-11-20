@@ -83,30 +83,33 @@ class Importer {
   final TrackReader _read;
   final Set<String> _supported;
   final _random = Random.secure();
-  bool _running = false;
 
-  /// Imports [paths] one after another and reports a summary.
+  /// Completes when the last queued import has finished.
+  Future<void> _queue = Future.value();
+
+  /// Imports [paths] one after another and reports a summary. A path listed
+  /// in [sourceKeys] stores that key on its row (where it was downloaded
+  /// from).
   ///
-  /// Only one import may run at a time: a call made while another is still
-  /// pending fails with a [StateError] and leaves the running import
-  /// undisturbed. Concurrent imports could race on the same content hash and
-  /// on shared cover files.
+  /// Imports never run at the same time: a call made while another is still
+  /// pending waits for it. Concurrent imports could race on the same content
+  /// hash and on shared cover files.
   Future<ImportSummary> importFiles(
     List<String> paths, {
     void Function(ImportProgress)? onProgress,
-  }) async {
-    if (_running) throw StateError('An import is already running');
-    _running = true;
-    try {
-      return await _importAll(paths, onProgress);
-    } finally {
-      _running = false;
-    }
+    Map<String, String> sourceKeys = const {},
+  }) {
+    final result = _queue.then(
+      (_) => _importAll(paths, onProgress, sourceKeys),
+    );
+    _queue = result.then<void>((_) {}, onError: (_) {});
+    return result;
   }
 
   Future<ImportSummary> _importAll(
     List<String> paths,
     void Function(ImportProgress)? onProgress,
+    Map<String, String> sourceKeys,
   ) async {
     await _storage.ensure();
 
@@ -123,7 +126,11 @@ class Importer {
         ImportProgress(done: i, total: paths.length, currentName: name),
       );
 
-      final (outcome, info, reason) = await _importOne(paths[i], name);
+      final (outcome, info, reason) = await _importOne(
+        paths[i],
+        name,
+        sourceKeys[paths[i]],
+      );
       switch (outcome) {
         case _Outcome.added:
           added++;
@@ -153,7 +160,11 @@ class Importer {
 
   /// Imports one file. Only files created by this attempt are removed on
   /// failure; files that belong to existing rows are never touched.
-  Future<_FileResult> _importOne(String path, String name) async {
+  Future<_FileResult> _importOne(
+    String path,
+    String name,
+    String? sourceKey,
+  ) async {
     final ext = p.extension(name).replaceFirst('.', '').toLowerCase();
     if (!_supported.contains(ext)) return (_Outcome.unsupported, null, null);
 
@@ -209,6 +220,7 @@ class Importer {
           discNumber: Value(info.discNumber),
           year: Value(info.year),
           coverFile: Value(coverName),
+          sourceKey: Value(sourceKey),
         ),
       );
       return (_Outcome.added, info, null);

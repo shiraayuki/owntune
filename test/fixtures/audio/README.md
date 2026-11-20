@@ -11,6 +11,7 @@ with libmp3lame, aac, flac and libvorbis, plus `python3`).
 | `tagged.mp3` | MP3, ID3v2.3 | title `After the Rain`, artist `Juno Vale`, album `Paper Lanterns`, album artist `Juno Vale`, track 2, disc 1, date 2021, genre `Indie Folk`, embedded 16x16 PNG front cover |
 | `tagged.flac` | FLAC | title `Blue Hour`, artist `The Quiet Coast`, album `Low Tide Radio`, track 1, date 2019, embedded 16x16 JPEG front cover |
 | `tagged.m4a` | AAC in MP4 | title `Amber Lights`, artist `Neon Harbor`, album `Velvet Hours`, track 3, date 2021, no cover |
+| `dash.m4a` | AAC in DASH-fragmented MP4 (brand `dash`, like YouTube audio) | title `Rain Loop`, no cover |
 | `demo_3.wav` | WAV (PCM 16-bit) | no tags |
 | `unicode.mp3` | MP3, ID3v2.3 | title `Grüße aus Köln`, artist `Ärzte & Söhne`, no album |
 | `evening-walk.ogg` | Ogg Vorbis | title `Evening Walk` |

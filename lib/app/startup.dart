@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:owntune/data/db/database.dart';
 import 'package:owntune/data/library_storage.dart';
+import 'package:owntune/download/download_controller.dart';
 import 'package:owntune/data/track_repository.dart';
 import 'package:owntune/player/audio_setup.dart' as audio;
 import 'package:owntune/player/player_snapshot.dart';
@@ -41,7 +42,7 @@ final class StartupFailed extends StartupResult {
 }
 
 /// Loads the Rust core, sets up audio, opens the library storage and the database, removes
-/// leftovers of interrupted imports and loads the settings.
+/// leftovers of interrupted imports and downloads and loads the settings.
 ///
 /// Never throws: every error is returned as [StartupFailed] so the app can
 /// show it. Without a Mac there is no other way to diagnose failures on the
@@ -52,6 +53,7 @@ Future<StartupResult> startUp({
   Future<SystemControls> Function()? initSystemControls,
   Future<LibraryStorage> Function()? openStorage,
   AppDatabase Function()? openDatabase,
+  Future<Directory> Function()? downloadDir,
 }) async {
   AppDatabase? db;
   try {
@@ -64,6 +66,11 @@ Future<StartupResult> startUp({
     // drift opens the database lazily; this is its first query, so a broken
     // database file fails here and not later in the UI.
     await TrackRepository(db, storage).cleanupOrphans();
+    try {
+      await cleanupDownloads(await (downloadDir ?? defaultDownloadDir)());
+    } on Object {
+      // Leftover downloads are not worth a startup failure.
+    }
     final settings = await SettingsRepository(db).load();
     PlayerSnapshot? player;
     try {

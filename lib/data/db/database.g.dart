@@ -190,6 +190,17 @@ class $TracksTable extends Tracks with TableInfo<$TracksTable, Track> {
     type: DriftSqlType.dateTime,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _sourceKeyMeta = const VerificationMeta(
+    'sourceKey',
+  );
+  @override
+  late final GeneratedColumn<String> sourceKey = GeneratedColumn<String>(
+    'source_key',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -209,6 +220,7 @@ class $TracksTable extends Tracks with TableInfo<$TracksTable, Track> {
     addedAt,
     playCount,
     lastPlayedAt,
+    sourceKey,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -346,6 +358,12 @@ class $TracksTable extends Tracks with TableInfo<$TracksTable, Track> {
         ),
       );
     }
+    if (data.containsKey('source_key')) {
+      context.handle(
+        _sourceKeyMeta,
+        sourceKey.isAcceptableOrUnknown(data['source_key']!, _sourceKeyMeta),
+      );
+    }
     return context;
   }
 
@@ -423,6 +441,10 @@ class $TracksTable extends Tracks with TableInfo<$TracksTable, Track> {
         DriftSqlType.dateTime,
         data['${effectivePrefix}last_played_at'],
       ),
+      sourceKey: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}source_key'],
+      ),
     );
   }
 
@@ -450,6 +472,10 @@ class Track extends DataClass implements Insertable<Track> {
   final DateTime addedAt;
   final int playCount;
   final DateTime? lastPlayedAt;
+
+  /// Where a downloaded track came from, e.g. `youtube:<videoId>`; null for
+  /// imported files.
+  final String? sourceKey;
   const Track({
     required this.id,
     required this.fileName,
@@ -468,6 +494,7 @@ class Track extends DataClass implements Insertable<Track> {
     required this.addedAt,
     required this.playCount,
     this.lastPlayedAt,
+    this.sourceKey,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -509,6 +536,9 @@ class Track extends DataClass implements Insertable<Track> {
     if (!nullToAbsent || lastPlayedAt != null) {
       map['last_played_at'] = Variable<DateTime>(lastPlayedAt);
     }
+    if (!nullToAbsent || sourceKey != null) {
+      map['source_key'] = Variable<String>(sourceKey);
+    }
     return map;
   }
 
@@ -549,6 +579,9 @@ class Track extends DataClass implements Insertable<Track> {
       lastPlayedAt: lastPlayedAt == null && nullToAbsent
           ? const Value.absent()
           : Value(lastPlayedAt),
+      sourceKey: sourceKey == null && nullToAbsent
+          ? const Value.absent()
+          : Value(sourceKey),
     );
   }
 
@@ -575,6 +608,7 @@ class Track extends DataClass implements Insertable<Track> {
       addedAt: serializer.fromJson<DateTime>(json['addedAt']),
       playCount: serializer.fromJson<int>(json['playCount']),
       lastPlayedAt: serializer.fromJson<DateTime?>(json['lastPlayedAt']),
+      sourceKey: serializer.fromJson<String?>(json['sourceKey']),
     );
   }
   @override
@@ -598,6 +632,7 @@ class Track extends DataClass implements Insertable<Track> {
       'addedAt': serializer.toJson<DateTime>(addedAt),
       'playCount': serializer.toJson<int>(playCount),
       'lastPlayedAt': serializer.toJson<DateTime?>(lastPlayedAt),
+      'sourceKey': serializer.toJson<String?>(sourceKey),
     };
   }
 
@@ -619,6 +654,7 @@ class Track extends DataClass implements Insertable<Track> {
     DateTime? addedAt,
     int? playCount,
     Value<DateTime?> lastPlayedAt = const Value.absent(),
+    Value<String?> sourceKey = const Value.absent(),
   }) => Track(
     id: id ?? this.id,
     fileName: fileName ?? this.fileName,
@@ -637,6 +673,7 @@ class Track extends DataClass implements Insertable<Track> {
     addedAt: addedAt ?? this.addedAt,
     playCount: playCount ?? this.playCount,
     lastPlayedAt: lastPlayedAt.present ? lastPlayedAt.value : this.lastPlayedAt,
+    sourceKey: sourceKey.present ? sourceKey.value : this.sourceKey,
   );
   Track copyWithCompanion(TracksCompanion data) {
     return Track(
@@ -671,6 +708,7 @@ class Track extends DataClass implements Insertable<Track> {
       lastPlayedAt: data.lastPlayedAt.present
           ? data.lastPlayedAt.value
           : this.lastPlayedAt,
+      sourceKey: data.sourceKey.present ? data.sourceKey.value : this.sourceKey,
     );
   }
 
@@ -693,7 +731,8 @@ class Track extends DataClass implements Insertable<Track> {
           ..write('coverFile: $coverFile, ')
           ..write('addedAt: $addedAt, ')
           ..write('playCount: $playCount, ')
-          ..write('lastPlayedAt: $lastPlayedAt')
+          ..write('lastPlayedAt: $lastPlayedAt, ')
+          ..write('sourceKey: $sourceKey')
           ..write(')'))
         .toString();
   }
@@ -717,6 +756,7 @@ class Track extends DataClass implements Insertable<Track> {
     addedAt,
     playCount,
     lastPlayedAt,
+    sourceKey,
   );
   @override
   bool operator ==(Object other) =>
@@ -738,7 +778,8 @@ class Track extends DataClass implements Insertable<Track> {
           other.coverFile == this.coverFile &&
           other.addedAt == this.addedAt &&
           other.playCount == this.playCount &&
-          other.lastPlayedAt == this.lastPlayedAt);
+          other.lastPlayedAt == this.lastPlayedAt &&
+          other.sourceKey == this.sourceKey);
 }
 
 class TracksCompanion extends UpdateCompanion<Track> {
@@ -759,6 +800,7 @@ class TracksCompanion extends UpdateCompanion<Track> {
   final Value<DateTime> addedAt;
   final Value<int> playCount;
   final Value<DateTime?> lastPlayedAt;
+  final Value<String?> sourceKey;
   const TracksCompanion({
     this.id = const Value.absent(),
     this.fileName = const Value.absent(),
@@ -777,6 +819,7 @@ class TracksCompanion extends UpdateCompanion<Track> {
     this.addedAt = const Value.absent(),
     this.playCount = const Value.absent(),
     this.lastPlayedAt = const Value.absent(),
+    this.sourceKey = const Value.absent(),
   });
   TracksCompanion.insert({
     this.id = const Value.absent(),
@@ -796,6 +839,7 @@ class TracksCompanion extends UpdateCompanion<Track> {
     required DateTime addedAt,
     this.playCount = const Value.absent(),
     this.lastPlayedAt = const Value.absent(),
+    this.sourceKey = const Value.absent(),
   }) : fileName = Value(fileName),
        originalName = Value(originalName),
        contentHash = Value(contentHash),
@@ -819,6 +863,7 @@ class TracksCompanion extends UpdateCompanion<Track> {
     Expression<DateTime>? addedAt,
     Expression<int>? playCount,
     Expression<DateTime>? lastPlayedAt,
+    Expression<String>? sourceKey,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -838,6 +883,7 @@ class TracksCompanion extends UpdateCompanion<Track> {
       if (addedAt != null) 'added_at': addedAt,
       if (playCount != null) 'play_count': playCount,
       if (lastPlayedAt != null) 'last_played_at': lastPlayedAt,
+      if (sourceKey != null) 'source_key': sourceKey,
     });
   }
 
@@ -859,6 +905,7 @@ class TracksCompanion extends UpdateCompanion<Track> {
     Value<DateTime>? addedAt,
     Value<int>? playCount,
     Value<DateTime?>? lastPlayedAt,
+    Value<String?>? sourceKey,
   }) {
     return TracksCompanion(
       id: id ?? this.id,
@@ -878,6 +925,7 @@ class TracksCompanion extends UpdateCompanion<Track> {
       addedAt: addedAt ?? this.addedAt,
       playCount: playCount ?? this.playCount,
       lastPlayedAt: lastPlayedAt ?? this.lastPlayedAt,
+      sourceKey: sourceKey ?? this.sourceKey,
     );
   }
 
@@ -935,6 +983,9 @@ class TracksCompanion extends UpdateCompanion<Track> {
     if (lastPlayedAt.present) {
       map['last_played_at'] = Variable<DateTime>(lastPlayedAt.value);
     }
+    if (sourceKey.present) {
+      map['source_key'] = Variable<String>(sourceKey.value);
+    }
     return map;
   }
 
@@ -957,7 +1008,8 @@ class TracksCompanion extends UpdateCompanion<Track> {
           ..write('coverFile: $coverFile, ')
           ..write('addedAt: $addedAt, ')
           ..write('playCount: $playCount, ')
-          ..write('lastPlayedAt: $lastPlayedAt')
+          ..write('lastPlayedAt: $lastPlayedAt, ')
+          ..write('sourceKey: $sourceKey')
           ..write(')'))
         .toString();
   }
@@ -1178,11 +1230,19 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $SettingsEntriesTable settingsEntries = $SettingsEntriesTable(
     this,
   );
+  late final Index tracksSourceKey = Index(
+    'tracks_source_key',
+    'CREATE UNIQUE INDEX tracks_source_key ON tracks (source_key)',
+  );
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
   @override
-  List<DatabaseSchemaEntity> get allSchemaEntities => [tracks, settingsEntries];
+  List<DatabaseSchemaEntity> get allSchemaEntities => [
+    tracks,
+    settingsEntries,
+    tracksSourceKey,
+  ];
 }
 
 typedef $$TracksTableCreateCompanionBuilder = TracksCompanion Function({
@@ -1203,6 +1263,7 @@ typedef $$TracksTableCreateCompanionBuilder = TracksCompanion Function({
   required DateTime addedAt,
   Value<int> playCount,
   Value<DateTime?> lastPlayedAt,
+  Value<String?> sourceKey,
 });
 typedef $$TracksTableUpdateCompanionBuilder = TracksCompanion Function({
   Value<int> id,
@@ -1222,6 +1283,7 @@ typedef $$TracksTableUpdateCompanionBuilder = TracksCompanion Function({
   Value<DateTime> addedAt,
   Value<int> playCount,
   Value<DateTime?> lastPlayedAt,
+  Value<String?> sourceKey,
 });
 
 class $$TracksTableFilterComposer
@@ -1315,6 +1377,11 @@ class $$TracksTableFilterComposer
 
   ColumnFilters<DateTime> get lastPlayedAt => $composableBuilder(
     column: $table.lastPlayedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get sourceKey => $composableBuilder(
+    column: $table.sourceKey,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -1412,6 +1479,11 @@ class $$TracksTableOrderingComposer
     column: $table.lastPlayedAt,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<String> get sourceKey => $composableBuilder(
+    column: $table.sourceKey,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$TracksTableAnnotationComposer
@@ -1487,6 +1559,9 @@ class $$TracksTableAnnotationComposer
     column: $table.lastPlayedAt,
     builder: (column) => column,
   );
+
+  GeneratedColumn<String> get sourceKey =>
+      $composableBuilder(column: $table.sourceKey, builder: (column) => column);
 }
 
 class $$TracksTableTableManager
@@ -1534,6 +1609,7 @@ class $$TracksTableTableManager
                 Value<DateTime> addedAt = const Value.absent(),
                 Value<int> playCount = const Value.absent(),
                 Value<DateTime?> lastPlayedAt = const Value.absent(),
+                Value<String?> sourceKey = const Value.absent(),
               }) => TracksCompanion(
                 id: id,
                 fileName: fileName,
@@ -1552,6 +1628,7 @@ class $$TracksTableTableManager
                 addedAt: addedAt,
                 playCount: playCount,
                 lastPlayedAt: lastPlayedAt,
+                sourceKey: sourceKey,
               ),
           createCompanionCallback:
               ({
@@ -1572,6 +1649,7 @@ class $$TracksTableTableManager
                 required DateTime addedAt,
                 Value<int> playCount = const Value.absent(),
                 Value<DateTime?> lastPlayedAt = const Value.absent(),
+                Value<String?> sourceKey = const Value.absent(),
               }) => TracksCompanion.insert(
                 id: id,
                 fileName: fileName,
@@ -1590,6 +1668,7 @@ class $$TracksTableTableManager
                 addedAt: addedAt,
                 playCount: playCount,
                 lastPlayedAt: lastPlayedAt,
+                sourceKey: sourceKey,
               ),
           withReferenceMapper: (p0) => p0
               .map(

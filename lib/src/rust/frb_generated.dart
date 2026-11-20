@@ -224,6 +224,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  CoverInput dco_decode_box_autoadd_cover_input(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return dco_decode_cover_input(raw);
+  }
+
+  @protected
   TagValues dco_decode_box_autoadd_tag_values(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return dco_decode_tag_values(raw);
@@ -255,6 +261,18 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  CoverInput dco_decode_cover_input(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 2)
+      throw Exception('unexpected arr length: expect 2 but see ${arr.length}');
+    return CoverInput(
+      data: dco_decode_list_prim_u_8_strict(arr[0]),
+      mime: dco_decode_String(arr[1]),
+    );
+  }
+
+  @protected
   int dco_decode_i_32(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return raw as int;
@@ -282,6 +300,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   CoverArt? dco_decode_opt_box_autoadd_cover_art(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return raw == null ? null : dco_decode_box_autoadd_cover_art(raw);
+  }
+
+  @protected
+  CoverInput? dco_decode_opt_box_autoadd_cover_input(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return raw == null ? null : dco_decode_box_autoadd_cover_input(raw);
   }
 
   @protected
@@ -319,8 +343,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   TagValues dco_decode_tag_values(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     final arr = raw as List<dynamic>;
-    if (arr.length != 8)
-      throw Exception('unexpected arr length: expect 8 but see ${arr.length}');
+    if (arr.length != 9)
+      throw Exception('unexpected arr length: expect 9 but see ${arr.length}');
     return TagValues(
       title: dco_decode_opt_String(arr[0]),
       artist: dco_decode_opt_String(arr[1]),
@@ -330,6 +354,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       trackNumber: dco_decode_opt_box_autoadd_u_32(arr[5]),
       discNumber: dco_decode_opt_box_autoadd_u_32(arr[6]),
       year: dco_decode_opt_box_autoadd_u_32(arr[7]),
+      cover: dco_decode_opt_box_autoadd_cover_input(arr[8]),
     );
   }
 
@@ -386,6 +411,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  CoverInput sse_decode_box_autoadd_cover_input(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return (sse_decode_cover_input(deserializer));
+  }
+
+  @protected
   TagValues sse_decode_box_autoadd_tag_values(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     return (sse_decode_tag_values(deserializer));
@@ -414,6 +445,14 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       fileExtension: var_fileExtension,
       hash: var_hash,
     );
+  }
+
+  @protected
+  CoverInput sse_decode_cover_input(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_data = sse_decode_list_prim_u_8_strict(deserializer);
+    var var_mime = sse_decode_String(deserializer);
+    return CoverInput(data: var_data, mime: var_mime);
   }
 
   @protected
@@ -458,6 +497,19 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
 
     if (sse_decode_bool(deserializer)) {
       return (sse_decode_box_autoadd_cover_art(deserializer));
+    } else {
+      return null;
+    }
+  }
+
+  @protected
+  CoverInput? sse_decode_opt_box_autoadd_cover_input(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    if (sse_decode_bool(deserializer)) {
+      return (sse_decode_box_autoadd_cover_input(deserializer));
     } else {
       return null;
     }
@@ -518,6 +570,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     var var_trackNumber = sse_decode_opt_box_autoadd_u_32(deserializer);
     var var_discNumber = sse_decode_opt_box_autoadd_u_32(deserializer);
     var var_year = sse_decode_opt_box_autoadd_u_32(deserializer);
+    var var_cover = sse_decode_opt_box_autoadd_cover_input(deserializer);
     return TagValues(
       title: var_title,
       artist: var_artist,
@@ -527,6 +580,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       trackNumber: var_trackNumber,
       discNumber: var_discNumber,
       year: var_year,
+      cover: var_cover,
     );
   }
 
@@ -598,6 +652,15 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  void sse_encode_box_autoadd_cover_input(
+    CoverInput self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_cover_input(self, serializer);
+  }
+
+  @protected
   void sse_encode_box_autoadd_tag_values(
     TagValues self,
     SseSerializer serializer,
@@ -627,6 +690,13 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     sse_encode_list_prim_u_8_strict(self.data, serializer);
     sse_encode_String(self.fileExtension, serializer);
     sse_encode_String(self.hash, serializer);
+  }
+
+  @protected
+  void sse_encode_cover_input(CoverInput self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_list_prim_u_8_strict(self.data, serializer);
+    sse_encode_String(self.mime, serializer);
   }
 
   @protected
@@ -678,6 +748,19 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  void sse_encode_opt_box_autoadd_cover_input(
+    CoverInput? self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    sse_encode_bool(self != null, serializer);
+    if (self != null) {
+      sse_encode_box_autoadd_cover_input(self, serializer);
+    }
+  }
+
+  @protected
   void sse_encode_opt_box_autoadd_track_info(
     TrackInfo? self,
     SseSerializer serializer,
@@ -725,6 +808,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     sse_encode_opt_box_autoadd_u_32(self.trackNumber, serializer);
     sse_encode_opt_box_autoadd_u_32(self.discNumber, serializer);
     sse_encode_opt_box_autoadd_u_32(self.year, serializer);
+    sse_encode_opt_box_autoadd_cover_input(self.cover, serializer);
   }
 
   @protected

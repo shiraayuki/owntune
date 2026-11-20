@@ -31,6 +31,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   CoverArt dco_decode_box_autoadd_cover_art(dynamic raw);
 
   @protected
+  CoverInput dco_decode_box_autoadd_cover_input(dynamic raw);
+
+  @protected
   TagValues dco_decode_box_autoadd_tag_values(dynamic raw);
 
   @protected
@@ -41,6 +44,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   CoverArt dco_decode_cover_art(dynamic raw);
+
+  @protected
+  CoverInput dco_decode_cover_input(dynamic raw);
 
   @protected
   int dco_decode_i_32(dynamic raw);
@@ -56,6 +62,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   CoverArt? dco_decode_opt_box_autoadd_cover_art(dynamic raw);
+
+  @protected
+  CoverInput? dco_decode_opt_box_autoadd_cover_input(dynamic raw);
 
   @protected
   TrackInfo? dco_decode_opt_box_autoadd_track_info(dynamic raw);
@@ -91,6 +100,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   CoverArt sse_decode_box_autoadd_cover_art(SseDeserializer deserializer);
 
   @protected
+  CoverInput sse_decode_box_autoadd_cover_input(SseDeserializer deserializer);
+
+  @protected
   TagValues sse_decode_box_autoadd_tag_values(SseDeserializer deserializer);
 
   @protected
@@ -101,6 +113,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   CoverArt sse_decode_cover_art(SseDeserializer deserializer);
+
+  @protected
+  CoverInput sse_decode_cover_input(SseDeserializer deserializer);
 
   @protected
   int sse_decode_i_32(SseDeserializer deserializer);
@@ -116,6 +131,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   CoverArt? sse_decode_opt_box_autoadd_cover_art(SseDeserializer deserializer);
+
+  @protected
+  CoverInput? sse_decode_opt_box_autoadd_cover_input(
+    SseDeserializer deserializer,
+  );
 
   @protected
   TrackInfo? sse_decode_opt_box_autoadd_track_info(
@@ -159,6 +179,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_box_autoadd_cover_input(
+    CoverInput self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_box_autoadd_tag_values(
     TagValues self,
     SseSerializer serializer,
@@ -175,6 +201,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_cover_art(CoverArt self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_cover_input(CoverInput self, SseSerializer serializer);
 
   @protected
   void sse_encode_i_32(int self, SseSerializer serializer);
@@ -194,6 +223,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_opt_box_autoadd_cover_art(
     CoverArt? self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_opt_box_autoadd_cover_input(
+    CoverInput? self,
     SseSerializer serializer,
   );
 
