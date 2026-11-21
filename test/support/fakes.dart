@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:cupertino_ui/cupertino_ui.dart' show CupertinoIcons;
 
@@ -11,6 +12,7 @@ import 'package:owntune/app/providers.dart';
 import 'package:owntune/data/db/database.dart';
 import 'package:owntune/data/library_storage.dart';
 import 'package:owntune/data/track_repository.dart';
+import 'package:owntune/edit/cover_picker.dart';
 import 'package:owntune/edit/tag_saver.dart';
 import 'package:owntune/edit/track_tags.dart';
 import 'package:owntune/import/audio_file_picker.dart';
@@ -124,14 +126,18 @@ class FakeImporter implements Importer {
 /// message instead, and [throwing] makes every write throw.
 class FakeTagWriter {
   final written = <String, TrackTags>{};
+
+  /// The cover change of every write that succeeded, by path.
+  final covers = <String, CoverEdit>{};
   final failing = <String, String>{};
   var throwing = false;
 
-  Future<String?> call(String path, TrackTags tags) async {
+  Future<String?> call(String path, TrackTags tags, CoverEdit cover) async {
     if (throwing) throw const FileSystemException('disk gone');
     final error = failing[path];
     if (error != null) return error;
     written[path] = tags;
+    covers[path] = cover;
     return null;
   }
 }
@@ -152,9 +158,24 @@ class FakeTrackRepository implements TrackRepository {
   /// Every [updateTags] call, in order.
   final updatedTags = <Map<int, TrackTags>>[];
 
+  /// The `coverFiles` of every [updateTags] call, in order.
+  final updatedCovers = <Map<int, String?>>[];
+
+  /// Cover file names [isCoverReferenced] reports as still in use.
+  final referencedCovers = <String>{};
+
   @override
-  Future<void> updateTags(Map<int, TrackTags> byId) async =>
-      updatedTags.add(byId);
+  Future<void> updateTags(
+    Map<int, TrackTags> byId, {
+    Map<int, String?> coverFiles = const {},
+  }) async {
+    updatedTags.add(byId);
+    updatedCovers.add(coverFiles);
+  }
+
+  @override
+  Future<bool> isCoverReferenced(String cover) async =>
+      referencedCovers.contains(cover);
 
   @override
   Future<void> markPlayed(int id) async => played.add(id);
@@ -313,6 +334,28 @@ class FakePicker implements AudioFilePicker {
   Future<void> clearTemporaryFiles() async => cleanups++;
 }
 
+/// Returns fixed bytes for each pick (null = cancelled) and counts picks.
+class FakeCoverPicker implements CoverPicker {
+  FakeCoverPicker({this.photo, this.file});
+
+  Uint8List? photo;
+  Uint8List? file;
+  var photos = 0;
+  var files = 0;
+
+  @override
+  Future<Uint8List?> pickPhoto() async {
+    photos++;
+    return photo;
+  }
+
+  @override
+  Future<Uint8List?> pickFile() async {
+    files++;
+    return file;
+  }
+}
+
 /// Pumps the whole app with fake data; no database and no Rust.
 Future<void> pumpApp(
   WidgetTester t, {
@@ -327,6 +370,7 @@ Future<void> pumpApp(
   FakeTrackRepository? editRepo,
   Map<OnlineSourceId, OnlineSource>? onlineSources,
   FakeDownloadController? downloads,
+  FakeCoverPicker? coverPicker,
   List<Override> overrides = const [],
 }) async {
   final libraryStorage =
@@ -343,10 +387,12 @@ Future<void> pumpApp(
             write: (tagWriter ?? FakeTagWriter()).call,
             storage: libraryStorage,
             repo: editRepo ?? FakeTrackRepository(),
+            hash: (_) => 'coverhash',
           ),
         ),
         importerProvider.overrideWithValue(importer ?? FakeImporter()),
         filePickerProvider.overrideWithValue(picker ?? FakePicker()),
+        coverPickerProvider.overrideWithValue(coverPicker ?? FakeCoverPicker()),
         audioEngineProvider.overrideWithValue(engine ?? FakeAudioEngine()),
         playerStateStoreProvider.overrideWithValue(FakePlayerStateStore()),
         onlineSourcesProvider.overrideWithValue(

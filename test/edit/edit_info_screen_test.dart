@@ -1,11 +1,14 @@
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:image/image.dart' as img;
 import 'package:material_ui/material_ui.dart';
 import 'package:owntune/data/db/database.dart';
 import 'package:owntune/data/library_storage.dart';
 import 'package:owntune/edit/edit_info_screen.dart';
 import 'package:owntune/edit/track_tags.dart';
+import 'package:owntune/library/artwork.dart';
 
 import '../support/fakes.dart';
 
@@ -40,6 +43,9 @@ void main() {
     List<Track> tracks, {
     FakeTagWriter? writer,
     FakeTrackRepository? repo,
+    FakeCoverPicker? picker,
+    List<bool?>? results,
+    LibraryStorage? storage,
   }) async {
     t.view.physicalSize = const Size(800, 1800);
     t.view.devicePixelRatio = 1;
@@ -47,12 +53,13 @@ void main() {
     await pumpApp(
       t,
       songs: tracks,
-      storage: _storage,
+      storage: storage ?? _storage,
       tagWriter: writer,
       editRepo: repo,
+      coverPicker: picker,
     );
     final context = t.element(find.text('Songs').first);
-    openEditInfo(context, tracks);
+    openEditInfo(context, tracks).then((r) => results?.add(r));
     await t.pumpAndSettle();
   }
 
@@ -186,5 +193,196 @@ void main() {
       list.keyboardDismissBehavior,
       ScrollViewKeyboardDismissBehavior.onDrag,
     );
+  });
+
+  group('cover', () {
+    Uint8List png() {
+      final image = img.Image(width: 60, height: 40);
+      img.fill(image, color: img.ColorRgb8(0, 128, 255));
+      return img.encodePng(image);
+    }
+
+    Finder art() => find.byKey(const Key('edit-cover-art'));
+    TextButton save(WidgetTester t) =>
+        t.widget<TextButton>(find.byKey(const Key('edit-save')));
+
+    Future<void> openMenu(WidgetTester t) async {
+      await t.tap(find.text('Edit Cover'));
+      await t.pumpAndSettle();
+    }
+
+    /// Picking decodes and crops in isolates, which need real time.
+    Future<void> settleIsolates(WidgetTester t) async {
+      // Each file or isolate step needs real time, then a pump.
+      for (var i = 0; i < 30; i++) {
+        await t.runAsync(
+          () => Future<void>.delayed(const Duration(milliseconds: 20)),
+        );
+        await t.pump();
+      }
+      await t.pumpAndSettle();
+    }
+
+    testWidgets('shows the song cover and Edit Cover', (t) async {
+      await open(t, [track(1, title: 'Song', cover: 'a.jpg')]);
+      final artwork = t.widget<Artwork>(
+        find.descendant(of: art(), matching: find.byType(Artwork)),
+      );
+      expect(artwork.file!.path, _storage.coverFile('a.jpg').path);
+      expect(find.text('Edit Cover'), findsOneWidget);
+    });
+
+    testWidgets('bulk with different covers shows Mixed', (t) async {
+      await open(t, [
+        track(1, title: 'A', cover: 'a.jpg'),
+        track(2, title: 'B', cover: 'b.jpg'),
+      ]);
+      expect(
+        find.descendant(of: art(), matching: find.text('Mixed')),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('menu lists photos, file, remove and cancel', (t) async {
+      await open(t, [track(1, title: 'Song', cover: 'a.jpg')]);
+      await openMenu(t);
+      expect(find.text('Cover for “Song”'), findsOneWidget);
+      expect(find.text('Choose from Photos'), findsOneWidget);
+      expect(find.text('Choose File'), findsOneWidget);
+      expect(find.text('Remove Cover'), findsOneWidget);
+      expect(find.text('Cancel'), findsWidgets);
+    });
+
+    testWidgets('bulk menu names the number of songs', (t) async {
+      await open(t, [track(1, cover: 'a.jpg'), track(2), track(3)]);
+      await openMenu(t);
+      expect(find.text('Cover for 3 songs'), findsOneWidget);
+    });
+
+    testWidgets('Remove Cover is hidden when no song has a cover', (t) async {
+      await open(t, [_one]);
+      await openMenu(t);
+      expect(find.text('Choose from Photos'), findsOneWidget);
+      expect(find.text('Remove Cover'), findsNothing);
+    });
+
+    testWidgets('picking and choosing sets a pending cover and enables Save', (
+      t,
+    ) async {
+      final writer = FakeTagWriter();
+      final picker = FakeCoverPicker(photo: png());
+      final tmp = Directory.systemTemp.createTempSync('owntune_edit_cover');
+      addTearDown(() => tmp.deleteSync(recursive: true));
+      final storage = LibraryStorage(tmp);
+      await t.runAsync(storage.ensure);
+      await open(t, [_one], writer: writer, picker: picker, storage: storage);
+      await openMenu(t);
+      await t.tap(find.text('Choose from Photos'));
+      await settleIsolates(t);
+      expect(find.text('Move and Scale'), findsOneWidget);
+      await t.tap(find.text('Choose'));
+      await settleIsolates(t);
+      expect(find.text('Move and Scale'), findsNothing);
+      expect(save(t).onPressed, isNotNull);
+      expect(
+        find.descendant(of: art(), matching: find.byType(Image)),
+        findsOneWidget,
+      );
+      await t.tap(find.byKey(const Key('edit-save')));
+      await settleIsolates(t);
+      final cover = writer.covers.values.single as CoverSet;
+      expect(cover.mime, 'image/jpeg');
+      expect(img.decodeJpg(cover.data)!.width, 40);
+    });
+
+    testWidgets(
+      'shows a spinner and blocks editing while the image is processed',
+      (t) async {
+        await open(t, [_one], picker: FakeCoverPicker(photo: png()));
+        await openMenu(t);
+        await t.tap(find.text('Choose from Photos'));
+        // Let the menu finish closing; the isolate needs real time, so the
+        // spinner stays.
+        await t.pump(const Duration(milliseconds: 500));
+        expect(find.byKey(const Key('edit-cover-busy')), findsOneWidget);
+        expect(
+          t.widget<TextButton>(find.byKey(const Key('edit-cancel'))).onPressed,
+          isNotNull,
+        );
+        expect(
+          t.widget<TextButton>(find.byKey(const Key('edit-save'))).onPressed,
+          isNull,
+        );
+        await t.tap(find.text('Edit Cover'), warnIfMissed: false);
+        await t.pump(const Duration(milliseconds: 500));
+        expect(find.text('Choose File'), findsNothing);
+        await settleIsolates(t);
+        expect(find.text('Move and Scale'), findsOneWidget);
+        expect(find.byKey(const Key('edit-cover-busy')), findsNothing);
+        await t.tap(find.text('Cancel').last);
+        await t.pumpAndSettle();
+      },
+    );
+
+    testWidgets('Remove Cover then Save writes CoverRemove', (t) async {
+      final writer = FakeTagWriter();
+      await open(t, [track(1, title: 'Song', cover: 'a.jpg')], writer: writer);
+      await openMenu(t);
+      await t.tap(find.text('Remove Cover'));
+      await t.pumpAndSettle();
+      final artwork = t.widget<Artwork>(
+        find.descendant(of: art(), matching: find.byType(Artwork)),
+      );
+      expect(artwork.file, isNull);
+      await t.tap(find.byKey(const Key('edit-save')));
+      await t.pumpAndSettle();
+      expect(writer.covers.values.single, isA<CoverRemove>());
+    });
+
+    testWidgets('an unreadable file shows an error and changes nothing', (
+      t,
+    ) async {
+      final picker = FakeCoverPicker(file: Uint8List.fromList([1, 2, 3]));
+      await open(t, [_one], picker: picker);
+      await openMenu(t);
+      await t.tap(find.text('Choose File'));
+      await settleIsolates(t);
+      expect(
+        find.text("This image can't be read. Choose a JPEG or PNG."),
+        findsOneWidget,
+      );
+      await t.tap(find.text('OK'));
+      await t.pumpAndSettle();
+      expect(save(t).onPressed, isNull);
+    });
+
+    testWidgets('cancelling the picker changes nothing', (t) async {
+      final picker = FakeCoverPicker();
+      await open(t, [_one], picker: picker);
+      await openMenu(t);
+      await t.tap(find.text('Choose from Photos'));
+      await settleIsolates(t);
+      expect(picker.photos, 1);
+      expect(find.text('Move and Scale'), findsNothing);
+      expect(save(t).onPressed, isNull);
+    });
+  });
+
+  testWidgets('openEditInfo returns true after Save', (t) async {
+    final results = <bool?>[];
+    await open(t, [_one], results: results);
+    await t.enterText(_field(TagField.genre), 'Folk');
+    await t.pump();
+    await t.tap(find.byKey(const Key('edit-save')));
+    await t.pumpAndSettle();
+    expect(results, [true]);
+  });
+
+  testWidgets('openEditInfo returns false after Cancel', (t) async {
+    final results = <bool?>[];
+    await open(t, [_one], results: results);
+    await t.tap(find.byKey(const Key('edit-cancel')));
+    await t.pumpAndSettle();
+    expect(results, [false]);
   });
 }

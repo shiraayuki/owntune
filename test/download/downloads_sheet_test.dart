@@ -84,6 +84,36 @@ void main() {
     );
   });
 
+  testWidgets('rows do not rebuild on progress of another job', (t) async {
+    final downloads = await show(t, [
+      downloadJob(
+        1,
+        'a',
+        phase: DownloadPhase.downloading,
+        received: 1,
+        total: mib,
+      ),
+      downloadJob(2, 'b'),
+    ]);
+    // A row that did not rebuild keeps the very same child widgets.
+    Widget firstText(int id) => t.widget(inRow(id, find.byType(Text)).first);
+    final one = firstText(1);
+    final two = firstText(2);
+    downloads.jobs = [
+      downloadJob(
+        1,
+        'a',
+        phase: DownloadPhase.downloading,
+        received: 9,
+        total: mib,
+      ),
+      downloads.state[1],
+    ];
+    await t.pump();
+    expect(identical(firstText(1), one), isFalse);
+    expect(identical(firstText(2), two), isTrue);
+  });
+
   testWidgets('X cancels a waiting or running job', (t) async {
     final downloads = await show(t, [
       downloadJob(1, 'a', phase: DownloadPhase.downloading, total: 10),

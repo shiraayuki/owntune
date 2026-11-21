@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:owntune/data/db/database.dart';
 
 /// The editable tag fields of a song, as stored in the database and written
@@ -94,14 +96,49 @@ String? commonText(List<Track> tracks, TagField f) {
   return first;
 }
 
+/// What an edit does to the songs' covers.
+sealed class CoverEdit {
+  const CoverEdit();
+}
+
+/// Leaves each song's cover as it is.
+final class CoverKeep extends CoverEdit {
+  const CoverKeep();
+}
+
+/// Replaces every song's cover with this image.
+final class CoverSet extends CoverEdit {
+  const CoverSet(this.data, this.mime);
+
+  final Uint8List data;
+
+  /// `image/jpeg` or `image/png`.
+  final String mime;
+}
+
+/// Removes every song's cover.
+final class CoverRemove extends CoverEdit {
+  const CoverRemove();
+}
+
+/// The cover [tracks] share: `mixed` when their cover files differ (no cover
+/// counts as a value of its own), else the shared `file` (null = none).
+({bool mixed, String? file}) commonCover(List<Track> tracks) {
+  final first = tracks.first.coverFile;
+  final mixed = tracks.any((t) => t.coverFile != first);
+  return (mixed: mixed, file: mixed ? null : first);
+}
+
 /// The fields a user changed, as the text they typed; '' (or blank) clears
-/// the field. Fields not in [changes] keep each song's own value.
+/// the field. Fields not in [changes] keep each song's own value. [cover]
+/// applies to all songs.
 class TagEdit {
-  const TagEdit(this.changes);
+  const TagEdit(this.changes, {this.cover = const CoverKeep()});
 
   final Map<TagField, String> changes;
+  final CoverEdit cover;
 
-  bool get isEmpty => changes.isEmpty;
+  bool get isEmpty => changes.isEmpty && cover is CoverKeep;
 
   TrackTags apply(TrackTags t) {
     String? text(TagField f, String? old) {

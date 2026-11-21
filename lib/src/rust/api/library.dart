@@ -23,6 +23,10 @@ Future<ReadResult> readTrack({required String path}) =>
 Future<String?> writeTags({required String path, required TagValues tags}) =>
     RustLib.instance.api.crateApiLibraryWriteTags(path: path, tags: tags);
 
+/// BLAKE3 of `data` as 64 hex characters, the name covers are stored under.
+String hashBytes({required List<int> data}) =>
+    RustLib.instance.api.crateApiLibraryHashBytes(data: data);
+
 /// Embedded cover art, ready to be cached by the app.
 class CoverArt {
   final Uint8List data;
@@ -105,7 +109,8 @@ enum ReadStatus {
 }
 
 /// The editable tag fields; `None` removes the item from the file, except
-/// [`TagValues::cover`], where `None` leaves the pictures untouched.
+/// [`TagValues::cover`], where `None` leaves the pictures untouched (unless
+/// [`TagValues::remove_cover`] is set).
 class TagValues {
   final String? title;
   final String? artist;
@@ -119,6 +124,9 @@ class TagValues {
   /// `Some` replaces all pictures with this one front cover.
   final CoverInput? cover;
 
+  /// Removes every picture from the file; [`TagValues::cover`] is ignored.
+  final bool removeCover;
+
   const TagValues({
     this.title,
     this.artist,
@@ -129,6 +137,7 @@ class TagValues {
     this.discNumber,
     this.year,
     this.cover,
+    required this.removeCover,
   });
 
   @override
@@ -141,7 +150,8 @@ class TagValues {
       trackNumber.hashCode ^
       discNumber.hashCode ^
       year.hashCode ^
-      cover.hashCode;
+      cover.hashCode ^
+      removeCover.hashCode;
 
   @override
   bool operator ==(Object other) =>
@@ -156,7 +166,8 @@ class TagValues {
           trackNumber == other.trackNumber &&
           discNumber == other.discNumber &&
           year == other.year &&
-          cover == other.cover;
+          cover == other.cover &&
+          removeCover == other.removeCover;
 }
 
 class TrackInfo {

@@ -75,6 +75,44 @@ void main() {
     expect(button, findsNothing);
   });
 
+  testWidgets('no check after cancelling the last download', (t) async {
+    final downloads = FakeDownloadController([
+      downloadJob(1, 'a', phase: DownloadPhase.downloading, total: 10),
+    ]);
+    await pumpApp(t, downloads: downloads);
+    downloads.jobs = [downloadJob(1, 'a', phase: DownloadPhase.cancelled)];
+    await t.pump();
+    expect(button, findsNothing);
+  });
+
+  testWidgets('a finished job then a cancelled one still shows the check', (
+    t,
+  ) async {
+    final downloads = FakeDownloadController([
+      downloadJob(1, 'a', phase: DownloadPhase.downloading, total: 10),
+      downloadJob(2, 'b'),
+    ]);
+    await pumpApp(t, downloads: downloads);
+    downloads.jobs = [
+      downloadJob(1, 'a', phase: DownloadPhase.done),
+      downloadJob(2, 'b', phase: DownloadPhase.downloading, total: 10),
+    ];
+    await t.pump();
+    downloads.jobs = [
+      downloadJob(1, 'a', phase: DownloadPhase.done),
+      downloadJob(2, 'b', phase: DownloadPhase.cancelled),
+    ];
+    await t.pump();
+    expect(
+      find.descendant(
+        of: button,
+        matching: find.byIcon(CupertinoIcons.checkmark),
+      ),
+      findsOneWidget,
+    );
+    await t.pump(const Duration(seconds: 3));
+  });
+
   testWidgets('Search Online shows the button too', (t) async {
     final downloads = FakeDownloadController([downloadJob(1, 'a')]);
     await pumpApp(t, downloads: downloads);

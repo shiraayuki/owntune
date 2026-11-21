@@ -13,6 +13,7 @@ import 'package:owntune/download/search_online_screen.dart';
 import 'package:owntune/import/import_sheets.dart';
 import 'package:owntune/home/home_screen.dart';
 import 'package:owntune/library/library_tab.dart';
+import 'package:owntune/library/selection_bar.dart';
 import 'package:owntune/library/playlists_screen.dart';
 import 'package:owntune/library/search_screen.dart';
 import 'package:owntune/library/song_sort.dart';
@@ -207,55 +208,78 @@ class _AppShellState extends ConsumerState<AppShell> {
   @override
   Widget build(BuildContext context) {
     final running = ref.watch(importControllerProvider) is ImportRunning;
-    return Scaffold(
-      extendBody: true,
-      body: Column(
-        children: [
-          SafeArea(
-            bottom: false,
-            child: _TitleRow(
-              title: _tabs[_index].label,
-              showSort:
-                  _index == _libraryTab && _section == LibrarySection.songs,
-              onOpenSettings: () =>
-                  (widget.onOpenSettings ?? showSettingsSheet)(context),
-              onImport: running
-                  ? null
-                  : () => ref
-                        .read(importControllerProvider.notifier)
-                        .pickAndImport(),
+    final selection = ref.watch(songSelectionProvider);
+    final hasSongs =
+        ref.watch(libraryProvider).value?.tracks.isNotEmpty ?? false;
+    final onSongs = _index == _libraryTab && _section == LibrarySection.songs;
+    return PopScope(
+      // Back while selecting ends selection mode instead of leaving.
+      canPop: selection == null,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) ref.read(songSelectionProvider.notifier).end();
+      },
+      child: Scaffold(
+        extendBody: true,
+        body: Column(
+          children: [
+            SafeArea(
+              bottom: false,
+              child: _TitleRow(
+                title: _tabs[_index].label,
+                selected: selection?.length,
+                onDone: () => ref.read(songSelectionProvider.notifier).end(),
+                showSort: onSongs,
+                showSelect: onSongs && hasSongs,
+                onSelect: () =>
+                    ref.read(songSelectionProvider.notifier).start(),
+                onOpenSettings: () =>
+                    (widget.onOpenSettings ?? showSettingsSheet)(context),
+                onImport: running
+                    ? null
+                    : () => ref
+                          .read(importControllerProvider.notifier)
+                          .pickAndImport(),
+              ),
             ),
-          ),
-          Expanded(
-            // The Builder's context sits below the Scaffold, so the bottom
-            // padding the Scaffold adds for the tab bar (extendBody) is kept.
-            child: Builder(
-              builder: (context) => MediaQuery.removePadding(
-                context: context,
-                removeTop: true,
-                child: IndexedStack(
-                  index: _index,
-                  children: [
-                    const HomeScreen(),
-                    const SearchTab(),
-                    LibraryTab(
-                      section: _section,
-                      onSection: (s) => setState(() => _section = s),
-                    ),
-                    const PlaylistsScreen(),
-                  ],
+            Expanded(
+              // The Builder's context sits below the Scaffold, so the bottom
+              // padding the Scaffold adds for the tab bar (extendBody) is kept.
+              child: Builder(
+                builder: (context) => MediaQuery.removePadding(
+                  context: context,
+                  removeTop: true,
+                  child: IndexedStack(
+                    index: _index,
+                    children: [
+                      const HomeScreen(),
+                      const SearchTab(),
+                      LibraryTab(
+                        section: _section,
+                        onSection: (s) {
+                          ref.read(songSelectionProvider.notifier).end();
+                          setState(() => _section = s);
+                        },
+                      ),
+                      const PlaylistsScreen(),
+                    ],
+                  ),
                 ),
               ),
             ),
-          ),
-        ],
-      ),
-      bottomNavigationBar: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const MiniPlayer(overTabBar: true),
-          _TabBar(index: _index, onSelect: (i) => setState(() => _index = i)),
-        ],
+          ],
+        ),
+        bottomNavigationBar: selection != null
+            ? const SelectionBar()
+            : Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const MiniPlayer(overTabBar: true),
+                  _TabBar(
+                    index: _index,
+                    onSelect: (i) => setState(() => _index = i),
+                  ),
+                ],
+              ),
       ),
     );
   }
@@ -265,13 +289,24 @@ class _AppShellState extends ConsumerState<AppShell> {
 class _TitleRow extends StatelessWidget {
   const _TitleRow({
     required this.title,
+    required this.selected,
+    required this.onDone,
     required this.showSort,
+    required this.showSelect,
+    required this.onSelect,
     required this.onOpenSettings,
     required this.onImport,
   });
 
   final String title;
+
+  /// How many songs are selected; null outside selection mode. While
+  /// selecting, the title shows the count and "Done" replaces the buttons.
+  final int? selected;
+  final VoidCallback onDone;
   final bool showSort;
+  final bool showSelect;
+  final VoidCallback onSelect;
   final VoidCallback onOpenSettings;
   final VoidCallback? onImport;
 
@@ -286,7 +321,11 @@ class _TitleRow extends StatelessWidget {
           children: [
             Expanded(
               child: Text(
-                title,
+                switch (selected) {
+                  null => title,
+                  0 => 'Select Songs',
+                  final n => '$n Selected',
+                },
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
@@ -298,14 +337,24 @@ class _TitleRow extends StatelessWidget {
                 ),
               ),
             ),
-            const DownloadsButton(),
-            _MoreMenu(onOpenSettings: onOpenSettings, showSort: showSort),
-            const SizedBox(width: 8),
-            _AddMenu(
-              key: const Key('import-button'),
-              onImport: onImport,
-              onSearchOnline: () => openSearchOnline(context, backLabel: title),
-            ),
+            if (selected != null)
+              _DonePill(onPressed: onDone)
+            else ...[
+              const DownloadsButton(),
+              _MoreMenu(
+                onOpenSettings: onOpenSettings,
+                showSort: showSort,
+                showSelect: showSelect,
+                onSelect: onSelect,
+              ),
+              const SizedBox(width: 8),
+              _AddMenu(
+                key: const Key('import-button'),
+                onImport: onImport,
+                onSearchOnline: () =>
+                    openSearchOnline(context, backLabel: title),
+              ),
+            ],
           ],
         ),
       ),
@@ -313,8 +362,45 @@ class _TitleRow extends StatelessWidget {
   }
 }
 
+/// "Done" of the title row in selection mode (`.glass` pill, accent text).
+class _DonePill extends StatelessWidget {
+  const _DonePill({required this.onPressed});
+
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = Theme.of(context).extension<OwntuneColors>()!;
+    return Material(
+      key: const Key('selection-done'),
+      color: c.fill,
+      shape: const StadiumBorder(),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onPressed,
+        child: SizedBox(
+          height: 44,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 14),
+            child: Center(
+              child: Text(
+                'Done',
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                  color: c.accent,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 /// Values of the "…" menu besides the sort orders ([SongSort]).
-enum _MenuItem { ascending, descending, settings }
+enum _MenuItem { ascending, descending, select, settings }
 
 const _sortNames = {
   SongSort.title: 'Title',
@@ -429,10 +515,19 @@ class _AddMenu extends StatelessWidget {
 
 /// The "…" pull-down menu: sort options (Songs tab only) and Settings.
 class _MoreMenu extends ConsumerWidget {
-  const _MoreMenu({required this.onOpenSettings, required this.showSort});
+  const _MoreMenu({
+    required this.onOpenSettings,
+    required this.showSort,
+    required this.showSelect,
+    required this.onSelect,
+  });
 
   final VoidCallback onOpenSettings;
   final bool showSort;
+
+  /// "Select" (multi-select in Songs).
+  final bool showSelect;
+  final VoidCallback onSelect;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -463,6 +558,8 @@ class _MoreMenu extends ConsumerWidget {
               notifier.set(current.copyWith(songSortDescending: false));
             case _MenuItem.descending:
               notifier.set(current.copyWith(songSortDescending: true));
+            case _MenuItem.select:
+              onSelect();
             case _MenuItem.settings:
               onOpenSettings();
           }
@@ -493,6 +590,12 @@ class _MoreMenu extends ConsumerWidget {
             ),
             menuGap(context),
           ],
+          if (showSelect)
+            item(
+              _MenuItem.select,
+              'Select',
+              icon: CupertinoIcons.checkmark_circle,
+            ),
           item(_MenuItem.settings, 'Settings', icon: CupertinoIcons.gear),
         ],
         child: const RoundIcon(icon: CupertinoIcons.ellipsis),

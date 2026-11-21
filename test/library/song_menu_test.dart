@@ -82,6 +82,9 @@ void main() {
   });
 
   testWidgets('on the album screen the menu has no Go to Album', (t) async {
+    t.view.physicalSize = const Size(800, 1600);
+    t.view.devicePixelRatio = 1;
+    addTearDown(t.view.reset);
     await pumpApp(
       t,
       songs: songs,

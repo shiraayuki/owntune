@@ -118,7 +118,8 @@ pub struct CoverInput {
 }
 
 /// The editable tag fields; `None` removes the item from the file, except
-/// [`TagValues::cover`], where `None` leaves the pictures untouched.
+/// [`TagValues::cover`], where `None` leaves the pictures untouched (unless
+/// [`TagValues::remove_cover`] is set).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TagValues {
     pub title: Option<String>,
@@ -131,6 +132,8 @@ pub struct TagValues {
     pub year: Option<u32>,
     /// `Some` replaces all pictures with this one front cover.
     pub cover: Option<CoverInput>,
+    /// Removes every picture from the file; [`TagValues::cover`] is ignored.
+    pub remove_cover: bool,
 }
 
 /// Writes `tags` into the primary tag of the file at `path` (created if
@@ -140,7 +143,13 @@ pub struct TagValues {
 /// panics.
 pub fn write_tags(path: String, tags: TagValues) -> Option<String> {
     let path = Path::new(&path);
-    let cover = match tags.cover.as_ref().map(cover_picture).transpose() {
+    let cover = match tags
+        .cover
+        .as_ref()
+        .filter(|_| !tags.remove_cover)
+        .map(cover_picture)
+        .transpose()
+    {
         Ok(cover) => cover,
         Err(message) => return Some(message),
     };
@@ -153,6 +162,12 @@ pub fn write_tags(path: String, tags: TagValues) -> Option<String> {
         let _ = std::fs::remove_file(&part);
     }
     result
+}
+
+/// BLAKE3 of `data` as 64 hex characters, the name covers are stored under.
+#[flutter_rust_bridge::frb(sync)]
+pub fn hash_bytes(data: Vec<u8>) -> String {
+    blake3::hash(&data).to_hex().to_string()
 }
 
 /// `<dir>/<stem>.part.<ext>`; lofty picks the parser by extension.
@@ -191,10 +206,12 @@ fn write_via(path: &Path, part: &Path, tags: &TagValues, cover: Option<Picture>)
         return Some(format!("No {tag_type:?} tag in {}", path.display()));
     };
     apply(tag, tags);
-    if let Some(picture) = cover {
+    if tags.remove_cover || cover.is_some() {
         while !tag.pictures().is_empty() {
             tag.remove_picture(0);
         }
+    }
+    if let Some(picture) = cover {
         tag.push_picture(picture);
     }
     if let Err(e) = tagged.save_to_path(part, WriteOptions::default()) {
@@ -430,6 +447,7 @@ mod tests {
             disc_number: Some(2),
             year: Some(1999),
             cover: None,
+            remove_cover: false,
         }
     }
 
@@ -474,6 +492,7 @@ mod tests {
             disc_number: None,
             year: None,
             cover: None,
+            remove_cover: false,
         };
         assert_eq!(write_tags(path.to_str().unwrap().to_owned(), none), None);
         let t = read_path(&path);
@@ -647,5 +666,55 @@ mod tests {
         let error = write_tags(path.to_str().unwrap().to_owned(), with_cover(cover));
         assert_eq!(error.as_deref(), Some("Unsupported cover type: image/webp"));
         assert_eq!(std::fs::read(&path).unwrap(), original);
+    }
+
+    #[test]
+    fn remove_cover_clears_pictures_on_every_format() {
+        for name in [
+            "tagged.mp3",
+            "tagged.m4a",
+            "dash.m4a",
+            "tagged.flac",
+            "demo_3.wav",
+        ] {
+            let path = copy_fixture(name);
+            let p = path.to_str().unwrap().to_owned();
+            assert_eq!(
+                write_tags(p.clone(), with_cover(jpeg_cover())),
+                None,
+                "{name}"
+            );
+            let before = read_path(&path);
+            assert!(before.cover.is_some(), "{name}");
+            let remove = TagValues {
+                remove_cover: true,
+                ..all_fields()
+            };
+            assert_eq!(write_tags(p, remove), None, "{name}");
+            let after = read_path(&path);
+            assert!(after.cover.is_none(), "{name}");
+            assert_eq!(after.title.as_deref(), Some("New Title"), "{name}");
+            assert_eq!(after.artist.as_deref(), Some("New Artist"), "{name}");
+            assert_eq!(after.duration_ms, before.duration_ms, "{name}");
+        }
+    }
+
+    #[test]
+    fn remove_cover_ignores_cover_input() {
+        let path = copy_fixture("tagged.mp3");
+        let tags = TagValues {
+            remove_cover: true,
+            ..with_cover(jpeg_cover())
+        };
+        assert_eq!(write_tags(path.to_str().unwrap().to_owned(), tags), None);
+        assert!(read_path(&path).cover.is_none());
+    }
+
+    #[test]
+    fn hash_bytes_matches_blake3() {
+        assert_eq!(
+            hash_bytes(b"abc".to_vec()),
+            blake3::hash(b"abc").to_hex().to_string()
+        );
     }
 }

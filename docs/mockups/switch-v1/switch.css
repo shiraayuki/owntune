@@ -1,0 +1,31 @@
+/* Switch mockups v1: three replacements for the iOS segmented control
+   (Library sub-tabs, Search Online source). Builds on ../m1-v3, ../m2-v1 and
+   ../roadmap-v1. */
+
+/* A · Filter chips (Spotify library/search): compact pills, the selected
+   one filled with the accent (black in Paper). */
+.chips { display: flex; gap: 8px; padding: 0 16px 12px; flex: none; }
+.chips span { height: 32px; padding: 0 15px; border-radius: 16px; background: var(--fill); color: var(--text); font-size: 14px; font-weight: 600; display: inline-flex; align-items: center; }
+.chips span.on { background: var(--accent); color: var(--accent-text); }
+
+/* B · Text tabs with an underline (YouTube Music, Apple Music): bold labels,
+   the selected one in full color with an accent bar. */
+.utabs { display: flex; gap: 24px; padding: 0 16px; margin-bottom: 12px; flex: none; position: relative; }
+.utabs::after { content: ""; position: absolute; left: 16px; right: 16px; bottom: 0; height: 0.5px; background: var(--line); }
+.utabs span { font-size: 17px; font-weight: 650; color: var(--muted); padding: 4px 0 10px; position: relative; }
+.utabs span.on { color: var(--text); }
+.utabs span.on::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 3px; border-radius: 2px; background: var(--accent); z-index: 1; }
+
+/* C · The title is the switch (Apple Music "Library ⌄"): no extra row; a
+   pull-down picks the view. In Search Online the source sits in the field. */
+.appbar h1.tmenu { display: inline-flex; align-items: center; gap: 6px; }
+.appbar h1.tmenu .ico { width: 22px; height: 22px; stroke-width: 3; color: var(--muted); margin-top: 4px; }
+.menu .mi.on { font-weight: 600; }
+.search .srcpill { display: inline-flex; align-items: center; gap: 2px; height: 26px; padding: 0 6px 0 9px; margin-left: -2px; margin-right: 4px; border-radius: 7px; background: var(--accent); color: var(--accent-text); font-size: 14px; font-weight: 650; flex: none; }
+.search .srcpill .ico { width: 14px; height: 14px; stroke-width: 3; }
+
+/* Song results of Search Online (square art, state tag) */
+
+.orow .tag { display: inline-flex; align-items: center; gap: 3px; margin-top: 3px; font-size: 12px; font-weight: 700; color: var(--green); }
+.orow .tag .ico { width: 13px; height: 13px; stroke-width: 3; }
+.orow .tag.busy { color: var(--tint); }

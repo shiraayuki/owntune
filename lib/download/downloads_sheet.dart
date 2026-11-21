@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:cupertino_ui/cupertino_ui.dart' show CupertinoIcons;
+import 'package:flutter/foundation.dart' show listEquals;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:owntune/app/buttons.dart';
@@ -42,10 +43,12 @@ class DownloadsSheet extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final c = Theme.of(context).extension<OwntuneColors>()!;
-    final jobs = ref.watch(downloadControllerProvider);
+    // Only the list of ids and the counts: progress ticks rebuild the row of
+    // their own job, not the whole sheet.
+    final summary = ref.watch(downloadControllerProvider.select(_Summary.of));
     final controller = ref.read(downloadControllerProvider.notifier);
-    final finished = jobs.where((j) => !j.isActive).length;
-    final anyActive = finished < jobs.length;
+    final finished = summary.finished;
+    final anyActive = finished < summary.ids.length;
     final bottom = math.max(MediaQuery.viewPaddingOf(context).bottom, 20.0);
 
     return Material(
@@ -79,9 +82,9 @@ class DownloadsSheet extends ConsumerWidget {
             ),
             const SizedBox(height: 2),
             Text(
-              jobs.isEmpty
+              summary.ids.isEmpty
                   ? 'No downloads'
-                  : '$finished of ${jobs.length} done'
+                  : '$finished of ${summary.ids.length} done'
                         '${anyActive ? ' · keep owntune open until they finish' : ''}',
               style: TextStyle(fontSize: 13, color: c.muted),
             ),
@@ -90,11 +93,21 @@ class DownloadsSheet extends ConsumerWidget {
               child: ListView(
                 shrinkWrap: true,
                 children: [
-                  for (final job in jobs)
-                    _JobRow(
-                      job: job,
-                      onCancel: () => controller.cancel(job.id),
-                      onRetry: () => controller.retry(job.id),
+                  for (final id in summary.ids)
+                    Consumer(
+                      builder: (context, ref, _) {
+                        final job = ref.watch(
+                          downloadControllerProvider.select(
+                            (jobs) => jobs.where((j) => j.id == id).firstOrNull,
+                          ),
+                        );
+                        if (job == null) return const SizedBox.shrink();
+                        return _JobRow(
+                          job: job,
+                          onCancel: () => controller.cancel(id),
+                          onRetry: () => controller.retry(id),
+                        );
+                      },
                     ),
                 ],
               ),
@@ -114,6 +127,27 @@ class DownloadsSheet extends ConsumerWidget {
       ),
     );
   }
+}
+
+/// What the sheet itself shows: the jobs in order and how many finished.
+class _Summary {
+  const _Summary(this.ids, this.finished);
+
+  factory _Summary.of(List<DownloadJob> jobs) => _Summary([
+    for (final j in jobs) j.id,
+  ], jobs.where((j) => !j.isActive).length);
+
+  final List<int> ids;
+  final int finished;
+
+  @override
+  bool operator ==(Object other) =>
+      other is _Summary &&
+      other.finished == finished &&
+      listEquals(other.ids, ids);
+
+  @override
+  int get hashCode => Object.hash(finished, Object.hashAll(ids));
 }
 
 class _JobRow extends StatelessWidget {

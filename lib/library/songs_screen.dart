@@ -46,14 +46,23 @@ class _SongsScreenState extends ConsumerState<SongsScreen> {
   }
 
   Widget _list(List<Track> songs, SongSort sort) {
+    final selection = ref.watch(songSelectionProvider);
+    void toggle(Track t) =>
+        ref.read(songSelectionProvider.notifier).toggle(t.id);
     final q = foldKey(_query.text);
     if (q.isEmpty) {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          _Meta(count: songs.length, sort: sort),
+          _Meta(count: songs.length, sort: sort, selecting: selection != null),
           Expanded(
-            child: SongList(songs: songs, sort: sort, source: 'Songs'),
+            child: SongList(
+              songs: songs,
+              sort: sort,
+              source: 'Songs',
+              selection: selection,
+              onToggle: toggle,
+            ),
           ),
         ],
       );
@@ -66,6 +75,8 @@ class _SongsScreenState extends ConsumerState<SongsScreen> {
             sort: sort,
             sections: false,
             source: 'Songs',
+            selection: selection,
+            onToggle: toggle,
           );
   }
 
@@ -98,18 +109,26 @@ String formatDuration(int ms) {
 
 /// "47 songs · sorted by title" (`.meta`).
 class _Meta extends StatelessWidget {
-  const _Meta({required this.count, required this.sort});
+  const _Meta({
+    required this.count,
+    required this.sort,
+    required this.selecting,
+  });
 
   final int count;
   final SongSort sort;
+  final bool selecting;
 
   @override
   Widget build(BuildContext context) {
     final c = Theme.of(context).extension<OwntuneColors>()!;
+    final songs = '$count ${count == 1 ? 'song' : 'songs'}';
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 2, 16, 6),
       child: Text(
-        '$count ${count == 1 ? 'song' : 'songs'} · sorted by ${sortLabel(sort)}',
+        selecting
+            ? '$songs · tap to select'
+            : '$songs · sorted by ${sortLabel(sort)}',
         style: TextStyle(fontSize: 13, color: c.muted),
       ),
     );
@@ -126,6 +145,8 @@ class SongList extends ConsumerStatefulWidget {
     required this.sort,
     required this.source,
     this.sections = true,
+    this.selection,
+    this.onToggle,
   });
 
   /// Already in [sort] order.
@@ -137,6 +158,11 @@ class SongList extends ConsumerStatefulWidget {
 
   /// "Playing from" label of the queue a tap starts.
   final String source;
+
+  /// The selected ids while selecting (rows show check circles and a tap
+  /// calls [onToggle] instead of playing); null otherwise.
+  final Set<int>? selection;
+  final ValueChanged<Track>? onToggle;
 
   @override
   ConsumerState<SongList> createState() => _SongListState();
@@ -192,13 +218,16 @@ class _SongListState extends ConsumerState<SongList> {
           track: t,
           scope: const SongMenuScope(backLabel: 'Library'),
           divider: i + 1 < items.length,
-          onTap: () => ref
-              .read(playerProvider.notifier)
-              .playList(
-                widget.songs,
-                start: songIndex[i]!,
-                source: widget.source,
-              ),
+          selected: widget.selection?.contains(t.id),
+          onTap: widget.selection != null
+              ? () => widget.onToggle?.call(t)
+              : () => ref
+                    .read(playerProvider.notifier)
+                    .playList(
+                      widget.songs,
+                      start: songIndex[i]!,
+                      source: widget.source,
+                    ),
         ),
         final String l => _SectionHeader(
           key: ValueKey('section-$l'),
@@ -281,11 +310,16 @@ class SongRow extends ConsumerWidget {
     this.divider = true,
     this.subtitle,
     this.onTap,
+    this.selected,
   });
 
   final Track track;
   final SongMenuScope scope;
   final bool divider;
+
+  /// Non-null in selection mode: shows the check circle (filled when true)
+  /// and turns the long-press menu off.
+  final bool? selected;
 
   /// Replaces the default `artist · album` line.
   final String? subtitle;
@@ -317,8 +351,15 @@ class SongRow extends ConsumerWidget {
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: onTap,
-      onLongPressStart: (details) =>
-          showSongMenu(context, ref, track, details.globalPosition, scope),
+      onLongPressStart: selected != null
+          ? null
+          : (details) => showSongMenu(
+              context,
+              ref,
+              track,
+              details.globalPosition,
+              scope,
+            ),
       child: ConstrainedBox(
         constraints: const BoxConstraints(minHeight: 64),
         child: Stack(
@@ -327,6 +368,10 @@ class SongRow extends ConsumerWidget {
               padding: const EdgeInsets.symmetric(vertical: 8),
               child: Row(
                 children: [
+                  if (selected case final on?) ...[
+                    _Check(key: Key('song-check-${track.id}'), on: on),
+                    const SizedBox(width: 12),
+                  ],
                   Artwork(
                     file: cover == null ? null : storage.coverFile(cover),
                   ),
@@ -365,7 +410,7 @@ class SongRow extends ConsumerWidget {
             ),
             if (divider)
               Positioned(
-                left: 60,
+                left: selected == null ? 60 : 96,
                 right: 0,
                 bottom: 0,
                 child: Container(height: 0.5, color: c.line),
@@ -373,6 +418,30 @@ class SongRow extends ConsumerWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// The 24pt check circle of a row in selection mode (`.chk`).
+class _Check extends StatelessWidget {
+  const _Check({super.key, required this.on});
+
+  final bool on;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = Theme.of(context).extension<OwntuneColors>()!;
+    return Container(
+      width: 24,
+      height: 24,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: on ? c.accent : null,
+        border: Border.all(color: on ? c.accent : c.faint, width: 1.5),
+      ),
+      child: on
+          ? Icon(CupertinoIcons.checkmark, size: 14, color: c.accentText)
+          : null,
     );
   }
 }
@@ -581,6 +650,64 @@ Future<void> confirmDeleteSong(
       ),
     );
   }
+}
+
+/// Asks before deleting [tracks]; true when the user confirmed. Deletes them
+/// one by one and lists the songs that could not be deleted in one dialog.
+///
+/// [context] must stay mounted across the dialogs (the navigator's context).
+Future<bool> confirmDeleteSongs(
+  BuildContext context,
+  TrackRepository repo,
+  List<Track> tracks,
+) async {
+  String songs(int n) => n == 1 ? '1 song' : '$n songs';
+  final confirmed = await showAdaptiveDialog<bool>(
+    context: context,
+    builder: (context) => AlertDialog.adaptive(
+      title: Text('Delete ${songs(tracks.length)}?'),
+      content: Text(
+        tracks.length == 1
+            ? 'The song will be removed from owntune and its file deleted.'
+            : 'The songs will be removed from owntune and their files deleted.',
+      ),
+      actions: [
+        DialogAction(
+          label: 'Cancel',
+          onPressed: () => Navigator.pop(context, false),
+        ),
+        DialogAction(
+          label: 'Delete',
+          destructive: true,
+          onPressed: () => Navigator.pop(context, true),
+        ),
+      ],
+    ),
+  );
+  if (!(confirmed ?? false)) return false;
+  final failures = <String>[];
+  for (final t in tracks) {
+    try {
+      await repo.delete(t.id);
+    } on Object catch (e) {
+      failures.add('${displayTitle(t.title, t.originalName)}: $e');
+    }
+  }
+  if (failures.isNotEmpty && context.mounted) {
+    await showAdaptiveDialog<void>(
+      context: context,
+      builder: (context) => AlertDialog.adaptive(
+        title: Text("Couldn't delete ${songs(failures.length)}"),
+        content: SingleChildScrollView(
+          child: SelectableText(failures.join('\n')),
+        ),
+        actions: [
+          DialogAction(label: 'OK', onPressed: () => Navigator.pop(context)),
+        ],
+      ),
+    );
+  }
+  return true;
 }
 
 /// A dialog button: Cupertino on iOS/macOS, a text button elsewhere.

@@ -229,12 +229,25 @@ void main() {
     expect(TrackTags.of(cleared), const TrackTags());
   });
 
-  test('hasSourceKey', () async {
-    await repo.insert(
-      row('h1').copyWith(sourceKey: const Value('youtube:abc')),
+  test('updateTags writes coverFile for the given ids', () async {
+    await repo.insert(row('h1', cover: 'old.jpg'));
+    await repo.insert(row('h2', cover: 'old.jpg'));
+    final ids = [for (final t in await repo.watchAll().first) t.id];
+
+    await repo.updateTags(
+      {ids.first: const TrackTags(), ids.last: const TrackTags()},
+      coverFiles: {ids.first: 'new.jpg', ids.last: null},
     );
-    await repo.insert(row('h2'));
-    expect(await repo.hasSourceKey('youtube:abc'), isTrue);
-    expect(await repo.hasSourceKey('youtube:xyz'), isFalse);
+
+    final tracks = await repo.watchAll().first;
+    expect(tracks.firstWhere((t) => t.id == ids.first).coverFile, 'new.jpg');
+    expect(tracks.firstWhere((t) => t.id == ids.last).coverFile, isNull);
+  });
+
+  test('updateTags without coverFiles keeps the cover', () async {
+    await repo.insert(row('h1', cover: 'old.jpg'));
+    final id = (await repo.watchAll().first).single.id;
+    await repo.updateTags({id: const TrackTags(title: 'T')});
+    expect((await repo.watchAll().first).single.coverFile, 'old.jpg');
   });
 }

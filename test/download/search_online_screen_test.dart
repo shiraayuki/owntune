@@ -150,6 +150,45 @@ void main() {
     );
   });
 
+  testWidgets('result rows do not rebuild on progress of another job', (
+    t,
+  ) async {
+    final downloads = FakeDownloadController([
+      downloadJob(
+        1,
+        'def',
+        phase: DownloadPhase.downloading,
+        received: 1,
+        total: 100,
+      ),
+    ]);
+    await open(t, downloads: downloads);
+    await search(t, 'linkin park');
+    // A row that did not rebuild keeps the very same child widgets.
+    Widget firstText(String key) => t.widget(
+      find
+          .descendant(
+            of: find.byKey(ValueKey('online-row-youtube:$key')),
+            matching: find.byType(Text),
+          )
+          .first,
+    );
+    final def = firstText('def');
+    final abc = firstText('abc');
+    downloads.jobs = [
+      downloadJob(
+        1,
+        'def',
+        phase: DownloadPhase.downloading,
+        received: 50,
+        total: 100,
+      ),
+    ];
+    await t.pump();
+    expect(identical(firstText('def'), def), isFalse);
+    expect(identical(firstText('abc'), abc), isTrue);
+  });
+
   testWidgets('a recent search runs again on tap and can be swiped away', (
     t,
   ) async {

@@ -23,6 +23,9 @@ void main() {
   });
 
   testWidgets('switches between the library sub-tabs', (t) async {
+    t.view.physicalSize = const Size(800, 1600);
+    t.view.devicePixelRatio = 1;
+    addTearDown(t.view.reset);
     await pumpApp(
       t,
       songs: [track(1, title: 'a', album: 'X', artist: 'Y')],

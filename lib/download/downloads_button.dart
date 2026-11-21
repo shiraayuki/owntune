@@ -10,8 +10,9 @@ import 'package:owntune/download/download_job.dart';
 import 'package:owntune/download/downloads_sheet.dart';
 
 /// Opens the downloads sheet. Visible while downloads wait or run (badge:
-/// how many) and while one has failed (warning badge); after the last one
-/// succeeds it shows a check for 3 s and hides.
+/// how many) and while one has failed (warning badge); when the queue ends
+/// with at least one finished download it shows a check for 3 s and hides
+/// (not when it ends only in cancels).
 class DownloadsButton extends ConsumerStatefulWidget {
   const DownloadsButton({super.key, this.round = true});
 
@@ -25,6 +26,10 @@ class DownloadsButton extends ConsumerStatefulWidget {
 
 class _DownloadsButtonState extends ConsumerState<DownloadsButton> {
   var _celebrating = false;
+
+  /// Whether a job finished (added or already there) since the queue last
+  /// became active; a queue that ends only in cancels gets no check.
+  var _finished = false;
   Timer? _timer;
 
   @override
@@ -39,7 +44,20 @@ class _DownloadsButtonState extends ConsumerState<DownloadsButton> {
       final wasActive = before?.any((j) => j.isActive) ?? false;
       final active = now.any((j) => j.isActive);
       final failed = now.any((j) => j.phase == DownloadPhase.failed);
-      if (wasActive && !active && !failed) {
+      if (!wasActive && active) _finished = false;
+      final activeBefore = {
+        for (final j in before ?? const <DownloadJob>[])
+          if (j.isActive) j.id,
+      };
+      if (now.any(
+        (j) =>
+            activeBefore.contains(j.id) &&
+            (j.phase == DownloadPhase.done ||
+                j.phase == DownloadPhase.duplicate),
+      )) {
+        _finished = true;
+      }
+      if (wasActive && !active && !failed && _finished) {
         _timer?.cancel();
         setState(() => _celebrating = true);
         _timer = Timer(const Duration(seconds: 3), () {

@@ -60,12 +60,19 @@ class DownloadController extends Notifier<List<DownloadJob>> {
     }
   }
 
-  /// Queues a failed or cancelled job again, at the end.
+  /// Queues a failed or cancelled job again, at the end. Does nothing while
+  /// a job for the same song is waiting or running.
   void retry(int id) {
     final job = _job(id);
     if (job == null ||
         (job.phase != DownloadPhase.failed &&
             job.phase != DownloadPhase.cancelled)) {
+      return;
+    }
+    // Same guard as [enqueue]: the song may have been queued again since.
+    if (state.any(
+      (j) => j.isActive && j.result.sourceKey == job.result.sourceKey,
+    )) {
       return;
     }
     state = [
@@ -147,7 +154,9 @@ class DownloadController extends Notifier<List<DownloadJob>> {
         job.tags,
         cover,
       );
-      if (error != null) throw OnlineError("Couldn't write the tags: $error");
+      if (error != null) {
+        throw OnlineError('The tags could not be written: $error');
+      }
       if (cancel.isCancelled) throw DownloadCancelled();
       final named = await part.rename(
         p.join(

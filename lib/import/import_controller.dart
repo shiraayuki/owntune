@@ -34,7 +34,8 @@ final class ImportFailed extends ImportState {
   final String message;
 }
 
-/// Runs one import at a time through the single [Importer] instance.
+/// Runs Import Music, one at a time, through the single [Importer]
+/// instance, and holds what the import sheets show.
 class ImportController extends Notifier<ImportState> {
   @override
   ImportState build() => const ImportIdle();
@@ -64,8 +65,9 @@ class ImportController extends Notifier<ImportState> {
     }
   }
 
-  /// Imports [paths]. Ignored while another import runs or for no paths, so
-  /// the importer's concurrent-call [StateError] never surfaces.
+  /// Imports [paths]. Ignored while another Import Music runs or for no
+  /// paths, so the sheets show one import at a time. (The [Importer] itself
+  /// queues calls, e.g. from downloads.)
   Future<void> start(List<String> paths) async {
     if (_running || paths.isEmpty) return;
     state = ImportRunning(

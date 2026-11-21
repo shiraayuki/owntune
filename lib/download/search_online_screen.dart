@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:owntune/app/buttons.dart';
 import 'package:owntune/app/providers.dart';
-import 'package:owntune/app/segmented.dart';
+import 'package:owntune/app/text_tabs.dart';
 import 'package:owntune/app/theme.dart';
 import 'package:owntune/data/sources/online_source.dart';
 import 'package:owntune/download/download_job.dart';
@@ -155,8 +155,8 @@ class _SearchOnlineScreenState extends ConsumerState<SearchOnlineScreen> {
             ],
           ),
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 4, 16, 10),
-            child: Segmented<OnlineSourceId>(
+            padding: const EdgeInsets.only(top: 4),
+            child: TextTabs<OnlineSourceId>(
               segments: const {
                 OnlineSourceId.ytmusic: 'Songs',
                 OnlineSourceId.youtube: 'Videos',
@@ -312,10 +312,15 @@ class _ResultRow extends ConsumerWidget {
     final inLibrary = ref.watch(
       librarySourceKeysProvider.select((keys) => keys.contains(r.sourceKey)),
     );
-    final job = ref
-        .watch(downloadControllerProvider)
-        .where((j) => j.isActive && j.result.sourceKey == r.sourceKey)
-        .firstOrNull;
+    // Only this result's job: progress of other downloads does not rebuild
+    // the row.
+    final job = ref.watch(
+      downloadControllerProvider.select(
+        (jobs) => jobs
+            .where((j) => j.isActive && j.result.sourceKey == r.sourceKey)
+            .firstOrNull,
+      ),
+    );
     final song = r.source == OnlineSourceId.ytmusic;
     final duration = r.duration == null ? null : formatDuration(r.duration!);
     final image = song

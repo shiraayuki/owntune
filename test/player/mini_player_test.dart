@@ -44,6 +44,9 @@ void main() {
   testWidgets('mini player shows on the album screen without a tab bar', (
     t,
   ) async {
+    t.view.physicalSize = const Size(800, 1600);
+    t.view.devicePixelRatio = 1;
+    addTearDown(t.view.reset);
     await pumpApp(
       t,
       songs: [

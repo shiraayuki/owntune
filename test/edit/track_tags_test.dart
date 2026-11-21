@@ -76,4 +76,18 @@ void main() {
     expect(edit.isEmpty, isTrue);
     expect(edit.apply(TrackTags.of(one)), TrackTags.of(one));
   });
+
+  test('an edit with only a cover change is not empty', () {
+    expect(const TagEdit({}).isEmpty, isTrue);
+    expect(const TagEdit({}, cover: CoverRemove()).isEmpty, isFalse);
+  });
+
+  test('commonCover', () {
+    expect(commonCover([track(1, cover: 'a.jpg'), track(2, cover: 'a.jpg')]), (
+      mixed: false,
+      file: 'a.jpg',
+    ));
+    expect(commonCover([track(1), track(2)]), (mixed: false, file: null));
+    expect(commonCover([track(1, cover: 'a.jpg'), track(2)]).mixed, isTrue);
+  });
 }

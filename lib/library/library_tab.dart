@@ -1,7 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:owntune/app/providers.dart';
-import 'package:owntune/app/segmented.dart';
+import 'package:owntune/app/text_tabs.dart';
 import 'package:owntune/library/albums_screen.dart';
 import 'package:owntune/library/artists_screen.dart';
 import 'package:owntune/library/songs_screen.dart';
@@ -16,7 +16,7 @@ const _labels = {
 };
 
 /// Songs | Albums | Artists under one tab. All three screens stay mounted,
-/// so each keeps its query and scroll position. The segmented control is
+/// so each keeps its query and scroll position. The text tabs are
 /// hidden while the library is empty (each screen then shows the empty
 /// state with "Import Music").
 class LibraryTab extends ConsumerWidget {
@@ -33,15 +33,11 @@ class LibraryTab extends ConsumerWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         if (hasSongs)
-          Padding(
+          TextTabs<LibrarySection>(
             key: const ValueKey('library-segments'),
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
-            child: Segmented<LibrarySection>(
-              segments: _labels,
-              value: section,
-              onChanged: onSection,
-              fontSize: 14,
-            ),
+            segments: _labels,
+            value: section,
+            onChanged: onSection,
           ),
         Expanded(
           child: IndexedStack(

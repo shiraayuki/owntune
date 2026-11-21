@@ -299,6 +299,28 @@ void main() {
     expect(jobs().single.phase, DownloadPhase.done);
   });
 
+  test('retry does nothing while the same song is queued again', () async {
+    final controller = start();
+    music.resolveError = const OnlineError('No connection');
+    controller.enqueue(onlineResult('a'), const TrackTags(title: 'A'));
+    await settle();
+    music.resolveError = null;
+    final failed = jobs().single;
+    controller
+      ..enqueue(onlineResult('b'), const TrackTags(title: 'B'))
+      ..enqueue(onlineResult('a'), const TrackTags(title: 'A'));
+    controller.retry(failed.id);
+    expect(
+      jobs().firstWhere((j) => j.id == failed.id).phase,
+      DownloadPhase.failed,
+    );
+    expect(
+      jobs().where((j) => j.isActive && j.result.sourceKey == 'youtube:a'),
+      hasLength(1),
+    );
+    await settle();
+  });
+
   test('a failing cover still adds the song without cover', () async {
     final controller = start();
     http.onGet = (url, headers) async => url.path.startsWith('/cover/')
@@ -330,7 +352,8 @@ void main() {
     controller.enqueue(onlineResult('abc'), const TrackTags(title: 'Numb'));
     await settle();
     expect(jobs().single.phase, DownloadPhase.failed);
-    expect(jobs().single.error, "Couldn't write the tags: disk full");
+    // The sheet adds "Couldn't download: ", so no second "Couldn't" here.
+    expect(jobs().single.error, 'The tags could not be written: disk full');
     expect(instant().imported, isEmpty);
     expect(tmp.listSync(), isEmpty);
   });

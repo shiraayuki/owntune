@@ -9,10 +9,13 @@ import 'package:owntune/data/sources/youtube/youtube_sources.dart';
 import 'package:owntune/data/track_repository.dart';
 import 'package:owntune/download/download_controller.dart';
 import 'package:owntune/download/download_job.dart';
+import 'package:owntune/edit/cover_picker.dart';
 import 'package:owntune/edit/tag_saver.dart';
+import 'package:owntune/edit/track_tags.dart';
 import 'package:owntune/import/audio_file_picker.dart';
 import 'package:owntune/import/import_controller.dart';
 import 'package:owntune/import/importer.dart';
+import 'package:owntune/library/song_selection.dart';
 import 'package:owntune/library/library.dart';
 import 'package:owntune/library/song_sort.dart';
 import 'package:owntune/player/audio_engine.dart';
@@ -115,8 +118,8 @@ class SettingsNotifier extends Notifier<AppSettings> {
   );
 }
 
-/// The one importer of the app; [ImportController] makes sure it never runs
-/// twice at the same time.
+/// The one importer of the app. It queues its calls itself, so Import Music
+/// ([ImportController]) and downloads never import at the same time.
 final importerProvider = Provider<Importer>(
   (ref) => Importer(
     repo: ref.watch(trackRepositoryProvider),
@@ -131,7 +134,7 @@ final tagSaverProvider = Provider<TagSaver>(
   (ref) => TagSaver(
     repo: ref.watch(trackRepositoryProvider),
     storage: ref.watch(storageProvider),
-    write: (path, t) => writeTags(
+    write: (path, t, cover) => writeTags(
       path: path,
       tags: TagValues(
         title: t.title,
@@ -142,10 +145,26 @@ final tagSaverProvider = Provider<TagSaver>(
         trackNumber: t.trackNumber,
         discNumber: t.discNumber,
         year: t.year,
-        cover: null,
+        cover: switch (cover) {
+          CoverSet(:final data, :final mime) => CoverInput(
+            data: data,
+            mime: mime,
+          ),
+          _ => null,
+        },
+        removeCover: cover is CoverRemove,
       ),
     ),
+    hash: (data) => hashBytes(data: data),
   ),
+);
+
+/// Picks cover images; tests override it with a fake.
+final coverPickerProvider = Provider<CoverPicker>((ref) => const CoverPicker());
+
+/// Multi-select in Songs (null = off).
+final songSelectionProvider = NotifierProvider<SongSelection, Set<int>?>(
+  SongSelection.new,
 );
 
 final filePickerProvider = Provider<AudioFilePicker>(
@@ -211,6 +230,7 @@ final downloadTagWriterProvider = Provider<WriteDownloadTags>(
           cover: cover == null
               ? null
               : CoverInput(data: cover.data, mime: cover.mime),
+          removeCover: false,
         ),
       ),
 );

@@ -35,4 +35,16 @@ void main() {
       p.join(tmp.path, 'covers', 'c.jpg'),
     );
   });
+
+  test('storeCover writes once and leaves no .part file', () async {
+    final storage = LibraryStorage(Directory(p.join(tmp.path, 'library')));
+    await storage.ensure();
+    expect(await storage.storeCover('h.jpg', [1, 2, 3]), isTrue);
+    expect(storage.coverFile('h.jpg').readAsBytesSync(), [1, 2, 3]);
+    expect(await storage.storeCover('h.jpg', [9]), isFalse);
+    expect(storage.coverFile('h.jpg').readAsBytesSync(), [1, 2, 3]);
+    expect(storage.coversDir.listSync().map((f) => p.basename(f.path)), [
+      'h.jpg',
+    ]);
+  });
 }

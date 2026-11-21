@@ -22,6 +22,9 @@ void main() {
   ];
 
   testWidgets('shows albums by album artist, then title', (t) async {
+    t.view.physicalSize = const Size(800, 1600);
+    t.view.devicePixelRatio = 1;
+    addTearDown(t.view.reset);
     await pumpApp(t, songs: songs);
     await openAlbumsTab(t);
     final titles = ['Ember', 'Paper Lanterns', 'Velvet Hours'];
@@ -73,6 +76,9 @@ void main() {
   testWidgets('tapping a card opens the album with back label Albums', (
     t,
   ) async {
+    t.view.physicalSize = const Size(800, 1600);
+    t.view.devicePixelRatio = 1;
+    addTearDown(t.view.reset);
     await pumpApp(t, songs: songs);
     await openAlbumsTab(t);
     await t.tap(find.text('Ember'));

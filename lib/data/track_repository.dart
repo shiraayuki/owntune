@@ -26,38 +26,35 @@ class TrackRepository {
     return row != null;
   }
 
-  Future<bool> hasSourceKey(String key) async {
-    final row =
-        await (_db.select(_db.tracks)
-              ..where((t) => t.sourceKey.equals(key))
-              ..limit(1))
-            .getSingleOrNull();
-    return row != null;
-  }
-
   Future<void> insert(TracksCompanion row) async {
     await _db.into(_db.tracks).insert(row);
   }
 
-  /// Sets the tag columns of the rows in [byId], in one transaction so the
-  /// library changes in one step. Hash and file name stay as imported.
-  Future<void> updateTags(Map<int, TrackTags> byId) =>
-      _db.transaction(() async {
-        for (final MapEntry(key: id, value: t) in byId.entries) {
-          await (_db.update(_db.tracks)..where((r) => r.id.equals(id))).write(
-            TracksCompanion(
-              title: Value(t.title),
-              artist: Value(t.artist),
-              album: Value(t.album),
-              albumArtist: Value(t.albumArtist),
-              genre: Value(t.genre),
-              trackNumber: Value(t.trackNumber),
-              discNumber: Value(t.discNumber),
-              year: Value(t.year),
-            ),
-          );
-        }
-      });
+  /// Sets the tag columns of the rows in [byId], and the cover file of the
+  /// rows in [coverFiles], in one transaction so the library changes in one
+  /// step. Hash and file name stay as imported.
+  Future<void> updateTags(
+    Map<int, TrackTags> byId, {
+    Map<int, String?> coverFiles = const {},
+  }) => _db.transaction(() async {
+    for (final MapEntry(key: id, value: t) in byId.entries) {
+      await (_db.update(_db.tracks)..where((r) => r.id.equals(id))).write(
+        TracksCompanion(
+          title: Value(t.title),
+          artist: Value(t.artist),
+          album: Value(t.album),
+          albumArtist: Value(t.albumArtist),
+          genre: Value(t.genre),
+          trackNumber: Value(t.trackNumber),
+          discNumber: Value(t.discNumber),
+          year: Value(t.year),
+          coverFile: coverFiles.containsKey(id)
+              ? Value(coverFiles[id])
+              : const Value.absent(),
+        ),
+      );
+    }
+  });
 
   /// Removes the row and its audio file, plus the cover file if no other row
   /// references it.

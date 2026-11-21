@@ -192,10 +192,8 @@ class Importer {
       final cover = info.cover;
       if (cover != null) {
         coverName = '${cover.hash}.${cover.fileExtension}';
-        final coverFile = _storage.coverFile(coverName);
-        if (!await coverFile.exists()) {
-          await _writeCover(coverFile, cover);
-          newCover = coverFile;
+        if (await _storage.storeCover(coverName, cover.data)) {
+          newCover = _storage.coverFile(coverName);
         }
       }
 
@@ -260,18 +258,6 @@ class Importer {
       }
     } catch (_) {
       // Keep the files; see above.
-    }
-  }
-
-  /// Writes via a temporary file so an interrupted write never leaves a
-  /// truncated cover under its final name.
-  Future<void> _writeCover(File target, CoverArt cover) async {
-    final tmp = _storage.coverFile('${_randomHex()}.part');
-    try {
-      await tmp.writeAsBytes(cover.data, flush: true);
-      await tmp.rename(target.path);
-    } finally {
-      await _deleteQuietly(tmp);
     }
   }
 
