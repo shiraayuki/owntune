@@ -15,6 +15,7 @@ env:
 jobs:
   linux:
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v7
 
@@ -84,6 +85,7 @@ jobs:
           pactl set-default-sink silent
 
       - name: Integration test with real Rust core
+        timeout-minutes: 15
         run: xvfb-run flutter test integration_test -d linux
 
       - name: Build Android APK

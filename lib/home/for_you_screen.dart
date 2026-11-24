@@ -27,7 +27,7 @@ class ForYouScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final library = ref.watch(libraryProvider);
     if (library.value?.tracks.isEmpty ?? false) {
-      return const _EmptyForYou(key: Key('for-you-empty'));
+      return const HomeEmptyState(key: Key('for-you-empty'));
     }
     return ref
         .watch(forYouProvider)
@@ -245,9 +245,10 @@ class _Row extends StatelessWidget {
   );
 }
 
-/// Mockup 05: glyph, headline, text and two full-width buttons.
-class _EmptyForYou extends ConsumerWidget {
-  const _EmptyForYou({super.key});
+/// Mockup 05: glyph, headline, text and two full-width buttons. Shared by the
+/// For You and Stats sub-tabs.
+class HomeEmptyState extends ConsumerWidget {
+  const HomeEmptyState({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {

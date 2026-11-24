@@ -20,6 +20,7 @@ import 'package:owntune/edit/cover_picker.dart';
 import 'package:owntune/edit/tag_saver.dart';
 import 'package:owntune/edit/track_tags.dart';
 import 'package:owntune/home/home_repository.dart';
+import 'package:owntune/home/stats_repository.dart';
 import 'package:owntune/import/audio_file_picker.dart';
 import 'package:owntune/import/importer.dart';
 import 'package:owntune/library/navigation.dart';
@@ -240,6 +241,77 @@ class FakeHomeRepository implements HomeRepository {
     topSince.add(since);
     return Stream.value(top);
   }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+/// Stats queries with fixed results; set the fields before pumping.
+class FakeStatsRepository implements StatsRepository {
+  List<TrackTotal> totals = [];
+  List<ListeningBucket> buckets = [];
+  List<int> hourly = List.filled(24, 0);
+  Map<int, ({DateTime first, int counted})> history = {};
+  DateTime? firstPlayAt;
+
+  /// The rows of every comparison day.
+  List<StatsPlayRow> dayRows = [];
+
+  /// The counted plays in the whole history; null: the plays of [buckets].
+  int? countedPlays;
+
+  /// The arguments of every call, in order.
+  final totalsRanges = <({DateTime from, DateTime to})>[];
+  final bucketRanges = <({DateTime from, DateTime to, StatsBucket bucket})>[];
+  final hourlyRanges = <({DateTime from, DateTime to})>[];
+  final rowDays = <DateTime>[];
+
+  @override
+  Stream<List<TrackTotal>> watchTrackTotals({
+    required DateTime from,
+    required DateTime to,
+  }) {
+    totalsRanges.add((from: from, to: to));
+    return Stream.value(totals);
+  }
+
+  @override
+  Stream<List<ListeningBucket>> watchListeningBuckets({
+    required DateTime from,
+    required DateTime to,
+    required StatsBucket bucket,
+    bool countedOnly = false,
+  }) {
+    bucketRanges.add((from: from, to: to, bucket: bucket));
+    return Stream.value(buckets);
+  }
+
+  @override
+  Stream<List<StatsPlayRow>> watchRowsOfDay({required DateTime day}) {
+    rowDays.add(day);
+    return Stream.value(dayRows);
+  }
+
+  @override
+  Stream<int> watchCountedPlays() => Stream.value(
+    countedPlays ?? buckets.fold<int>(0, (sum, b) => sum + b.plays),
+  );
+
+  @override
+  Stream<List<int>> watchHourly({
+    required DateTime from,
+    required DateTime to,
+  }) {
+    hourlyRanges.add((from: from, to: to));
+    return Stream.value(hourly);
+  }
+
+  @override
+  Stream<Map<int, ({DateTime first, int counted})>> watchTrackHistory() =>
+      Stream.value(history);
+
+  @override
+  Stream<DateTime?> watchFirstPlayAt() => Stream.value(firstPlayAt);
 
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
@@ -485,7 +557,9 @@ Future<void> pumpApp(
   PlaylistRepository? playlists,
   FakePlayRepository? plays,
   FakeHomeRepository? home,
+  FakeStatsRepository? stats,
   List<Override> overrides = const [],
+  List<ProviderObserver>? observers,
 }) async {
   final libraryStorage =
       storage ?? LibraryStorage(Directory('/nonexistent/owntune'));
@@ -507,10 +581,14 @@ Future<void> pumpApp(
   }
   await t.pumpWidget(
     ProviderScope(
+      observers: observers,
       overrides: [
         playlistRepositoryProvider.overrideWithValue(playlistRepo),
         playRepositoryProvider.overrideWithValue(plays ?? FakePlayRepository()),
         homeRepositoryProvider.overrideWithValue(home ?? FakeHomeRepository()),
+        statsRepositoryProvider.overrideWithValue(
+          stats ?? FakeStatsRepository(),
+        ),
         tracksProvider.overrideWith(
           (ref) => songsStream ?? Stream.value(songs),
         ),

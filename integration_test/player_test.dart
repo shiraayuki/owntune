@@ -12,7 +12,9 @@ import '../test/support/fakes.dart' show track;
 import 'support/fixtures.dart';
 
 void main() {
-  IntegrationTestWidgetsFlutterBinding.ensureInitialized();
+  // A hang (seen intermittently in CI) fails the test instead of the job.
+  IntegrationTestWidgetsFlutterBinding.ensureInitialized().defaultTestTimeout =
+      const Timeout(Duration(minutes: 1));
 
   late Directory fixtures;
   late JustAudioEngine engine;
@@ -23,7 +25,7 @@ void main() {
   });
 
   setUp(() => engine = JustAudioEngine());
-  tearDown(() => engine.dispose());
+  tearDown(() => engine.dispose().timeout(const Duration(seconds: 15)));
 
   testWidgets('plays a fixture to its end', (t) async {
     final positions = <Duration>[];

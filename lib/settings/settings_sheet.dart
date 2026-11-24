@@ -3,11 +3,14 @@ import 'dart:math' as math;
 import 'package:cupertino_ui/cupertino_ui.dart' show CupertinoIcons;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:owntune/app/format.dart';
 import 'package:owntune/app/providers.dart';
 import 'package:owntune/app/segmented.dart';
 import 'package:owntune/app/theme.dart';
 import 'package:owntune/settings/settings.dart';
 import 'package:package_info_plus/package_info_plus.dart';
+
+export 'package:owntune/app/format.dart' show formatBytes;
 
 /// The app version from the platform; tests override it.
 final appVersionProvider = FutureProvider<String>(
@@ -20,14 +23,6 @@ final libraryStatsProvider =
       final repo = ref.watch(trackRepositoryProvider);
       return (songs: await repo.count(), bytes: await repo.storageBytes());
     });
-
-const _mb = 1024 * 1024;
-const _gb = 1024 * _mb;
-
-/// `411 MB` below 1 GB (whole MB), `1.2 GB` from 1 GB; 1024-based.
-String formatBytes(int bytes) => bytes < _gb
-    ? '${(bytes / _mb).round()} MB'
-    : '${(bytes / _gb).toStringAsFixed(1)} GB';
 
 /// Opens the settings as a modal sheet.
 Future<void> showSettingsSheet(BuildContext context) => showModalBottomSheet(
