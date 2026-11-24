@@ -30,6 +30,24 @@ final _v2Schema = [
   'PRAGMA user_version = 2',
 ];
 
+/// The v2 schema plus what v0.7.0 added (schema version 3).
+final _v3Schema = [
+  ..._v2Schema.where((sql) => !sql.startsWith('PRAGMA')),
+  'CREATE TABLE "playlists" ("id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT, '
+      '"name" TEXT NOT NULL, "cover_file" TEXT NULL, '
+      '"created_at" INTEGER NOT NULL)',
+  'CREATE TABLE "playlist_entries" ("id" INTEGER NOT NULL PRIMARY KEY '
+      'AUTOINCREMENT, "playlist_id" INTEGER NOT NULL REFERENCES playlists (id), '
+      '"track_id" INTEGER NOT NULL REFERENCES tracks (id), '
+      '"position" INTEGER NOT NULL)',
+  'CREATE INDEX "playlist_entries_order" ON "playlist_entries" '
+      '("playlist_id", "position")',
+  "INSERT INTO \"playlists\" (\"name\", \"created_at\") VALUES ('Mix', 0)",
+  'INSERT INTO "playlist_entries" ("playlist_id", "track_id", "position") '
+      'VALUES (1, 1, 0)',
+  'PRAGMA user_version = 3',
+];
+
 TracksCompanion _row(String hash, String? sourceKey) => TracksCompanion.insert(
   fileName: '$hash.m4a',
   originalName: '$hash.m4a',
@@ -97,5 +115,41 @@ void main() {
     final entry = (await db.select(db.playlistEntries).get()).single;
     expect(entry.trackId, track.id);
     expect((await db.select(db.playlists).get()).single.name, 'Mix');
+  });
+
+  test('v3 database gains liked_at and plays and keeps its rows', () async {
+    final db = AppDatabase(
+      NativeDatabase.memory(
+        setup: (raw) {
+          for (final sql in _v3Schema) {
+            raw.execute(sql);
+          }
+        },
+      ),
+    );
+    addTearDown(db.close);
+
+    final track = (await db.select(db.tracks).get()).single;
+    expect(track.title, 'Old Song');
+    expect(track.likedAt, isNull);
+    expect((await db.select(db.playlists).get()).single.name, 'Mix');
+    expect((await db.select(db.playlistEntries).get()).single.trackId, 1);
+    expect(await db.select(db.plays).get(), isEmpty);
+
+    await db
+        .into(db.plays)
+        .insert(
+          PlaysCompanion.insert(
+            trackId: track.id,
+            startedAt: DateTime(2026, 11, 24),
+            listenedMs: 31000,
+            counted: true,
+          ),
+        );
+    final play = (await db.select(db.plays).get()).single;
+    expect(play.trackId, track.id);
+    expect(play.counted, isTrue);
+    expect(play.sourceKind, isNull);
+    expect(play.sourceKey, isNull);
   });
 }

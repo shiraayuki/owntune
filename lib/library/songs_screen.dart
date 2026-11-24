@@ -20,6 +20,7 @@ import 'package:owntune/library/section_index.dart';
 import 'package:owntune/library/song_sort.dart';
 import 'package:owntune/library/sort_key.dart';
 import 'package:owntune/player/player_controller.dart';
+import 'package:owntune/player/queue_source.dart';
 import 'package:owntune/playlists/add_to_playlist_sheet.dart';
 
 /// The Songs tab: all tracks in the chosen order with letter sections, or
@@ -60,7 +61,7 @@ class _SongsScreenState extends ConsumerState<SongsScreen> {
             child: SongList(
               songs: songs,
               sort: sort,
-              source: 'Songs',
+              source: const QueueSource.songs(),
               selection: selection,
               onToggle: toggle,
             ),
@@ -75,7 +76,7 @@ class _SongsScreenState extends ConsumerState<SongsScreen> {
             songs: matches,
             sort: sort,
             sections: false,
-            source: 'Songs',
+            source: const QueueSource.songs(),
             selection: selection,
             onToggle: toggle,
           );
@@ -158,7 +159,7 @@ class SongList extends ConsumerStatefulWidget {
   final bool sections;
 
   /// "Playing from" label of the queue a tap starts.
-  final String source;
+  final QueueSource source;
 
   /// The selected ids while selecting (rows show check circles and a tap
   /// calls [onToggle] instead of playing); null otherwise.
@@ -496,6 +497,7 @@ enum _SongAction {
   playNext,
   playLater,
   addToPlaylist,
+  like,
   album,
   artist,
   edit,
@@ -546,6 +548,7 @@ Future<void> showSongMenu(
   final dark = Theme.of(context).brightness == Brightness.dark;
   final fg = dark ? const Color(0xffffffff) : const Color(0xff000000);
   final red = _red(context);
+  final liked = track.likedAt != null;
   final overlay = Overlay.of(context).context.findRenderObject()! as RenderBox;
   final albumKey = albumKeyOf(track);
   final artistKey = artistGroupKey(track.artist);
@@ -616,6 +619,13 @@ Future<void> showSongMenu(
         fg,
         key: const Key('menu-add-to-playlist'),
       ),
+      item(
+        _SongAction.like,
+        liked ? 'Remove from Liked Songs' : 'Add to Liked Songs',
+        liked ? CupertinoIcons.heart_slash : CupertinoIcons.heart,
+        fg,
+        key: const Key('menu-like'),
+      ),
       menuGap(context),
       if (showAlbum)
         item(_SongAction.album, 'Go to Album', CupertinoIcons.square_stack, fg),
@@ -658,6 +668,13 @@ Future<void> showSongMenu(
       await player.playLater(track);
     case _SongAction.addToPlaylist:
       await showAddToPlaylist(navigator.context, [track]);
+    case _SongAction.like:
+      try {
+        await repo.setLiked([track.id], liked: !liked);
+      } catch (e) {
+        if (!navigator.mounted) return;
+        await showLikeError(navigator.context, e);
+      }
     case _SongAction.album:
       await openAlbum(navigator.context, albumKey!, backLabel: scope.backLabel);
     case _SongAction.artist:
@@ -693,6 +710,19 @@ Future<void> showSongMenu(
       break;
   }
 }
+
+/// Shows why liking or unliking failed (there are no logs on the iPhone).
+Future<void> showLikeError(BuildContext context, Object error) =>
+    showAdaptiveDialog<void>(
+      context: context,
+      builder: (context) => AlertDialog.adaptive(
+        title: const Text('Could not update Liked Songs'),
+        content: SelectableText('$error'),
+        actions: [
+          DialogAction(label: 'OK', onPressed: () => Navigator.pop(context)),
+        ],
+      ),
+    );
 
 /// Asks before deleting [track]; only `Delete` removes it from the library.
 /// A failure is shown in a dialog (there are no logs on the iPhone).

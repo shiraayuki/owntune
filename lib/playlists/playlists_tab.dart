@@ -7,12 +7,14 @@ import 'package:owntune/library/artists_screen.dart' show LinkRow;
 import 'package:owntune/library/search_screen.dart';
 import 'package:owntune/library/songs_screen.dart' show LoadError;
 import 'package:owntune/library/sort_key.dart';
+import 'package:owntune/playlists/liked_songs.dart';
 import 'package:owntune/playlists/new_playlist_sheet.dart';
 import 'package:owntune/playlists/playlist_artwork.dart';
 import 'package:owntune/playlists/playlist_screen.dart';
+import 'package:owntune/playlists/playlist_view.dart';
 
-/// The Playlists tab (mockup 11): search field, the "New Playlist" row and one
-/// row per playlist, newest first.
+/// The Playlists tab (mockup 11): search field, the "New Playlist" row, the
+/// "Liked Songs" row and one row per playlist, newest first.
 class PlaylistsTab extends ConsumerStatefulWidget {
   const PlaylistsTab({super.key});
 
@@ -54,6 +56,8 @@ class _PlaylistsTabState extends ConsumerState<PlaylistsTab> {
             for (final p in all)
               if (foldKey(p.name).contains(q)) p,
           ];
+    final liked = ref.watch(likedSongsProvider).value ?? const [];
+    final showLiked = q.isEmpty || foldKey('Liked Songs').contains(q);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -69,6 +73,19 @@ class _PlaylistsTabState extends ConsumerState<PlaylistsTab> {
             ),
             children: [
               _NewPlaylistRow(onTap: () => showNewPlaylistSheet(context)),
+              if (showLiked)
+                LinkRow(
+                  key: const Key('playlists-liked'),
+                  leading: const LikedArtwork(size: 56),
+                  title: 'Liked Songs',
+                  subtitle: formatSongsMeta(
+                    liked.length,
+                    liked.fold<int>(0, (sum, t) => sum + t.durationMs),
+                  ),
+                  divider: all.isNotEmpty && shown.isNotEmpty,
+                  dividerInset: 68,
+                  onTap: () => openLikedSongs(context),
+                ),
               if (all.isEmpty)
                 Padding(
                   padding: const EdgeInsets.fromLTRB(28, 32, 28, 0),
@@ -78,7 +95,7 @@ class _PlaylistsTabState extends ConsumerState<PlaylistsTab> {
                     style: TextStyle(fontSize: 17, color: c.muted),
                   ),
                 )
-              else if (shown.isEmpty)
+              else if (shown.isEmpty && !showLiked)
                 NoResults(query: _query.text)
               else
                 for (final (i, p) in shown.indexed)

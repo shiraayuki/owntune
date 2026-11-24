@@ -9,6 +9,7 @@ import 'package:owntune/app/providers.dart';
 import 'package:owntune/data/db/database.dart';
 import 'package:owntune/data/library_storage.dart';
 import 'package:owntune/data/playlist_repository.dart';
+import 'package:owntune/playlists/liked_songs.dart';
 import 'package:owntune/playlists/playlist_artwork.dart';
 
 import '../support/fakes.dart';
@@ -58,7 +59,8 @@ void main() {
     expect(find.text('Rainy Days'), findsOneWidget);
     expect(find.text('2 songs · 8 min'), findsOneWidget);
     expect(find.text('Focus'), findsOneWidget);
-    expect(find.text('0 songs · 0 min'), findsOneWidget);
+    // The playlist and the Liked Songs row.
+    expect(find.text('0 songs · 0 min'), findsNWidgets(2));
     // Newest first.
     expect(
       t.getTopLeft(find.text('Focus')).dy,
@@ -168,7 +170,8 @@ void main() {
 
     expect(find.byKey(const Key('new-playlist-name')), findsNothing);
     expect(find.text('Sunday Morning'), findsOneWidget);
-    expect(find.text('0 songs · 0 min'), findsOneWidget);
+    // The playlist and the Liked Songs row.
+    expect(find.text('0 songs · 0 min'), findsNWidgets(2));
     final stored = await _real(t, () => repo.watchPlaylists().first);
     expect(stored.single.name, 'Sunday Morning');
   });
@@ -251,6 +254,68 @@ void main() {
         ),
         findsOneWidget,
       );
+    });
+  });
+
+  group('Liked Songs row', () {
+    testWidgets('shows count and duration', (t) async {
+      await pumpApp(
+        t,
+        songs: [
+          track(1, durationMs: 240000, likedAt: DateTime(2026, 11, 20)),
+          track(2, durationMs: 240000, likedAt: DateTime(2026, 11, 21)),
+          track(3, durationMs: 240000),
+        ],
+      );
+      await _openTab(t);
+      expect(find.byKey(const Key('playlists-liked')), findsOneWidget);
+      expect(find.text('Liked Songs'), findsOneWidget);
+      expect(find.text('2 songs · 8 min'), findsOneWidget);
+      expect(find.byType(LikedArtwork), findsOneWidget);
+      // Under "New Playlist".
+      expect(
+        t.getTopLeft(find.text('New Playlist')).dy,
+        lessThan(t.getTopLeft(find.text('Liked Songs')).dy),
+      );
+    });
+
+    testWidgets('shows with 0 liked songs and no playlists, with the hint', (
+      t,
+    ) async {
+      await pumpApp(t, songs: _songs);
+      await _openTab(t);
+      expect(find.byKey(const Key('playlists-liked')), findsOneWidget);
+      expect(find.text('0 songs · 0 min'), findsOneWidget);
+      expect(
+        find.text('Create a playlist, or add songs with Add to Playlist.'),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('search filters the row by name', (t) async {
+      await pumpApp(t, songs: _songs);
+      await _openTab(t);
+      await t.enterText(
+        find.widgetWithText(TextField, 'Search Playlists'),
+        'liked',
+      );
+      await t.pumpAndSettle();
+      expect(find.byKey(const Key('playlists-liked')), findsOneWidget);
+
+      await t.enterText(
+        find.widgetWithText(TextField, 'Search Playlists'),
+        'zzz',
+      );
+      await t.pumpAndSettle();
+      expect(find.byKey(const Key('playlists-liked')), findsNothing);
+    });
+
+    testWidgets('a tap opens the page', (t) async {
+      await pumpApp(t, songs: _songs);
+      await _openTab(t);
+      await t.tap(find.byKey(const Key('playlists-liked')));
+      await t.pumpAndSettle();
+      expect(find.byType(LikedSongsScreen), findsOneWidget);
     });
   });
 }

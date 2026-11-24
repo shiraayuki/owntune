@@ -282,4 +282,65 @@ void main() {
     await longPress(t, 'Amber Lights');
     expect(find.byKey(const Key('menu-play-next')), findsOneWidget);
   });
+
+  testWidgets('menu offers Add to Liked Songs for an unliked song', (t) async {
+    final repo = FakeTrackRepository();
+    await pumpApp(
+      t,
+      songs: songs,
+      overrides: [trackRepositoryProvider.overrideWithValue(repo)],
+    );
+    await longPress(t, 'Amber Lights');
+    expect(find.text('Remove from Liked Songs'), findsNothing);
+    final add = t.getTopLeft(find.byKey(const Key('menu-add-to-playlist'))).dy;
+    final like = t.getTopLeft(find.byKey(const Key('menu-like'))).dy;
+    expect(like, greaterThan(add));
+    expect(like - add, lessThan(60));
+
+    await t.tap(find.text('Add to Liked Songs'));
+    await t.pumpAndSettle();
+    expect(repo.likeCalls.map((c) => (c.ids.single, c.liked)), [(1, true)]);
+  });
+
+  testWidgets('menu offers Remove from Liked Songs for a liked song', (
+    t,
+  ) async {
+    final repo = FakeTrackRepository();
+    await pumpApp(
+      t,
+      songs: [track(1, title: 'Amber Lights', likedAt: DateTime(2026, 11, 24))],
+      overrides: [trackRepositoryProvider.overrideWithValue(repo)],
+    );
+    await longPress(t, 'Amber Lights');
+    expect(find.text('Add to Liked Songs'), findsNothing);
+
+    await t.tap(find.text('Remove from Liked Songs'));
+    await t.pumpAndSettle();
+    expect(repo.likeCalls.map((c) => (c.ids.single, c.liked)), [(1, false)]);
+  });
+
+  testWidgets('a failed like shows a dialog', (t) async {
+    await pumpApp(
+      t,
+      songs: songs,
+      overrides: [
+        trackRepositoryProvider.overrideWithValue(_FailingLikeRepository()),
+      ],
+    );
+    await longPress(t, 'Amber Lights');
+    await t.tap(find.text('Add to Liked Songs'));
+    await t.pumpAndSettle();
+
+    expect(find.text('Could not update Liked Songs'), findsOneWidget);
+    expect(find.textContaining('disk full'), findsOneWidget);
+    await t.tap(find.text('OK'));
+    await t.pumpAndSettle();
+    expect(find.text('Could not update Liked Songs'), findsNothing);
+  });
+}
+
+class _FailingLikeRepository extends FakeTrackRepository {
+  @override
+  Future<void> setLiked(Iterable<int> ids, {required bool liked}) async =>
+      throw StateError('disk full');
 }

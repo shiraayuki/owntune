@@ -1,14 +1,19 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:owntune/player/play_queue.dart';
+import 'package:owntune/player/queue_source.dart';
 
 List<int> ids(PlayQueue q) => [for (final e in q.entries) e.trackId];
 
 void main() {
   test('of starts at the tapped song', () {
-    final q = PlayQueue.of([1, 2, 3], start: 1, source: 'Songs');
+    final q = PlayQueue.of(
+      [1, 2, 3],
+      start: 1,
+      source: const QueueSource.songs(),
+    );
     expect(q.current!.trackId, 2);
     expect([for (final e in q.upcoming) e.trackId], [3]);
-    expect(q.source, 'Songs');
+    expect(q.source, const QueueSource.songs());
   });
 
   test('nextIndex wraps only with repeat all', () {
@@ -270,5 +275,59 @@ void main() {
       expect(queue.shuffled, isTrue);
       expect(const PlayQueue(original: []).shuffled, isTrue);
     });
+  });
+
+  group('queued entries', () {
+    List<QueueEntry> spread(List<QueueEntry> e) => e.reversed.toList();
+
+    test('insertNext and append flag their entries as queued', () {
+      final q = PlayQueue.of([1, 2, 3], start: 0);
+      expect(q.entries.any((e) => e.queued), isFalse);
+      final next = q.insertNext(9);
+      expect(
+        [for (final e in next.entries) e.queued],
+        [false, true, false, false],
+      );
+      final later = next.append(8);
+      expect([for (final e in later.entries) e.trackId], [1, 9, 2, 3, 8]);
+      expect(
+        [for (final e in later.entries) e.queued],
+        [false, true, false, false, true],
+      );
+    });
+
+    test('of flags the entries at queuedPositions', () {
+      final q = PlayQueue.of([1, 2, 3], start: 0, queuedPositions: {1, 2});
+      expect([for (final e in q.entries) e.queued], [false, true, true]);
+    });
+
+    test(
+      'queued flag survives shuffleOn, shuffleOff, retain and moveUpcoming',
+      () {
+        final base = PlayQueue.of([1, 2, 3, 4], start: 0).insertNext(9);
+        final queuedKey = base.entries[1].key;
+        bool flagged(PlayQueue q) =>
+            q.entries.firstWhere((e) => e.key == queuedKey).queued;
+        final others = [
+          for (final e in base.entries)
+            if (e.key != queuedKey) e,
+        ];
+        expect(others.any((e) => e.queued), isFalse);
+
+        final shuffled = base.shuffleOn(spread);
+        expect(flagged(shuffled), isTrue);
+        expect(
+          shuffled.original!.firstWhere((e) => e.key == queuedKey).queued,
+          isTrue,
+        );
+        expect(flagged(shuffled.shuffleOff()), isTrue);
+        expect(flagged(base.retain({1, 2, 9}).queue), isTrue);
+        expect(flagged(base.moveUpcoming(0, 2)), isTrue);
+        expect(
+          base.moveUpcoming(0, 2).entries.where((e) => e.queued),
+          hasLength(1),
+        );
+      },
+    );
   });
 }

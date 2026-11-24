@@ -13,6 +13,7 @@ import 'package:owntune/library/navigation.dart';
 import 'package:owntune/library/songs_screen.dart';
 import 'package:owntune/player/mini_player.dart';
 import 'package:owntune/player/player_controller.dart';
+import 'package:owntune/player/queue_source.dart';
 import 'package:owntune/playlists/add_to_playlist_sheet.dart';
 
 /// Number of songs shown on the artist screen before "See All".
@@ -157,7 +158,7 @@ class _ArtistBody extends ConsumerWidget {
               .playList(
                 artist.songs,
                 start: 0,
-                source: artist.name,
+                source: QueueSource.artist(artist.key, artist.name),
                 shuffle: false,
               ),
           onShuffle: () => ref
@@ -165,7 +166,7 @@ class _ArtistBody extends ConsumerWidget {
               .playList(
                 artist.songs,
                 start: 0,
-                source: artist.name,
+                source: QueueSource.artist(artist.key, artist.name),
                 shuffle: true,
               ),
         ),
@@ -208,7 +209,11 @@ class _ArtistBody extends ConsumerWidget {
             // The preview is the start of artist.songs; queue all of them.
             onTap: () => ref
                 .read(playerProvider.notifier)
-                .playList(artist.songs, start: i, source: artist.name),
+                .playList(
+                  artist.songs,
+                  start: i,
+                  source: QueueSource.artist(artist.key, artist.name),
+                ),
             track: t,
             scope: SongMenuScope(
               backLabel: artist.name,
@@ -330,7 +335,7 @@ class ArtistSongsScreen extends ConsumerWidget {
                         .playList(
                           artist.songs,
                           start: i - 1,
-                          source: artist.name,
+                          source: QueueSource.artist(artist.key, artist.name),
                         ),
                     track: t,
                     scope: SongMenuScope(

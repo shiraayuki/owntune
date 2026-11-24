@@ -13,6 +13,7 @@ import 'package:owntune/app/app_shell.dart';
 import 'package:owntune/app/providers.dart';
 import 'package:owntune/data/db/database.dart';
 import 'package:owntune/data/library_storage.dart';
+import 'package:owntune/data/play_repository.dart';
 import 'package:owntune/data/playlist_repository.dart';
 import 'package:owntune/data/track_repository.dart';
 import 'package:owntune/edit/cover_picker.dart';
@@ -48,6 +49,7 @@ Track track(
   String? originalName,
   String? cover,
   String? sourceKey,
+  DateTime? likedAt,
 }) => Track(
   id: id,
   fileName: 'hash$id.mp3',
@@ -66,6 +68,7 @@ Track track(
   addedAt: addedAt ?? DateTime(2026, 11, 18),
   playCount: 0,
   sourceKey: sourceKey,
+  likedAt: likedAt,
 );
 
 const summary47 = ImportSummary(
@@ -176,6 +179,14 @@ class FakeTrackRepository implements TrackRepository {
     updatedCovers.add(coverFiles);
   }
 
+  /// Every [setLiked] call, in order.
+  final likeCalls = <({List<int> ids, bool liked})>[];
+
+  @override
+  Future<void> setLiked(Iterable<int> ids, {required bool liked}) async {
+    likeCalls.add((ids: ids.toList(), liked: liked));
+  }
+
   @override
   Future<bool> isCoverReferenced(String cover) async =>
       referencedCovers.contains(cover);
@@ -194,6 +205,68 @@ class FakeTrackRepository implements TrackRepository {
 
   @override
   Future<int> storageBytes() async => bytes;
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+/// Keeps the play history in memory; ids start at 1.
+class FakePlayRepository implements PlayRepository {
+  final rows =
+      <
+        int,
+        ({
+          int trackId,
+          DateTime startedAt,
+          int listenedMs,
+          bool counted,
+          String? sourceKind,
+          String? sourceKey,
+        })
+      >{};
+
+  /// When set, [insert] and [update] throw it.
+  Object? error;
+
+  @override
+  Future<int> insert({
+    required int trackId,
+    required DateTime startedAt,
+    required int listenedMs,
+    required bool counted,
+    String? sourceKind,
+    String? sourceKey,
+  }) async {
+    if (error != null) throw error!;
+    final id = rows.length + 1;
+    rows[id] = (
+      trackId: trackId,
+      startedAt: startedAt,
+      listenedMs: listenedMs,
+      counted: counted,
+      sourceKind: sourceKind,
+      sourceKey: sourceKey,
+    );
+    return id;
+  }
+
+  @override
+  Future<void> update(
+    int id, {
+    required int listenedMs,
+    required bool counted,
+  }) async {
+    if (error != null) throw error!;
+    final row = rows[id]!;
+    rows[id] = (
+      trackId: row.trackId,
+      startedAt: row.startedAt,
+      listenedMs: listenedMs,
+      counted: counted,
+      sourceKind: row.sourceKind,
+      sourceKey: row.sourceKey,
+    );
+  }
 
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
@@ -375,6 +448,7 @@ Future<void> pumpApp(
   FakeDownloadController? downloads,
   FakeCoverPicker? coverPicker,
   PlaylistRepository? playlists,
+  FakePlayRepository? plays,
   List<Override> overrides = const [],
 }) async {
   final libraryStorage =
@@ -399,6 +473,7 @@ Future<void> pumpApp(
     ProviderScope(
       overrides: [
         playlistRepositoryProvider.overrideWithValue(playlistRepo),
+        playRepositoryProvider.overrideWithValue(plays ?? FakePlayRepository()),
         tracksProvider.overrideWith(
           (ref) => songsStream ?? Stream.value(songs),
         ),

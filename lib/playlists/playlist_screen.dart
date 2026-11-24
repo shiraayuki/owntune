@@ -10,6 +10,7 @@ import 'package:owntune/library/navigation.dart';
 import 'package:owntune/library/songs_screen.dart';
 import 'package:owntune/player/mini_player.dart';
 import 'package:owntune/player/player_controller.dart';
+import 'package:owntune/player/queue_source.dart';
 import 'package:owntune/playlists/edit_playlist_screen.dart';
 import 'package:owntune/playlists/playlist_artwork.dart';
 import 'package:owntune/playlists/playlist_view.dart';
@@ -217,7 +218,7 @@ class _PlaylistBody extends ConsumerWidget {
                 : () => player.playList(
                     playlist.tracks,
                     start: 0,
-                    source: name,
+                    source: QueueSource.playlist(playlist.id, name),
                     shuffle: false,
                   ),
             onShuffle: empty
@@ -225,7 +226,7 @@ class _PlaylistBody extends ConsumerWidget {
                 : () => player.playList(
                     playlist.tracks,
                     start: 0,
-                    source: name,
+                    source: QueueSource.playlist(playlist.id, name),
                     shuffle: true,
                   ),
           ),
@@ -252,8 +253,11 @@ class _PlaylistBody extends ConsumerWidget {
                   ),
                 ),
                 divider: i + 1 < items.length,
-                onTap: () =>
-                    player.playList(playlist.tracks, start: i, source: name),
+                onTap: () => player.playList(
+                  playlist.tracks,
+                  start: i,
+                  source: QueueSource.playlist(playlist.id, name),
+                ),
               ),
         ],
       ),

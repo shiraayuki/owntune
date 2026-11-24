@@ -32,6 +32,9 @@ class Tracks extends Table {
   /// Where a downloaded track came from, e.g. `youtube:<videoId>`; null for
   /// imported files.
   TextColumn get sourceKey => text().nullable()();
+
+  /// When the user liked the song; null if it is not liked.
+  DateTimeColumn get likedAt => dateTime().nullable()();
 }
 
 /// Key/value app settings.
@@ -62,7 +65,24 @@ class PlaylistEntries extends Table {
   IntColumn get position => integer()();
 }
 
-@DriftDatabase(tables: [Tracks, SettingsEntries, Playlists, PlaylistEntries])
+/// One listening session of one song. [trackId] is deliberately not a
+/// reference: the history outlives deleted songs. [counted] is true once the
+/// session reached the play-count threshold; [sourceKind] and [sourceKey]
+/// say where the song was played from (album, playlist, ...).
+@TableIndex(name: 'plays_started', columns: {#startedAt})
+class Plays extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  IntColumn get trackId => integer()();
+  DateTimeColumn get startedAt => dateTime()();
+  IntColumn get listenedMs => integer()();
+  BoolColumn get counted => boolean()();
+  TextColumn get sourceKind => text().nullable()();
+  TextColumn get sourceKey => text().nullable()();
+}
+
+@DriftDatabase(
+  tables: [Tracks, SettingsEntries, Playlists, PlaylistEntries, Plays],
+)
 class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
@@ -80,7 +100,7 @@ class AppDatabase extends _$AppDatabase {
   );
 
   @override
-  int get schemaVersion => 3;
+  int get schemaVersion => 4;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -93,6 +113,11 @@ class AppDatabase extends _$AppDatabase {
         await m.createTable(playlists);
         await m.createTable(playlistEntries);
         await m.createIndex(playlistEntriesOrder);
+      }
+      if (from < 4) {
+        await m.addColumn(tracks, tracks.likedAt);
+        await m.createTable(plays);
+        await m.createIndex(playsStarted);
       }
     },
   );

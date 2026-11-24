@@ -7,7 +7,9 @@ import 'package:owntune/data/db/database.dart';
 import 'package:owntune/library/library.dart';
 import 'package:owntune/library/sort_key.dart';
 import 'package:owntune/player/audio_engine.dart';
+import 'package:owntune/player/listen_session.dart';
 import 'package:owntune/player/play_queue.dart';
+import 'package:owntune/player/queue_source.dart';
 import 'package:owntune/player/player_snapshot.dart';
 import 'package:owntune/player/shuffle.dart';
 
@@ -50,6 +52,9 @@ const _restartThreshold = Duration(seconds: 3);
 /// While playing, the position is saved this often.
 const _saveEvery = Duration(seconds: 5);
 
+/// Resuming after a pause at least this long starts a new listen session.
+const _longPause = Duration(minutes: 30);
+
 /// Owns the queue and drives the [AudioEngine], one file at a time.
 ///
 /// It stores track ids and follows [tracksProvider]: deleted songs leave the
@@ -74,6 +79,21 @@ class PlayerController extends Notifier<PlayerState> {
   /// What was saved last: queue signature and position.
   String? _savedQueue;
   var _savedPosition = Duration.zero;
+
+  /// Whether the current entry's file finished loading; positions before
+  /// that may still come from the previous file.
+  var _loaded = false;
+
+  /// What has been heard of the current entry, and the key of that entry.
+  ListenSession? _session;
+  int? _sessionKey;
+
+  /// When playback was paused, to tell a long pause from a short one.
+  DateTime? _pausedAt;
+
+  /// History writes, one after another: an update never overtakes the
+  /// insert that gives it its row id.
+  Future<void> _writes = Future.value();
 
   Stream<String> get notices => _notices.stream;
 
@@ -117,7 +137,7 @@ class PlayerController extends Notifier<PlayerState> {
   Future<void> playList(
     List<Track> tracks, {
     required int start,
-    required String source,
+    required QueueSource source,
     bool? shuffle,
   }) {
     var queue = PlayQueue.of(
@@ -139,7 +159,7 @@ class PlayerController extends Notifier<PlayerState> {
     final current = _queue.current;
     if (current == null || !trackIds.contains(current.trackId)) return;
     final position = _position;
-    await _start(_queue, play: state.playing);
+    await _start(_queue, play: state.playing, keepSession: true);
     if (_queue.current == current) await seek(position);
   }
 
@@ -170,10 +190,12 @@ class PlayerController extends Notifier<PlayerState> {
   Future<void> togglePlay() async {
     if (_queue.isEmpty) return;
     if (state.playing) {
+      _pausedAt = _now();
       state = PlayerState(queue: _queue);
       await _engine.pause();
       _save();
     } else {
+      _onResume();
       state = PlayerState(queue: _queue, playing: true);
       await _engine.play();
     }
@@ -211,6 +233,7 @@ class PlayerController extends Notifier<PlayerState> {
 
   Future<void> seek(Duration position) async {
     _position = position;
+    _session?.resetBaseline(position);
     await _engine.seek(position);
     _save();
   }
@@ -241,13 +264,26 @@ class PlayerController extends Notifier<PlayerState> {
   }
 
   /// Loads the current entry of [queue] and plays it if [play].
-  Future<void> _start(PlayQueue queue, {required bool play}) async {
+  ///
+  /// The entry gets a new listen session, unless [keepSession] and it is
+  /// the entry the current session belongs to (a reload of the same song).
+  Future<void> _start(
+    PlayQueue queue, {
+    required bool play,
+    bool keepSession = false,
+  }) async {
     final generation = ++_generation;
     final entry = queue.current;
     if (entry == null) {
       await _stop();
       return;
     }
+    _loaded = false;
+    if (!keepSession || _session == null || _sessionKey != entry.key) {
+      _endSession();
+      _beginSession(queue);
+    }
+    if (play) _pausedAt = null;
     state = PlayerState(queue: queue, playing: play);
     _position = Duration.zero;
     // just_audio keeps playing into a newly loaded file.
@@ -264,6 +300,8 @@ class PlayerController extends Notifier<PlayerState> {
     }
     if (generation != _generation) return;
     _failures = 0;
+    _loaded = true;
+    _session?.resetBaseline(Duration.zero);
     if (play) await _engine.play();
   }
 
@@ -291,16 +329,15 @@ class PlayerController extends Notifier<PlayerState> {
   Future<void> _onCompleted() async {
     final entry = _queue.current;
     if (entry == null) return;
-    unawaited(
-      ref
-          .read(trackRepositoryProvider)
-          .markPlayed(entry.trackId)
-          .catchError(
-            (Object _) {}, // a lost play count is not worth bothering the user
-          ),
-    );
+    // A completion during a load belongs to the song that was replaced.
+    if (!_loaded) return;
+    final session = _session;
+    if (session != null && session.complete()) _markPlayed(session.trackId);
+    _endSession();
     final next = _queue.following(auto: true, spread: _spread);
     if (next == null) {
+      // Played again from the start, the last song is a new listen.
+      _beginSession(_queue);
       state = PlayerState(queue: _queue);
       await _engine.pause();
       await seek(Duration.zero);
@@ -313,7 +350,90 @@ class PlayerController extends Notifier<PlayerState> {
   /// system pause); the player state follows it.
   void _onEnginePlaying(bool playing) {
     if (_queue.isEmpty || playing == state.playing) return;
+    if (playing) {
+      _onResume();
+    } else {
+      _pausedAt = _now();
+      _writeSession(_session);
+    }
     state = PlayerState(queue: _queue, playing: playing);
+  }
+
+  DateTime _now() => ref.read(clockProvider)();
+
+  /// Starts a session for the current entry of [queue]; Play Next / Later
+  /// entries are recorded as queued, a queue without a source as other.
+  void _beginSession(PlayQueue queue) {
+    final entry = queue.current;
+    final track = entry == null ? null : _tracks[entry.trackId];
+    if (entry == null || track == null) {
+      _session = null;
+      _sessionKey = null;
+      return;
+    }
+    final source = entry.queued ? null : queue.source;
+    _session = ListenSession(
+      trackId: track.id,
+      durationMs: track.durationMs,
+      sourceKind: entry.queued
+          ? QueueSourceKind.queued
+          : source?.kind ?? QueueSourceKind.other,
+      sourceKey: source?.key,
+    )..resetBaseline(_position);
+    _sessionKey = entry.key;
+  }
+
+  /// Writes the current session one last time and lets it go.
+  void _endSession() {
+    _writeSession(_session);
+    _session = null;
+    _sessionKey = null;
+  }
+
+  /// Playback resumes: after a long pause, what follows is a new listen of
+  /// the same entry, from the current position.
+  void _onResume() {
+    final pausedAt = _pausedAt;
+    _pausedAt = null;
+    if (pausedAt == null || _session?.startedAt == null) return;
+    if (_now().difference(pausedAt) < _longPause) return;
+    _endSession();
+    _beginSession(_queue);
+  }
+
+  void _markPlayed(int trackId) => unawaited(
+    Future.sync(() => ref.read(trackRepositoryProvider).markPlayed(trackId))
+        .catchError(
+          (Object _) {}, // a lost play count is not worth bothering the user
+        ),
+  );
+
+  /// Queues a write of [session]'s row: inserted once it has 1 s heard,
+  /// updated after that. Never awaited by playback; errors are swallowed.
+  void _writeSession(ListenSession? session) {
+    if (session == null || session.listenedMs < 1000) return;
+    _writes = _writes
+        .then((_) async {
+          final plays = ref.read(playRepositoryProvider);
+          final rowId = session.rowId;
+          if (rowId == null) {
+            session.rowId = await plays.insert(
+              trackId: session.trackId,
+              startedAt: session.startedAt!,
+              listenedMs: session.listenedMs,
+              counted: session.counted,
+              sourceKind: session.sourceKind.name,
+              sourceKey: session.sourceKey,
+            );
+          } else {
+            await plays.update(
+              rowId,
+              listenedMs: session.listenedMs,
+              counted: session.counted,
+            );
+          }
+        })
+        .catchError((Object _) {}); // a lost history row must not stop play
   }
 
   /// Brings back the saved player, paused at its position. Songs deleted
@@ -326,6 +446,7 @@ class PlayerController extends Notifier<PlayerState> {
       saved.trackIds,
       start: saved.index,
       source: saved.source,
+      queuedPositions: saved.queuedPositions?.toSet() ?? const {},
       repeat: saved.repeat,
       originalOrder: saved.shuffleOrder,
     ).retain(_tracks.keys.toSet());
@@ -341,6 +462,15 @@ class PlayerController extends Notifier<PlayerState> {
 
   void _onPosition(Duration p) {
     _position = p;
+    final session = _session;
+    if (session != null && _loaded) {
+      if (!state.playing) {
+        session.resetBaseline(p);
+      } else if (session.advance(p, _now())) {
+        _markPlayed(session.trackId);
+        _writeSession(session);
+      }
+    }
     if (state.playing && (p - _savedPosition).abs() >= _saveEvery) _save();
   }
 
@@ -351,8 +481,12 @@ class PlayerController extends Notifier<PlayerState> {
       for (final e in q.entries) e.key,
       '|',
       q.index,
-      q.source,
+      q.source?.kind.name,
+      q.source?.key,
+      q.source?.label,
       q.repeat.name,
+      '|',
+      ...q.entries.map((e) => e.queued ? 'q' : 'n'),
       '|',
       ...?q.original?.map((e) => e.key),
       q.shuffled,
@@ -364,6 +498,7 @@ class PlayerController extends Notifier<PlayerState> {
 
   /// Best effort: a failed save only costs the restore.
   void _save() {
+    _writeSession(_session);
     _savedPosition = _position;
     final q = _queue;
     final snapshot = q.isEmpty
@@ -375,6 +510,7 @@ class PlayerController extends Notifier<PlayerState> {
             repeat: q.repeat,
             position: _position,
             shuffleOrder: _shuffleOrder(q),
+            queuedPositions: _queuedPositions(q),
           );
     unawaited(
       ref
@@ -382,6 +518,15 @@ class PlayerController extends Notifier<PlayerState> {
           .save(snapshot)
           .catchError((Object _) {}),
     );
+  }
+
+  /// Positions of [q]'s queued entries; null when none is queued.
+  static List<int>? _queuedPositions(PlayQueue q) {
+    final positions = [
+      for (final (i, e) in q.entries.indexed)
+        if (e.queued) i,
+    ];
+    return positions.isEmpty ? null : positions;
   }
 
   /// Positions of [q]'s unshuffled order in its entries; null unshuffled.
@@ -417,6 +562,8 @@ class PlayerController extends Notifier<PlayerState> {
 
   Future<void> _stop() async {
     ++_generation;
+    _endSession();
+    _loaded = false;
     state = PlayerState(queue: _emptyQueue);
     _position = Duration.zero;
     await _engine.unload();

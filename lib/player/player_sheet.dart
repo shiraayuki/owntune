@@ -233,6 +233,7 @@ class _Content extends ConsumerWidget {
                     ],
                   ),
                 ),
+                _LikeButton(track: track),
               ],
             ),
           ),
@@ -255,6 +256,40 @@ class _Content extends ConsumerWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+/// The heart next to the title: likes or unlikes the current song.
+class _LikeButton extends ConsumerWidget {
+  const _LikeButton({required this.track});
+
+  final Track track;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final c = Theme.of(context).extension<OwntuneColors>()!;
+    final liked = track.likedAt != null;
+    final navigator = Navigator.of(context);
+    return IconButton(
+      key: const Key('player-like'),
+      tooltip: liked ? 'Remove from Liked Songs' : 'Add to Liked Songs',
+      icon: Icon(
+        liked ? CupertinoIcons.heart_fill : CupertinoIcons.heart,
+        size: 26,
+        color: liked ? c.accent : c.text,
+      ),
+      style: IconButton.styleFrom(fixedSize: const Size.square(44)),
+      onPressed: () async {
+        // Read on tap, and before the await: the sheet may be gone by then.
+        final repo = ref.read(trackRepositoryProvider);
+        try {
+          await repo.setLiked([track.id], liked: !liked);
+        } catch (e) {
+          if (!navigator.mounted) return;
+          await showLikeError(navigator.context, e);
+        }
+      },
     );
   }
 }

@@ -9,6 +9,7 @@ import 'package:owntune/data/library_storage.dart';
 import 'package:owntune/player/play_queue.dart';
 import 'package:owntune/player/player_controller.dart';
 import 'package:owntune/player/player_snapshot.dart';
+import 'package:owntune/player/queue_source.dart';
 
 import '../support/fakes.dart';
 
@@ -21,12 +22,16 @@ void main() {
   late FakePlayerStateStore store;
   late StreamController<List<Track>> library;
   late ProviderContainer container;
+  late FakePlayRepository plays;
+  late DateTime now;
 
   ProviderContainer make(PlayerSnapshot? saved) {
     final c = ProviderContainer(
       overrides: [
         audioEngineProvider.overrideWithValue(engine),
         trackRepositoryProvider.overrideWithValue(FakeTrackRepository()),
+        playRepositoryProvider.overrideWithValue(plays),
+        clockProvider.overrideWithValue(() => now),
         storageProvider.overrideWithValue(
           LibraryStorage(Directory('/nonexistent/owntune')),
         ),
@@ -48,6 +53,8 @@ void main() {
     engine = FakeAudioEngine();
     store = FakePlayerStateStore();
     library = StreamController<List<Track>>();
+    plays = FakePlayRepository();
+    now = DateTime(2026, 11, 24, 8);
   });
 
   tearDown(() async {
@@ -55,10 +62,10 @@ void main() {
     await library.close();
   });
 
-  const saved = PlayerSnapshot(
+  final saved = PlayerSnapshot(
     trackIds: [1, 2, 3],
     index: 1,
-    source: 'Paper Lanterns',
+    source: QueueSource(QueueSourceKind.album, 'Paper Lanterns'),
     repeat: QueueRepeat.all,
     position: Duration(seconds: 84),
   );
@@ -70,12 +77,39 @@ void main() {
 
     expect(ids(), [1, 2, 3]);
     expect(state().queue.index, 1);
-    expect(state().queue.source, 'Paper Lanterns');
+    expect(state().queue.source, saved.source);
     expect(state().queue.repeat, QueueRepeat.all);
     expect(state().playing, isFalse);
     expect(engine.current, 'hash2.mp3');
     expect(engine.playing, isFalse);
     expect(engine.lastSeek, const Duration(seconds: 84));
+  });
+
+  test('queued entries are saved and restored', () async {
+    container = make(null);
+    library.add([a, b, c]);
+    await pumpEventQueue();
+    await player().playList(
+      [a, b],
+      start: 0,
+      source: const QueueSource.songs(),
+    );
+    await player().playNext(c);
+    await pumpEventQueue();
+    expect(store.saved!.queuedPositions, [1]);
+    final snapshot = store.saved!;
+    container.dispose();
+    await library.close();
+    library = StreamController<List<Track>>();
+
+    container = make(snapshot);
+    library.add([a, b, c]);
+    await pumpEventQueue();
+    expect(ids(), [1, 3, 2]);
+    expect(
+      [for (final e in state().queue.entries) e.queued],
+      [false, true, false],
+    );
   });
 
   test('drops songs deleted since and starts the next one at zero', () async {
@@ -105,10 +139,14 @@ void main() {
     library.add([a, b, c]);
     await pumpEventQueue();
 
-    await player().playList([a, b, c], start: 0, source: 'Songs');
+    await player().playList(
+      [a, b, c],
+      start: 0,
+      source: const QueueSource.songs(),
+    );
     await pumpEventQueue();
     expect(store.saved!.trackIds, [1, 2, 3]);
-    expect(store.saved!.source, 'Songs');
+    expect(store.saved!.source, const QueueSource.songs());
     final afterPlay = store.saves;
 
     for (var s = 1; s <= 12; s++) {
@@ -129,7 +167,11 @@ void main() {
     container = make(null);
     library.add([a, b, c]);
     await pumpEventQueue();
-    await player().playList([a, b, c], start: 0, source: 'Songs');
+    await player().playList(
+      [a, b, c],
+      start: 0,
+      source: const QueueSource.songs(),
+    );
     await player().seek(const Duration(seconds: 42));
     await pumpEventQueue();
     expect(store.saved!.position, const Duration(seconds: 42));
@@ -139,7 +181,11 @@ void main() {
     container = make(null);
     library.add([a, b, c]);
     await pumpEventQueue();
-    await player().playList([a, b, c], start: 0, source: 'Songs');
+    await player().playList(
+      [a, b, c],
+      start: 0,
+      source: const QueueSource.songs(),
+    );
     player().cycleRepeat();
     await pumpEventQueue();
     expect(store.saved!.repeat, QueueRepeat.all);
@@ -152,7 +198,7 @@ void main() {
     container = make(null);
     library.add([a]);
     await pumpEventQueue();
-    await player().playList([a], start: 0, source: 'Songs');
+    await player().playList([a], start: 0, source: const QueueSource.songs());
     await pumpEventQueue();
     expect(store.saved, isNotNull);
 
@@ -182,11 +228,58 @@ void main() {
     container = make(null);
     library.add([a, b, c]);
     await pumpEventQueue();
-    await player().playList([a, b, c], start: 1, source: 'Songs');
+    await player().playList(
+      [a, b, c],
+      start: 1,
+      source: const QueueSource.songs(),
+    );
     player().toggleShuffle();
     await pumpEventQueue();
     final s = store.saved!;
     expect(s.trackIds.first, 2);
     expect([for (final p in s.shuffleOrder!) s.trackIds[p]], [1, 2, 3]);
+  });
+  test('a restored song is recorded from when it plays again', () async {
+    container = make(saved);
+    library.add([a, b, c]);
+    await pumpEventQueue();
+    expect(engine.lastSeek, const Duration(seconds: 84));
+    now = DateTime(2026, 11, 24, 21);
+    await player().togglePlay();
+    for (var s = 85; s <= 90; s++) {
+      engine.emitPosition(Duration(seconds: s));
+      await pumpEventQueue();
+    }
+    await player().togglePlay();
+    await pumpEventQueue();
+    final row = plays.rows.values.single;
+    expect(row.trackId, 2);
+    expect(row.listenedMs, 6000);
+    expect(row.startedAt, DateTime(2026, 11, 24, 21));
+    expect(row.sourceKind, 'album');
+  });
+
+  test('a restored queue without a source is recorded as other', () async {
+    container = make(
+      PlayerSnapshot(
+        trackIds: [1],
+        index: 0,
+        source: null,
+        repeat: QueueRepeat.off,
+        position: Duration.zero,
+      ),
+    );
+    library.add([a, b, c]);
+    await pumpEventQueue();
+    await player().togglePlay();
+    for (var s = 1; s <= 3; s++) {
+      engine.emitPosition(Duration(seconds: s));
+      await pumpEventQueue();
+    }
+    await player().togglePlay();
+    await pumpEventQueue();
+    final row = plays.rows.values.single;
+    expect(row.sourceKind, 'other');
+    expect(row.sourceKey, isNull);
   });
 }

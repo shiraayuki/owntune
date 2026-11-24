@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:owntune/app/app_shell.dart';
 import 'package:owntune/app/providers.dart';
+import 'package:owntune/app/theme.dart';
 import 'package:owntune/data/db/database.dart';
 import 'package:owntune/library/album_screen.dart';
 import 'package:owntune/player/play_queue.dart';
@@ -286,4 +287,90 @@ void main() {
     );
     expect(_sheet, findsOneWidget);
   });
+
+  testWidgets('heart shows the like state and toggles it', (t) async {
+    final repo = FakeTrackRepository();
+    await pumpApp(
+      t,
+      songs: _songs,
+      overrides: [trackRepositoryProvider.overrideWithValue(repo)],
+    );
+    await _open(t, 'After the Rain');
+
+    final heart = find.descendant(
+      of: find.byKey(const Key('player-like')),
+      matching: find.byIcon(CupertinoIcons.heart),
+    );
+    expect(heart, findsOneWidget);
+    await t.tap(find.byKey(const Key('player-like')));
+    await t.pump();
+    expect(repo.likeCalls.map((c) => (c.ids.single, c.liked)), [(1, true)]);
+  });
+
+  testWidgets('a liked song shows a filled accent heart and a tap unlikes', (
+    t,
+  ) async {
+    final repo = FakeTrackRepository();
+    await pumpApp(
+      t,
+      songs: [
+        track(1, title: 'After the Rain', likedAt: DateTime(2026, 11, 24)),
+      ],
+      overrides: [trackRepositoryProvider.overrideWithValue(repo)],
+    );
+    await _open(t, 'After the Rain');
+
+    final like = find.byKey(const Key('player-like'));
+    final icon = t.widget<Icon>(
+      find.descendant(of: like, matching: find.byType(Icon)),
+    );
+    expect(icon.icon, CupertinoIcons.heart_fill);
+    expect(
+      icon.color,
+      Theme.of(t.element(like)).extension<OwntuneColors>()!.accent,
+    );
+    await t.tap(like);
+    await t.pump();
+    expect(repo.likeCalls.map((c) => (c.ids.single, c.liked)), [(1, false)]);
+  });
+
+  testWidgets('a failed like from the heart shows a dialog', (t) async {
+    await pumpApp(
+      t,
+      songs: _songs,
+      overrides: [
+        trackRepositoryProvider.overrideWithValue(_FailingLikeRepository()),
+      ],
+    );
+    await _open(t, 'After the Rain');
+
+    await t.tap(find.byKey(const Key('player-like')));
+    await t.pumpAndSettle();
+    expect(find.text('Could not update Liked Songs'), findsOneWidget);
+    expect(find.textContaining('disk full'), findsOneWidget);
+  });
+
+  testWidgets('the song menu in the player offers Add to Liked Songs', (
+    t,
+  ) async {
+    final repo = FakeTrackRepository();
+    await pumpApp(
+      t,
+      songs: _songs,
+      overrides: [trackRepositoryProvider.overrideWithValue(repo)],
+    );
+    await _open(t, 'After the Rain');
+
+    await t.tap(find.byKey(const Key('player-more')));
+    await t.pumpAndSettle();
+    await t.tap(find.text('Add to Liked Songs'));
+    await t.pumpAndSettle();
+    expect(repo.likeCalls.map((c) => (c.ids.single, c.liked)), [(1, true)]);
+  });
+}
+
+class _FailingLikeRepository extends FakeTrackRepository {
+  @override
+  Future<void> setLiked(Iterable<int> ids, {required bool liked}) async =>
+      throw StateError('disk full');
 }

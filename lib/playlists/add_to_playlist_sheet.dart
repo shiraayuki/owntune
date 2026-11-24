@@ -6,6 +6,7 @@ import 'package:owntune/app/theme.dart';
 import 'package:owntune/data/db/database.dart';
 import 'package:owntune/library/sort_key.dart';
 import 'package:owntune/library/songs_screen.dart' show DialogAction;
+import 'package:owntune/playlists/liked_songs.dart';
 import 'package:owntune/playlists/new_playlist_sheet.dart';
 import 'package:owntune/playlists/playlist_artwork.dart';
 import 'package:owntune/playlists/playlist_view.dart';
@@ -88,6 +89,30 @@ class _AddToPlaylistSheetState extends ConsumerState<_AddToPlaylistSheet> {
         return;
       }
       if (mounted) Navigator.of(context).pop(playlist.name);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  /// Likes the songs that are not liked yet. Nothing to do (all liked) still
+  /// confirms, and no duplicate prompt is needed.
+  Future<void> _pickLiked() async {
+    if (_busy) return;
+    setState(() => _busy = true);
+    try {
+      final ids = [
+        for (final t in widget.tracks)
+          if (t.likedAt == null) t.id,
+      ];
+      if (ids.isNotEmpty) {
+        try {
+          await ref.read(trackRepositoryProvider).setLiked(ids, liked: true);
+        } on Object catch (e) {
+          await _showError(e);
+          return;
+        }
+      }
+      if (mounted) Navigator.of(context).pop('Liked Songs');
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -263,6 +288,12 @@ class _AddToPlaylistSheetState extends ConsumerState<_AddToPlaylistSheet> {
                     title: 'New Playlist…',
                     accent: true,
                     onTap: _newPlaylist,
+                  ),
+                  _PlaylistRow(
+                    key: const Key('add-to-playlist-liked'),
+                    leading: const LikedArtwork(size: _artSize),
+                    title: 'Liked Songs',
+                    onTap: _pickLiked,
                   ),
                   for (final p in playlists)
                     _PlaylistRow(

@@ -47,12 +47,13 @@ class PlaylistView {
   }
 
   /// "18 songs · 1 h 7 min".
-  String get meta {
-    final n = items.length;
-    return '$n ${n == 1 ? 'song' : 'songs'} · '
-        '${formatTotalDuration(durationMs)}';
-  }
+  String get meta => formatSongsMeta(items.length, durationMs);
 }
+
+/// "3 songs · 12 min" (singular for one song).
+String formatSongsMeta(int count, int durationMs) =>
+    '$count ${count == 1 ? 'song' : 'songs'} · '
+    '${formatTotalDuration(durationMs)}';
 
 /// "44 min", or "1 h 7 min" from one hour on; minutes are rounded down.
 String formatTotalDuration(int ms) {

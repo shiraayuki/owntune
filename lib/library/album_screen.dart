@@ -15,6 +15,7 @@ import 'package:owntune/library/songs_screen.dart';
 import 'package:owntune/library/sort_key.dart';
 import 'package:owntune/player/mini_player.dart';
 import 'package:owntune/player/player_controller.dart';
+import 'package:owntune/player/queue_source.dart';
 import 'package:owntune/playlists/add_to_playlist_sheet.dart';
 
 /// Album detail (mockup 07): cover, title, artist, meta, Play/Shuffle and
@@ -134,7 +135,11 @@ class _AlbumBody extends ConsumerWidget {
         AlbumTrackRow(
           onTap: () => ref
               .read(playerProvider.notifier)
-              .playList(album.tracks, start: i, source: album.title),
+              .playList(
+                album.tracks,
+                start: i,
+                source: QueueSource.album(album.key, album.title),
+              ),
           track: t,
           scope: SongMenuScope(backLabel: album.title, currentAlbum: album.key),
           showArtist: artistGroupKey(t.artist) != albumArtist,
@@ -202,7 +207,7 @@ class _AlbumBody extends ConsumerWidget {
                 .playList(
                   album.tracks,
                   start: 0,
-                  source: album.title,
+                  source: QueueSource.album(album.key, album.title),
                   shuffle: false,
                 ),
             onShuffle: () => ref
@@ -210,7 +215,7 @@ class _AlbumBody extends ConsumerWidget {
                 .playList(
                   album.tracks,
                   start: 0,
-                  source: album.title,
+                  source: QueueSource.album(album.key, album.title),
                   shuffle: true,
                 ),
           ),

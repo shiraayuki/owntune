@@ -1,3 +1,5 @@
+import 'package:owntune/player/queue_source.dart';
+
 /// Repeat mode of the player; the button cycles off → all → one.
 enum QueueRepeat {
   off,
@@ -12,19 +14,24 @@ enum QueueRepeat {
 }
 
 /// One row of the queue. The same track may be queued more than once, so
-/// rows are identified by [key], never by [trackId].
+/// rows are identified by [key], never by [trackId]. [queued] marks entries
+/// added with Play Next / Play Later.
 class QueueEntry {
-  const QueueEntry(this.key, this.trackId);
+  const QueueEntry(this.key, this.trackId, {this.queued = false});
 
   final int key;
   final int trackId;
+  final bool queued;
 
   @override
   bool operator ==(Object other) =>
-      other is QueueEntry && other.key == key && other.trackId == trackId;
+      other is QueueEntry &&
+      other.key == key &&
+      other.trackId == trackId &&
+      other.queued == queued;
 
   @override
-  int get hashCode => Object.hash(key, trackId);
+  int get hashCode => Object.hash(key, trackId, queued);
 }
 
 /// Orders entries for shuffle (the controller spreads them by artist and
@@ -32,7 +39,7 @@ class QueueEntry {
 typedef Spread = List<QueueEntry> Function(List<QueueEntry> entries);
 
 /// The play queue: entries, the current [index], where it was started
-/// from ([source], e.g. an album title) and the [repeat] mode.
+/// from ([source], e.g. an album) and the [repeat] mode.
 ///
 /// While [shuffled], [entries] are the shuffled play order and [original]
 /// keeps the unshuffled order, so everything that follows [entries] (Up
@@ -53,15 +60,21 @@ class PlayQueue {
   static const empty = PlayQueue();
 
   /// [originalOrder] (from a saved state) makes the queue shuffled: the
-  /// positions in [trackIds] that give the unshuffled order.
+  /// positions in [trackIds] that give the unshuffled order;
+  /// [queuedPositions] are the positions of entries added with Play Next /
+  /// Later.
   factory PlayQueue.of(
     List<int> trackIds, {
     required int start,
-    String? source,
+    QueueSource? source,
     QueueRepeat repeat = QueueRepeat.off,
     List<int>? originalOrder,
+    Set<int> queuedPositions = const {},
   }) {
-    final entries = [for (final (i, id) in trackIds.indexed) QueueEntry(i, id)];
+    final entries = [
+      for (final (i, id) in trackIds.indexed)
+        QueueEntry(i, id, queued: queuedPositions.contains(i)),
+    ];
     return PlayQueue(
       entries: entries,
       index: start,
@@ -76,7 +89,7 @@ class PlayQueue {
 
   final List<QueueEntry> entries;
   final int index;
-  final String? source;
+  final QueueSource? source;
   final QueueRepeat repeat;
 
   /// The unshuffled order while shuffled; null when shuffle is off.
@@ -219,7 +232,7 @@ class PlayQueue {
   }
 
   PlayQueue insertNext(int trackId) {
-    final entry = QueueEntry(_nextKey, trackId);
+    final entry = QueueEntry(_nextKey, trackId, queued: true);
     final unshuffled = original;
     if (isEmpty) {
       return _withNew(
@@ -241,7 +254,7 @@ class PlayQueue {
   }
 
   PlayQueue append(int trackId) {
-    final entry = QueueEntry(_nextKey, trackId);
+    final entry = QueueEntry(_nextKey, trackId, queued: true);
     final unshuffled = original;
     return _withNew(
       [...entries, entry],

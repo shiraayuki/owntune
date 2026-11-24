@@ -117,13 +117,33 @@ class TrackRepository {
     }
   }
 
-  /// Counts a play of the track that just ended: play count + 1 and
-  /// `lastPlayedAt` now.
+  /// Counts a play of the track: play count + 1 and `lastPlayedAt` now. Called
+  /// when a listen reaches the play rule (30 s heard, or the end of a short
+  /// song that was heard).
   Future<void> markPlayed(int id) async {
     await _db.customUpdate(
       'UPDATE tracks SET play_count = play_count + 1, last_played_at = ? '
       'WHERE id = ?',
       variables: [Variable(DateTime.now()), Variable(id)],
+      updates: {_db.tracks},
+    );
+  }
+
+  /// Likes ([liked] true) or unlikes the songs in [ids]. Liking keeps the date
+  /// of songs that are already liked.
+  Future<void> setLiked(Iterable<int> ids, {required bool liked}) async {
+    final list = ids.toList();
+    if (list.isEmpty) return;
+    final marks = List.filled(list.length, '?').join(', ');
+    await _db.customUpdate(
+      liked
+          ? 'UPDATE tracks SET liked_at = ? WHERE id IN ($marks) '
+                'AND liked_at IS NULL'
+          : 'UPDATE tracks SET liked_at = NULL WHERE id IN ($marks)',
+      variables: [
+        if (liked) Variable(DateTime.now()),
+        for (final id in list) Variable(id),
+      ],
       updates: {_db.tracks},
     );
   }

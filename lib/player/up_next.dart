@@ -25,7 +25,7 @@ class UpNext extends ConsumerWidget {
     };
     final player = ref.read(playerProvider.notifier);
     final upcoming = queue.upcoming;
-    final source = queue.source;
+    final source = queue.source?.label;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,

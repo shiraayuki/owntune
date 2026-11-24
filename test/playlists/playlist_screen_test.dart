@@ -12,6 +12,7 @@ import 'package:owntune/data/playlist_repository.dart';
 import 'package:owntune/library/album_screen.dart';
 import 'package:owntune/library/navigation.dart';
 import 'package:owntune/player/player_controller.dart';
+import 'package:owntune/player/queue_source.dart';
 import 'package:owntune/playlists/playlist_screen.dart';
 
 import '../support/fakes.dart';
@@ -118,7 +119,8 @@ void main() {
     final queue = _player(t).queue;
     expect(queue.index, 2);
     expect([for (final e in queue.entries) e.trackId], [1, 2, 1]);
-    expect(queue.source, 'Rainy Days');
+    expect(queue.source!.kind, QueueSourceKind.playlist);
+    expect(queue.source!.label, 'Rainy Days');
   });
 
   testWidgets('Play starts at the first song with shuffle off', (t) async {

@@ -331,4 +331,54 @@ void main() {
       expect(await repo.isCoverReferenced('other.jpg'), isFalse);
     });
   });
+
+  group('likes', () {
+    Future<Map<int, Track>> byId() async => {
+      for (final t in await repo.watchAll().first) t.id: t,
+    };
+
+    test('setLiked likes only songs that are not liked yet', () async {
+      await repo.insert(row('h1'));
+      await repo.insert(row('h2'));
+      final liked = DateTime(2026, 11, 1);
+      await (db.update(db.tracks)..where((t) => t.id.equals(1))).write(
+        TracksCompanion(likedAt: Value(liked)),
+      );
+      final before = DateTime.now().subtract(const Duration(seconds: 1));
+
+      await repo.setLiked([1, 2], liked: true);
+
+      final tracks = await byId();
+      expect(tracks[1]!.likedAt, liked);
+      expect(tracks[2]!.likedAt, isNotNull);
+      expect(tracks[2]!.likedAt!.isBefore(before), isFalse);
+    });
+
+    test('setLiked false clears the like', () async {
+      await repo.insert(row('h1'));
+      await repo.setLiked([1], liked: true);
+
+      await repo.setLiked([1], liked: false);
+
+      expect((await byId())[1]!.likedAt, isNull);
+    });
+
+    test('deleting a track keeps its plays', () async {
+      await repo.insert(row('h1'));
+      await db
+          .into(db.plays)
+          .insert(
+            PlaysCompanion.insert(
+              trackId: 1,
+              startedAt: DateTime(2026, 11, 24),
+              listenedMs: 31000,
+              counted: true,
+            ),
+          );
+
+      await repo.delete(1);
+
+      expect(await db.select(db.plays).get(), hasLength(1));
+    });
+  });
 }

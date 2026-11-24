@@ -9,6 +9,7 @@ import 'package:owntune/data/db/database.dart';
 import 'package:owntune/library/album_screen.dart';
 import 'package:owntune/library/songs_screen.dart';
 import 'package:owntune/player/player_controller.dart';
+import 'package:owntune/player/queue_source.dart';
 
 import '../support/fakes.dart';
 
@@ -53,7 +54,7 @@ void main() {
     expect(engine.playing, isTrue);
     expect(_ids(t), [1, 2, 3]);
     expect(_state(t).queue.index, 1);
-    expect(_state(t).queue.source, 'Songs');
+    expect(_state(t).queue.source, const QueueSource.songs());
   });
 
   testWidgets('tapping a filtered song queues only the matches', (t) async {
@@ -103,7 +104,8 @@ void main() {
 
     expect(engine.loaded, ['hash8.mp3']);
     expect(_ids(t), [8, 7, 9]);
-    expect(_state(t).queue.source, 'Paper Lanterns');
+    expect(_state(t).queue.source!.kind, QueueSourceKind.album);
+    expect(_state(t).queue.source!.label, 'Paper Lanterns');
   });
 
   testWidgets('album Shuffle plays shuffled', (t) async {
@@ -119,7 +121,8 @@ void main() {
     expect(_state(t).queue.shuffled, isTrue);
     expect(_state(t).playing, isTrue);
     expect([..._ids(t)]..sort(), [1, 2]);
-    expect(_state(t).queue.source, 'Paper Lanterns');
+    expect(_state(t).queue.source!.kind, QueueSourceKind.album);
+    expect(_state(t).queue.source!.label, 'Paper Lanterns');
   });
 
   testWidgets('album Play turns shuffle off', (t) async {
@@ -155,7 +158,8 @@ void main() {
     await t.pumpAndSettle();
     expect(_state(t).queue.shuffled, isTrue);
     expect([..._ids(t)]..sort(), [1, 2, 3]);
-    expect(_state(t).queue.source, 'Neon Harbor');
+    expect(_state(t).queue.source!.kind, QueueSourceKind.artist);
+    expect(_state(t).queue.source!.label, 'Neon Harbor');
   });
 
   testWidgets('tapping an album track plays the album from there', (t) async {
@@ -199,7 +203,8 @@ void main() {
     expect(_state(t).queue.entries, hasLength(8));
     expect(_state(t).queue.index, 1);
     expect(_state(t).queue.current!.trackId, tapped);
-    expect(_state(t).queue.source, 'Neon Harbor');
+    expect(_state(t).queue.source!.kind, QueueSourceKind.artist);
+    expect(_state(t).queue.source!.label, 'Neon Harbor');
   });
 
   testWidgets('artist Play plays all their songs from the first', (t) async {
@@ -241,7 +246,7 @@ void main() {
     await t.tap(find.text('Night Swim'));
     await t.pumpAndSettle();
 
-    expect(_state(t).queue.source, 'Search');
+    expect(_state(t).queue.source, const QueueSource.search());
     expect(_ids(t).toSet(), {1, 3});
     expect(_state(t).queue.current!.trackId, 3);
   });

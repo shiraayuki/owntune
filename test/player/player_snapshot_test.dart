@@ -1,20 +1,24 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:owntune/player/play_queue.dart';
 import 'package:owntune/player/player_snapshot.dart';
+import 'package:owntune/player/queue_source.dart';
 
 void main() {
   test('toJson and tryParse round-trip', () {
     const s = PlayerSnapshot(
       trackIds: [3, 1, 3],
       index: 2,
-      source: 'Paper Lanterns',
+      source: QueueSource(QueueSourceKind.other, 'Paper Lanterns'),
       repeat: QueueRepeat.one,
       position: Duration(milliseconds: 84250),
     );
     final back = PlayerSnapshot.tryParse(s.toJson())!;
     expect(back.trackIds, [3, 1, 3]);
     expect(back.index, 2);
-    expect(back.source, 'Paper Lanterns');
+    expect(
+      back.source,
+      const QueueSource(QueueSourceKind.other, 'Paper Lanterns'),
+    );
     expect(back.repeat, QueueRepeat.one);
     expect(back.position, const Duration(milliseconds: 84250));
   });
@@ -82,6 +86,59 @@ void main() {
       expect(back, isNotNull, reason: order);
       expect(back!.trackIds, [1, 2], reason: order);
       expect(back.shuffleOrder, isNull, reason: order);
+    }
+  });
+
+  test('round trip keeps source kind, key and queued positions', () {
+    final s = PlayerSnapshot(
+      trackIds: const [3, 1, 2],
+      index: 0,
+      source: QueueSource.playlist(7, 'Rainy Days'),
+      queuedPositions: const [1, 2],
+    );
+    final back = PlayerSnapshot.tryParse(s.toJson())!;
+    expect(back.source, QueueSource.playlist(7, 'Rainy Days'));
+    expect(back.source!.kind, QueueSourceKind.playlist);
+    expect(back.source!.key, '7');
+    expect(back.queuedPositions, [1, 2]);
+  });
+
+  test('an old snapshot restores as other', () {
+    final back = PlayerSnapshot.tryParse(
+      '{"trackIds":[1,2],"index":0,"source":"Roadtrip"}',
+    )!;
+    expect(back.source!.kind, QueueSourceKind.other);
+    expect(back.source!.label, 'Roadtrip');
+    expect(back.source!.key, isNull);
+    expect(back.queuedPositions, isNull);
+  });
+
+  test('unknown kind is other', () {
+    final back = PlayerSnapshot.tryParse(
+      '{"trackIds":[1],"index":0,"source":"X","sourceKind":"mixtape","sourceKey":"k"}',
+    )!;
+    expect(back.source!.kind, QueueSourceKind.other);
+    expect(back.source!.label, 'X');
+  });
+
+  test('a broken source is dropped, the snapshot stays', () {
+    final back = PlayerSnapshot.tryParse(
+      '{"trackIds":[1,2],"index":1,"source":5,"sourceKind":3}',
+    )!;
+    expect(back.trackIds, [1, 2]);
+    expect(back.index, 1);
+    expect(back.source, isNull);
+  });
+
+  test('bad queuedPositions are dropped, the snapshot stays', () {
+    for (final bad in ['[5]', '[-1]', '["0"]', '"x"']) {
+      final back = PlayerSnapshot.tryParse(
+        '{"trackIds":[1,2],"index":1,"source":"S","queuedPositions":$bad}',
+      );
+      expect(back, isNotNull, reason: bad);
+      expect(back!.trackIds, [1, 2], reason: bad);
+      expect(back.source!.label, 'S', reason: bad);
+      expect(back.queuedPositions, isNull, reason: bad);
     }
   });
 }

@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:owntune/data/db/database.dart';
 import 'package:owntune/data/library_storage.dart';
+import 'package:owntune/data/play_repository.dart';
 import 'package:owntune/data/playlist_repository.dart';
 import 'package:owntune/data/sources/http_transport.dart';
 import 'package:owntune/data/sources/online_source.dart';
@@ -67,6 +68,13 @@ final playlistRepositoryProvider = Provider<PlaylistRepository>(
     hash: (data) => hashBytes(data: data),
   ),
 );
+
+final playRepositoryProvider = Provider<PlayRepository>(
+  (ref) => PlayRepository(ref.watch(databaseProvider)),
+);
+
+/// The current time; tests override it.
+final clockProvider = Provider<DateTime Function()>((ref) => DateTime.now);
 
 final _playlistRowsProvider = StreamProvider<List<Playlist>>(
   (ref) => ref.watch(playlistRepositoryProvider).watchPlaylists(),

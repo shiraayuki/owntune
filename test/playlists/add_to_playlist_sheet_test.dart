@@ -314,4 +314,90 @@ void main() {
     await t.pumpAndSettle();
     expect(await _entries(t, repo), [2, 1]);
   });
+
+  group('Liked Songs row', () {
+    final songs = [
+      track(1, title: 'Amber Lights', likedAt: DateTime(2026, 11, 20)),
+      track(2, title: 'Backroads'),
+      track(3, title: 'Coastline'),
+    ];
+
+    Future<void> openSheet(
+      WidgetTester t,
+      FakeTrackRepository repo, {
+      List<String> select = const ['Amber Lights', 'Backroads', 'Coastline'],
+    }) async {
+      t.view.physicalSize = const Size(800, 1600);
+      t.view.devicePixelRatio = 1;
+      addTearDown(t.view.reset);
+      await pumpApp(
+        t,
+        songs: songs,
+        overrides: [trackRepositoryProvider.overrideWithValue(repo)],
+      );
+      await t.tap(find.byTooltip('More'));
+      await t.pumpAndSettle();
+      await t.tap(find.text('Select'));
+      await t.pumpAndSettle();
+      for (final title in select) {
+        await t.tap(find.text(title));
+        await t.pump();
+      }
+      await t.tap(
+        find.descendant(
+          of: find.byKey(const Key('selection-bar')),
+          matching: find.text('Add to Playlist'),
+        ),
+      );
+      await t.pumpAndSettle();
+    }
+
+    testWidgets('likes only the songs not liked yet and confirms', (t) async {
+      final repo = FakeTrackRepository();
+      await openSheet(t, repo);
+      expect(find.byKey(const Key('add-to-playlist-liked')), findsOneWidget);
+      expect(find.text('Liked Songs'), findsOneWidget);
+
+      await t.tap(find.byKey(const Key('add-to-playlist-liked')));
+      await t.pumpAndSettle();
+      expect(repo.likeCalls.length, 1);
+      expect(repo.likeCalls.single.ids, [2, 3]);
+      expect(repo.likeCalls.single.liked, isTrue);
+      expect(find.text('Already added'), findsNothing);
+      expect(find.text('Added to Liked Songs'), findsOneWidget);
+      expect(find.text('Add to Playlist'), findsNothing);
+    });
+
+    testWidgets('all already liked still confirms without a prompt', (t) async {
+      final repo = FakeTrackRepository();
+      await openSheet(t, repo, select: ['Amber Lights']);
+      await t.tap(find.byKey(const Key('add-to-playlist-liked')));
+      await t.pumpAndSettle();
+      expect(repo.likeCalls, isEmpty);
+      expect(find.text('Already added'), findsNothing);
+      expect(find.text('Added to Liked Songs'), findsOneWidget);
+    });
+
+    testWidgets('a failed like shows the error and keeps the sheet open', (
+      t,
+    ) async {
+      await openSheet(t, _FailingLike());
+      await t.tap(find.byKey(const Key('add-to-playlist-liked')));
+      await t.pumpAndSettle();
+      expect(find.text("Couldn't add the songs"), findsOneWidget);
+      expect(find.textContaining('disk full'), findsOneWidget);
+      await t.tap(find.text('OK'));
+      await t.pumpAndSettle();
+      expect(find.text('Add to Playlist'), findsWidgets);
+      expect(find.byKey(const Key('add-to-playlist-liked')), findsOneWidget);
+      expect(find.text('Added to Liked Songs'), findsNothing);
+    });
+  });
+}
+
+/// Fails every like.
+class _FailingLike extends FakeTrackRepository {
+  @override
+  Future<void> setLiked(Iterable<int> ids, {required bool liked}) async =>
+      throw StateError('disk full');
 }
