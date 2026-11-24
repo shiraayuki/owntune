@@ -13,6 +13,7 @@ import '../support/fakes.dart';
 void main() {
   testWidgets('shows Library › Songs with the title row first', (t) async {
     await pumpApp(t, songs: [track(1, title: 'a')]);
+    await openLibraryTab(t);
     expect(find.text('Library'), findsWidgets);
     expect(find.byTooltip('More'), findsOneWidget);
     expect(find.byIcon(CupertinoIcons.plus), findsWidgets);
@@ -30,6 +31,7 @@ void main() {
       t,
       songs: [track(1, title: 'a', album: 'X', artist: 'Y')],
     );
+    await openLibraryTab(t);
 
     await t.tap(find.text('Albums'));
     await t.pumpAndSettle();
@@ -51,6 +53,7 @@ void main() {
             track(l.codeUnitAt(0) * 10 + n, title: '$l song $n'),
       ],
     );
+    await openLibraryTab(t);
     final barTop = t.getRect(find.byType(BackdropFilter)).top;
     expect(
       t.getRect(find.byType(SectionIndex)).bottom,
@@ -81,6 +84,7 @@ void main() {
     final importer = FakeImporter();
     final picker = FakePicker(['/a/one.mp3']);
     await pumpApp(t, importer: importer, picker: picker);
+    await openLibraryTab(t);
 
     await tapImport(t);
     expect(importer.calls, hasLength(1));
@@ -156,6 +160,7 @@ void main() {
         ),
       ],
     );
+    await openLibraryTab(t);
     final app = t.widget<MaterialApp>(find.byType(MaterialApp));
     expect(app.themeMode, ThemeMode.dark);
     final context = t.element(find.text('Your library is empty'));
@@ -168,6 +173,7 @@ void main() {
 
   testWidgets('the … menu on Songs offers sorting with checkmarks', (t) async {
     await pumpApp(t, songs: [track(1, title: 'a')]);
+    await openLibraryTab(t);
     await t.tap(find.byTooltip('More'));
     await t.pumpAndSettle();
     for (final label in [
@@ -195,6 +201,7 @@ void main() {
       ],
       overrides: [settingsRepositoryProvider.overrideWithValue(repo)],
     );
+    await openLibraryTab(t);
     expect(
       t.getTopLeft(find.text('Alpha')).dy,
       lessThan(t.getTopLeft(find.text('Beta')).dy),
@@ -222,6 +229,7 @@ void main() {
 
   testWidgets('sorting shows only on Library › Songs', (t) async {
     await pumpApp(t, songs: [track(1, title: 'a')]);
+    await openLibraryTab(t);
     for (final place in ['Albums', 'Artists', 'Home', 'Search', 'Playlists']) {
       await t.tap(find.text(place).last);
       await t.pumpAndSettle();
@@ -261,6 +269,7 @@ void main() {
 
   testWidgets('menu section gaps are subtle, not dark bars', (t) async {
     await pumpApp(t, songs: [track(1, title: 'a')]);
+    await openLibraryTab(t);
     await t.tap(find.byTooltip('More'));
     await t.pumpAndSettle();
     final gaps = t.widgetList<PopupMenuDivider>(find.byType(PopupMenuDivider));

@@ -52,6 +52,7 @@ dependencies:
   audio_session: ^0.2.4
   audio_service: ^0.18.19
   image: ^4.13.1
+  collection: ^1.19.1
 
 dev_dependencies:
   flutter_test:

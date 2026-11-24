@@ -41,6 +41,17 @@ Future<void> pumpUntil(WidgetTester t, Finder finder) async {
   await t.pumpAndSettle();
 }
 
+/// The app opens on Home; taps the Library tab in the tab bar.
+Future<void> openLibrary(WidgetTester t) async {
+  await t.tap(
+    find.descendant(
+      of: find.byType(BackdropFilter),
+      matching: find.text('Library'),
+    ),
+  );
+  await t.pump();
+}
+
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
@@ -99,6 +110,7 @@ void main() {
         child: const OwntuneApp(),
       ),
     );
+    await openLibrary(t);
     await pumpUntil(t, find.text('Your library is empty'));
 
     // First import: 5 added, nothing duplicated, 2 not supported.
@@ -146,6 +158,7 @@ void main() {
         child: const OwntuneApp(),
       ),
     );
+    await openLibrary(t);
     await pumpUntil(t, find.text('After the Rain'));
 
     await t.tap(find.byTooltip('More'));

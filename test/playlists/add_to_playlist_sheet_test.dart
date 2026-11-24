@@ -63,6 +63,7 @@ Future<PlaylistRepository> _open(WidgetTester t, List<int> trackIds) async {
       trackRepositoryProvider.overrideWithValue(FakeTrackRepository()),
     ],
   );
+  await openLibraryTab(t);
   return repo;
 }
 
@@ -231,6 +232,7 @@ void main() {
         trackRepositoryProvider.overrideWithValue(FakeTrackRepository()),
       ],
     );
+    await openLibraryTab(t);
     await _menuAddToPlaylist(t, 'Backroads');
     await t.tap(find.text('New Playlist…'));
     await t.pumpAndSettle();
@@ -273,6 +275,7 @@ void main() {
       ],
       playlists: repo,
     );
+    await openLibraryTab(t);
     await t.tap(find.text('Albums'));
     await t.pumpAndSettle();
     await t.tap(find.text('Lanterns'));
@@ -302,6 +305,7 @@ void main() {
       ],
       playlists: repo,
     );
+    await openLibraryTab(t);
     await t.tap(find.text('Artists'));
     await t.pumpAndSettle();
     await t.tap(find.text('Juno'));
@@ -335,6 +339,7 @@ void main() {
         songs: songs,
         overrides: [trackRepositoryProvider.overrideWithValue(repo)],
       );
+      await openLibraryTab(t);
       await t.tap(find.byTooltip('More'));
       await t.pumpAndSettle();
       await t.tap(find.text('Select'));

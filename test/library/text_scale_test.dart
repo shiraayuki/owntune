@@ -37,6 +37,7 @@ void main() {
     t.platformDispatcher.textScaleFactorTestValue = scale;
     addTearDown(t.platformDispatcher.clearTextScaleFactorTestValue);
     await pumpApp(t, songs: many);
+    await openLibraryTab(t);
     expect(t.takeException(), isNull);
 
     await t.tap(
@@ -54,6 +55,7 @@ void main() {
     t.platformDispatcher.textScaleFactorTestValue = scale;
     addTearDown(t.platformDispatcher.clearTextScaleFactorTestValue);
     await pumpApp(t, songs: many);
+    await openLibraryTab(t);
     await t.tap(find.text('Albums'));
     await t.pumpAndSettle();
     expect(t.takeException(), isNull);
@@ -63,6 +65,7 @@ void main() {
     t.platformDispatcher.textScaleFactorTestValue = scale;
     addTearDown(t.platformDispatcher.clearTextScaleFactorTestValue);
     await pumpApp(t, songs: many);
+    await openLibraryTab(t);
     expect(t.takeException(), isNull);
     for (final sub in ['Artists', 'Songs']) {
       await t.tap(find.text(sub));

@@ -40,6 +40,7 @@ void main() {
         trackRepositoryProvider.overrideWithValue(FakeTrackRepository()),
       ],
     );
+    await openLibraryTab(t);
     await longPress(t, 'Amber Lights');
     expect(find.text('Go to Album'), findsOneWidget);
     expect(find.text('Go to Artist'), findsOneWidget);
@@ -61,6 +62,7 @@ void main() {
         trackRepositoryProvider.overrideWithValue(FakeTrackRepository()),
       ],
     );
+    await openLibraryTab(t);
     await longPress(t, 'Amber Lights');
     final later = t.getTopLeft(find.byKey(const Key('menu-play-later'))).dy;
     final add = t.getTopLeft(find.byKey(const Key('menu-add-to-playlist'))).dy;
@@ -77,6 +79,7 @@ void main() {
         trackRepositoryProvider.overrideWithValue(FakeTrackRepository()),
       ],
     );
+    await openLibraryTab(t);
     await longPress(t, 'Loose Song');
     expect(find.text('Go to Album'), findsNothing);
     expect(find.text('Go to Artist'), findsOneWidget);
@@ -92,6 +95,7 @@ void main() {
         trackRepositoryProvider.overrideWithValue(FakeTrackRepository()),
       ],
     );
+    await openLibraryTab(t);
     await longPress(t, 'Loose Song');
     await t.tap(find.text('Go to Artist'));
     await t.pumpAndSettle();
@@ -110,6 +114,7 @@ void main() {
         trackRepositoryProvider.overrideWithValue(FakeTrackRepository()),
       ],
     );
+    await openLibraryTab(t);
     await t.tap(find.text('Albums'));
     await t.pumpAndSettle();
     await t.tap(find.text('Velvet Hours'));
@@ -135,6 +140,7 @@ void main() {
         trackRepositoryProvider.overrideWithValue(FakeTrackRepository()),
       ],
     );
+    await openLibraryTab(t);
     await t.tap(find.text('Artists'));
     await t.pumpAndSettle();
     await t.tap(find.text('Neon Harbor'));
@@ -164,6 +170,7 @@ void main() {
 
     testWidgets('Play Next inserts after the current song', (t) async {
       await pumpApp(t, songs: abc, overrides: repo);
+      await openLibraryTab(t);
       await t.tap(find.text('A song'));
       await t.pumpAndSettle();
 
@@ -176,6 +183,7 @@ void main() {
 
     testWidgets('Play Later appends to the queue', (t) async {
       await pumpApp(t, songs: abc, overrides: repo);
+      await openLibraryTab(t);
       await t.tap(find.text('B song'));
       await t.pumpAndSettle();
 
@@ -189,6 +197,7 @@ void main() {
     testWidgets('Play Next with nothing playing starts the song', (t) async {
       final engine = FakeAudioEngine();
       await pumpApp(t, songs: abc, engine: engine, overrides: repo);
+      await openLibraryTab(t);
 
       await longPress(t, 'B song');
       await t.tap(find.byKey(const Key('menu-play-next')));
@@ -202,6 +211,7 @@ void main() {
       t,
     ) async {
       await pumpApp(t, songs: songs, overrides: repo);
+      await openLibraryTab(t);
       await longPress(t, 'Amber Lights');
 
       double y(String text) => t.getTopLeft(find.text(text)).dy;
@@ -219,6 +229,7 @@ void main() {
         trackRepositoryProvider.overrideWithValue(FakeTrackRepository()),
       ],
     );
+    await openLibraryTab(t);
     await longPress(t, 'Amber Lights');
     await t.tap(find.byKey(const Key('menu-edit')));
     await t.pumpAndSettle();
@@ -240,6 +251,7 @@ void main() {
         trackRepositoryProvider.overrideWithValue(FakeTrackRepository()),
       ],
     );
+    await openLibraryTab(t);
     expect(find.byKey(const Key('song-more-1')), findsOneWidget);
     final semantics = t.ensureSemantics();
     await t.pump();
@@ -266,6 +278,7 @@ void main() {
         trackRepositoryProvider.overrideWithValue(FakeTrackRepository()),
       ],
     );
+    await openLibraryTab(t);
     await t.tap(find.byKey(const Key('song-more-1')));
     await t.pumpAndSettle();
     expect(engine.loaded, isEmpty);
@@ -279,6 +292,7 @@ void main() {
         trackRepositoryProvider.overrideWithValue(FakeTrackRepository()),
       ],
     );
+    await openLibraryTab(t);
     await longPress(t, 'Amber Lights');
     expect(find.byKey(const Key('menu-play-next')), findsOneWidget);
   });
@@ -290,6 +304,7 @@ void main() {
       songs: songs,
       overrides: [trackRepositoryProvider.overrideWithValue(repo)],
     );
+    await openLibraryTab(t);
     await longPress(t, 'Amber Lights');
     expect(find.text('Remove from Liked Songs'), findsNothing);
     final add = t.getTopLeft(find.byKey(const Key('menu-add-to-playlist'))).dy;
@@ -311,6 +326,7 @@ void main() {
       songs: [track(1, title: 'Amber Lights', likedAt: DateTime(2026, 11, 24))],
       overrides: [trackRepositoryProvider.overrideWithValue(repo)],
     );
+    await openLibraryTab(t);
     await longPress(t, 'Amber Lights');
     expect(find.text('Add to Liked Songs'), findsNothing);
 
@@ -327,6 +343,7 @@ void main() {
         trackRepositoryProvider.overrideWithValue(_FailingLikeRepository()),
       ],
     );
+    await openLibraryTab(t);
     await longPress(t, 'Amber Lights');
     await t.tap(find.text('Add to Liked Songs'));
     await t.pumpAndSettle();

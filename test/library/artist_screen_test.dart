@@ -64,6 +64,7 @@ void main() {
     t,
   ) async {
     await pumpApp(t, songs: _neon);
+    await openLibraryTab(t);
     await _open(t, 'Neon Harbor');
 
     expect(find.byType(ArtistScreen), findsOneWidget);
@@ -89,6 +90,7 @@ void main() {
       track(6, title: 'Faded', artist: 'Neon Harbor', album: 'Velvet Hours'),
     ];
     await pumpApp(t, songs: six);
+    await openLibraryTab(t);
     await _open(t, 'Neon Harbor');
     expect(find.text('Faded'), findsNothing);
 
@@ -120,6 +122,7 @@ void main() {
         ),
       ],
     );
+    await openLibraryTab(t);
     await _open(t, 'Lumen Kids');
     expect(find.text('1 song'), findsOneWidget);
     expect(find.text('Albums'), findsNothing);
@@ -128,6 +131,7 @@ void main() {
 
   testWidgets('Play and Shuffle are active', (t) async {
     await pumpApp(t, songs: _neon);
+    await openLibraryTab(t);
     await _open(t, 'Neon Harbor');
     PillButton button(String label) => t.widget<PillButton>(
       find.ancestor(of: find.text(label), matching: find.byType(PillButton)),
@@ -144,6 +148,7 @@ void main() {
     addTearDown(tracks.close);
     tracks.add([..._neon, other]);
     await pumpApp(t, songsStream: tracks.stream);
+    await openLibraryTab(t);
     await _open(t, 'Neon Harbor');
 
     tracks.add([other]);
@@ -157,6 +162,7 @@ void main() {
     t,
   ) async {
     await pumpApp(t, songs: _neon);
+    await openLibraryTab(t);
     await _open(t, 'Neon Harbor');
     // The album card's title comes first; song rows repeat it as subtitle.
     await t.tap(find.text('Velvet Hours').first);
@@ -177,6 +183,7 @@ void main() {
 
   testWidgets('artist Edit Info edits all their songs', (t) async {
     await pumpApp(t, songs: _neon);
+    await openLibraryTab(t);
     await _open(t, 'Neon Harbor');
     await t.tap(find.byKey(const Key('detail-more')));
     await t.pumpAndSettle();
@@ -195,6 +202,7 @@ void main() {
     final library = StreamController<List<Track>>();
     addTearDown(library.close);
     await pumpApp(t, songsStream: library.stream);
+    await openLibraryTab(t);
     library.add(_neon);
     await t.pumpAndSettle();
     await _open(t, 'Neon Harbor');

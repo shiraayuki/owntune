@@ -44,6 +44,7 @@ Future<void> _open(WidgetTester t, String title) async {
 void main() {
   testWidgets('tapping the mini player opens the player', (t) async {
     await pumpApp(t, songs: _songs);
+    await openLibraryTab(t);
     await _open(t, 'After the Rain');
 
     expect(_sheet, findsOneWidget);
@@ -64,6 +65,7 @@ void main() {
     addTearDown(t.view.resetPadding);
     addTearDown(t.view.resetViewPadding);
     await pumpApp(t, songs: _songs);
+    await openLibraryTab(t);
     await _open(t, 'After the Rain');
 
     expect(
@@ -74,6 +76,7 @@ void main() {
 
   testWidgets('swiping down closes the player', (t) async {
     await pumpApp(t, songs: _songs);
+    await openLibraryTab(t);
     await _open(t, 'After the Rain');
 
     await t.fling(_sheet, const Offset(0, 600), 2000);
@@ -84,6 +87,7 @@ void main() {
 
   testWidgets('the down arrow at the top left closes the player', (t) async {
     await pumpApp(t, songs: _songs);
+    await openLibraryTab(t);
     await _open(t, 'After the Rain');
 
     final close = find.byKey(const Key('player-close'));
@@ -105,6 +109,7 @@ void main() {
 
   testWidgets('the menu button sits at the top right, once', (t) async {
     await pumpApp(t, songs: _songs);
+    await openLibraryTab(t);
     await _open(t, 'After the Rain');
 
     final more = find.byKey(const Key('player-more'));
@@ -135,6 +140,7 @@ void main() {
   testWidgets('play and next work in the player', (t) async {
     final engine = FakeAudioEngine();
     await pumpApp(t, songs: _songs, engine: engine);
+    await openLibraryTab(t);
     await _open(t, 'After the Rain');
 
     await t.tap(find.byKey(const Key('player-play')));
@@ -151,6 +157,7 @@ void main() {
 
   testWidgets('repeat cycles off, all, one', (t) async {
     await pumpApp(t, songs: _songs);
+    await openLibraryTab(t);
     await _open(t, 'After the Rain');
     final repeat = find.byKey(const Key('player-repeat'));
     Finder icon(IconData i) =>
@@ -172,6 +179,7 @@ void main() {
 
   testWidgets('shuffle toggles in Now Playing', (t) async {
     await pumpApp(t, songs: _songs);
+    await openLibraryTab(t);
     await _open(t, 'After the Rain');
     final shuffle = find.byKey(const Key('player-shuffle'));
 
@@ -188,6 +196,7 @@ void main() {
   testWidgets('scrubbing seeks on release only', (t) async {
     final engine = FakeAudioEngine();
     await pumpApp(t, songs: _songs, engine: engine);
+    await openLibraryTab(t);
     await _open(t, 'After the Rain');
 
     final scrubber = find.byKey(const Key('scrubber'));
@@ -210,6 +219,7 @@ void main() {
   testWidgets('the times show elapsed and remaining', (t) async {
     final engine = FakeAudioEngine();
     await pumpApp(t, songs: _songs, engine: engine);
+    await openLibraryTab(t);
     await _open(t, 'After the Rain');
 
     engine.emitPosition(const Duration(seconds: 84));
@@ -228,6 +238,7 @@ void main() {
     final library = StreamController<List<Track>>();
     addTearDown(library.close);
     await pumpApp(t, songsStream: library.stream);
+    await openLibraryTab(t);
     library.add([_songs.first]);
     await t.pumpAndSettle();
     await _open(t, 'After the Rain');
@@ -249,6 +260,7 @@ void main() {
         trackRepositoryProvider.overrideWithValue(FakeTrackRepository()),
       ],
     );
+    await openLibraryTab(t);
     await _open(t, 'After the Rain');
 
     await t.tap(find.byKey(const Key('player-more')));
@@ -271,6 +283,7 @@ void main() {
       ],
       engine: engine,
     );
+    await openLibraryTab(t);
     await _open(t, 'After the Rain');
 
     await t.tap(find.byKey(const Key('player-next')));
@@ -295,6 +308,7 @@ void main() {
       songs: _songs,
       overrides: [trackRepositoryProvider.overrideWithValue(repo)],
     );
+    await openLibraryTab(t);
     await _open(t, 'After the Rain');
 
     final heart = find.descendant(
@@ -318,6 +332,7 @@ void main() {
       ],
       overrides: [trackRepositoryProvider.overrideWithValue(repo)],
     );
+    await openLibraryTab(t);
     await _open(t, 'After the Rain');
 
     final like = find.byKey(const Key('player-like'));
@@ -342,6 +357,7 @@ void main() {
         trackRepositoryProvider.overrideWithValue(_FailingLikeRepository()),
       ],
     );
+    await openLibraryTab(t);
     await _open(t, 'After the Rain');
 
     await t.tap(find.byKey(const Key('player-like')));
@@ -359,6 +375,7 @@ void main() {
       songs: _songs,
       overrides: [trackRepositoryProvider.overrideWithValue(repo)],
     );
+    await openLibraryTab(t);
     await _open(t, 'After the Rain');
 
     await t.tap(find.byKey(const Key('player-more')));

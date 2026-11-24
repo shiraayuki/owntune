@@ -48,6 +48,7 @@ void main() {
   testWidgets('Up Next lists the upcoming songs with their source', (t) async {
     await _tall(t);
     await pumpApp(t, songs: _songs);
+    await openLibraryTab(t);
     await _openQueue(t, 'B song');
 
     expect(_inQueue(find.text('Up Next')), findsOneWidget);
@@ -70,6 +71,7 @@ void main() {
   testWidgets('dragging the grip reorders', (t) async {
     await _tall(t);
     await pumpApp(t, songs: _songs);
+    await openLibraryTab(t);
     await _openQueue(t, 'A song');
 
     final grip = find.descendant(
@@ -94,6 +96,7 @@ void main() {
   testWidgets('swiping left removes the song', (t) async {
     await _tall(t);
     await pumpApp(t, songs: _songs);
+    await openLibraryTab(t);
     await _openQueue(t, 'A song');
 
     await t.drag(_inQueue(find.text('C song')), const Offset(-600, 0));
@@ -107,6 +110,7 @@ void main() {
     final engine = FakeAudioEngine();
     await _tall(t);
     await pumpApp(t, songs: _songs, engine: engine);
+    await openLibraryTab(t);
     await _openQueue(t, 'B song');
 
     await t.tap(find.byKey(const Key('up-next-clear')));
@@ -123,6 +127,7 @@ void main() {
     final engine = FakeAudioEngine();
     await _tall(t);
     await pumpApp(t, songs: _songs, engine: engine);
+    await openLibraryTab(t);
     await _openQueue(t, 'A song');
 
     await t.tap(_inQueue(find.text('C song')));
@@ -142,6 +147,7 @@ void main() {
         trackRepositoryProvider.overrideWithValue(FakeTrackRepository()),
       ],
     );
+    await openLibraryTab(t);
     await t.longPress(find.text('A song'));
     await t.pumpAndSettle();
     await t.tap(find.byKey(const Key('menu-play-next')));
@@ -158,6 +164,7 @@ void main() {
   testWidgets('the pill switches back to the cover', (t) async {
     await _tall(t);
     await pumpApp(t, songs: _songs);
+    await openLibraryTab(t);
     await _openQueue(t, 'A song');
     expect(_upNext, findsOneWidget);
 

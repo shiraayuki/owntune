@@ -26,14 +26,16 @@ void main() {
     engine = FakeAudioEngine();
   });
 
-  Future<void> pump(WidgetTester t, {Stream<List<Track>>? songsStream}) =>
-      pumpApp(
-        t,
-        songs: _abc,
-        songsStream: songsStream,
-        engine: engine,
-        overrides: [systemControlsProvider.overrideWithValue(controls)],
-      );
+  Future<void> pump(WidgetTester t, {Stream<List<Track>>? songsStream}) async {
+    await pumpApp(
+      t,
+      songs: _abc,
+      songsStream: songsStream,
+      engine: engine,
+      overrides: [systemControlsProvider.overrideWithValue(controls)],
+    );
+    await openLibraryTab(t);
+  }
 
   testWidgets('shows the playing song', (t) async {
     await pump(t);

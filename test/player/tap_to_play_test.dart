@@ -46,6 +46,7 @@ void main() {
   testWidgets('tapping a song plays it with the list as the queue', (t) async {
     final engine = FakeAudioEngine();
     await pumpApp(t, songs: _abc, engine: engine);
+    await openLibraryTab(t);
 
     await t.tap(find.text('B song'));
     await t.pumpAndSettle();
@@ -66,6 +67,7 @@ void main() {
         track(3, title: 'Blueberry'),
       ],
     );
+    await openLibraryTab(t);
     await t.enterText(
       find.descendant(
         of: find.byType(SongsScreen),
@@ -94,6 +96,7 @@ void main() {
       ],
       engine: engine,
     );
+    await openLibraryTab(t);
     await t.tap(find.text('Albums'));
     await t.pumpAndSettle();
     await t.tap(find.text('Paper Lanterns'));
@@ -111,6 +114,7 @@ void main() {
   testWidgets('album Shuffle plays shuffled', (t) async {
     await _tall(t);
     await pumpApp(t, songs: [_album(1, 'First', 1), _album(2, 'Second', 2)]);
+    await openLibraryTab(t);
     await t.tap(find.text('Albums'));
     await t.pumpAndSettle();
     await t.tap(find.text('Paper Lanterns'));
@@ -128,6 +132,7 @@ void main() {
   testWidgets('album Play turns shuffle off', (t) async {
     await _tall(t);
     await pumpApp(t, songs: [_album(1, 'First', 1), _album(2, 'Second', 2)]);
+    await openLibraryTab(t);
     await t.tap(find.text('Albums'));
     await t.pumpAndSettle();
     await t.tap(find.text('Paper Lanterns'));
@@ -149,6 +154,7 @@ void main() {
         track(i, title: 'Song $i', artist: 'Neon Harbor', album: 'Static'),
     ];
     await pumpApp(t, songs: songs);
+    await openLibraryTab(t);
     await t.tap(find.text('Artists'));
     await t.pumpAndSettle();
     await t.tap(find.text('Neon Harbor'));
@@ -170,6 +176,7 @@ void main() {
       songs: [_album(1, 'First', 1), _album(2, 'Second', 2)],
       engine: engine,
     );
+    await openLibraryTab(t);
     await t.tap(find.text('Albums'));
     await t.pumpAndSettle();
     await t.tap(find.text('Paper Lanterns'));
@@ -190,6 +197,7 @@ void main() {
         track(i, title: 'Song $i', artist: 'Neon Harbor', album: 'Static'),
     ];
     await pumpApp(t, songs: songs);
+    await openLibraryTab(t);
     await t.tap(find.text('Artists'));
     await t.pumpAndSettle();
     await t.tap(find.text('Neon Harbor'));
@@ -214,6 +222,7 @@ void main() {
         track(i, title: 'Song $i', artist: 'Neon Harbor', album: 'Static'),
     ];
     await pumpApp(t, songs: songs);
+    await openLibraryTab(t);
     await t.tap(find.text('Artists'));
     await t.pumpAndSettle();
     await t.tap(find.text('Neon Harbor'));
@@ -238,6 +247,7 @@ void main() {
         track(3, title: 'Night Swim'),
       ],
     );
+    await openLibraryTab(t);
     await t.tap(find.text('Search').last);
     await t.pumpAndSettle();
     await t.enterText(find.byType(TextField).last, 'night');
@@ -256,6 +266,7 @@ void main() {
     t.platformDispatcher.platformBrightnessTestValue = Brightness.dark;
     addTearDown(t.platformDispatcher.clearPlatformBrightnessTestValue);
     await pumpApp(t, songs: _abc);
+    await openLibraryTab(t);
     await t.tap(find.text('B song'));
     await t.pumpAndSettle();
 
@@ -274,6 +285,7 @@ void main() {
   ) async {
     await _tall(t);
     await pumpApp(t, songs: [_album(1, 'First', 1), _album(2, 'Second', 2)]);
+    await openLibraryTab(t);
     await t.tap(find.text('Albums'));
     await t.pumpAndSettle();
     await t.tap(find.text('Paper Lanterns'));
@@ -299,6 +311,7 @@ void main() {
   testWidgets('an unplayable song shows a notice', (t) async {
     final engine = FakeAudioEngine()..failing.add('hash2.mp3');
     await pumpApp(t, songs: _abc, engine: engine);
+    await openLibraryTab(t);
 
     await t.tap(find.text('B song'));
     await t.pump();

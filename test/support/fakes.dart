@@ -19,6 +19,7 @@ import 'package:owntune/data/track_repository.dart';
 import 'package:owntune/edit/cover_picker.dart';
 import 'package:owntune/edit/tag_saver.dart';
 import 'package:owntune/edit/track_tags.dart';
+import 'package:owntune/home/home_repository.dart';
 import 'package:owntune/import/audio_file_picker.dart';
 import 'package:owntune/import/importer.dart';
 import 'package:owntune/library/navigation.dart';
@@ -50,6 +51,8 @@ Track track(
   String? cover,
   String? sourceKey,
   DateTime? likedAt,
+  int playCount = 0,
+  DateTime? lastPlayedAt,
 }) => Track(
   id: id,
   fileName: 'hash$id.mp3',
@@ -66,7 +69,8 @@ Track track(
   durationMs: durationMs,
   coverFile: cover,
   addedAt: addedAt ?? DateTime(2026, 11, 18),
-  playCount: 0,
+  playCount: playCount,
+  lastPlayedAt: lastPlayedAt,
   sourceKey: sourceKey,
   likedAt: likedAt,
 );
@@ -205,6 +209,37 @@ class FakeTrackRepository implements TrackRepository {
 
   @override
   Future<int> storageBytes() async => bytes;
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+/// Home queries with fixed lists; set [recent] and [top] before pumping.
+class FakeHomeRepository implements HomeRepository {
+  List<RecentSource> recent = [];
+  List<TrackPlayCount> top = [];
+
+  /// The `since` of every call, in order.
+  final recentSince = <DateTime>[];
+  final topSince = <DateTime>[];
+
+  @override
+  Stream<List<RecentSource>> watchRecentSources({
+    required DateTime since,
+    int limit = 20,
+  }) {
+    recentSince.add(since);
+    return Stream.value(recent);
+  }
+
+  @override
+  Stream<List<TrackPlayCount>> watchTopTracks({
+    required DateTime since,
+    int limit = 50,
+  }) {
+    topSince.add(since);
+    return Stream.value(top);
+  }
 
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
@@ -449,6 +484,7 @@ Future<void> pumpApp(
   FakeCoverPicker? coverPicker,
   PlaylistRepository? playlists,
   FakePlayRepository? plays,
+  FakeHomeRepository? home,
   List<Override> overrides = const [],
 }) async {
   final libraryStorage =
@@ -474,6 +510,7 @@ Future<void> pumpApp(
       overrides: [
         playlistRepositoryProvider.overrideWithValue(playlistRepo),
         playRepositoryProvider.overrideWithValue(plays ?? FakePlayRepository()),
+        homeRepositoryProvider.overrideWithValue(home ?? FakeHomeRepository()),
         tracksProvider.overrideWith(
           (ref) => songsStream ?? Stream.value(songs),
         ),
@@ -508,6 +545,17 @@ Future<void> pumpApp(
   );
   await t.pump();
   await t.pump();
+}
+
+/// Taps the Library tab in the tab bar; the app opens on Home.
+Future<void> openLibraryTab(WidgetTester t) async {
+  await t.tap(
+    find.descendant(
+      of: find.byType(BackdropFilter),
+      matching: find.text('Library'),
+    ),
+  );
+  await t.pumpAndSettle();
 }
 
 /// Taps the back button of the current screen's [NavRow].

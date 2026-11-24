@@ -11,6 +11,7 @@ import 'package:owntune/import/import_controller.dart';
 import 'package:owntune/download/downloads_button.dart';
 import 'package:owntune/download/search_online_screen.dart';
 import 'package:owntune/import/import_sheets.dart';
+import 'package:owntune/home/for_you.dart' show greeting;
 import 'package:owntune/home/home_screen.dart';
 import 'package:owntune/library/library_tab.dart';
 import 'package:owntune/library/selection_bar.dart';
@@ -186,7 +187,8 @@ const _tabs = [
   ),
 ];
 
-/// Index of the Library tab in [_tabs].
+/// Indexes of the Home and Library tabs in [_tabs].
+const _homeTab = 0;
 const _libraryTab = 2;
 
 /// Title row with the "…" menu and "+", the four tabs and the tab bar. The
@@ -201,10 +203,9 @@ class AppShell extends ConsumerStatefulWidget {
 }
 
 class _AppShellState extends ConsumerState<AppShell> {
-  // Opens on Library while Home is a placeholder; Home becomes the start tab
-  // once it has content.
-  var _index = _libraryTab;
+  var _index = _homeTab;
   var _section = LibrarySection.songs;
+  var _homeSection = HomeSection.forYou;
 
   @override
   Widget build(BuildContext context) {
@@ -226,7 +227,12 @@ class _AppShellState extends ConsumerState<AppShell> {
             SafeArea(
               bottom: false,
               child: _TitleRow(
-                title: _tabs[_index].label,
+                // The Home tab greets; screens opened from the title row get
+                // the tab label as their back label, never the greeting.
+                title: _index == _homeTab
+                    ? greeting(ref.watch(clockProvider)())
+                    : _tabs[_index].label,
+                backLabel: _tabs[_index].label,
                 selected: selection?.length,
                 onDone: () => ref.read(songSelectionProvider.notifier).end(),
                 showSort: onSongs,
@@ -252,7 +258,10 @@ class _AppShellState extends ConsumerState<AppShell> {
                   child: IndexedStack(
                     index: _index,
                     children: [
-                      const HomeScreen(),
+                      HomeScreen(
+                        section: _homeSection,
+                        onSection: (s) => setState(() => _homeSection = s),
+                      ),
                       const SearchTab(),
                       LibraryTab(
                         section: _section,
@@ -290,6 +299,7 @@ class _AppShellState extends ConsumerState<AppShell> {
 class _TitleRow extends StatelessWidget {
   const _TitleRow({
     required this.title,
+    required this.backLabel,
     required this.selected,
     required this.onDone,
     required this.showSort,
@@ -300,6 +310,9 @@ class _TitleRow extends StatelessWidget {
   });
 
   final String title;
+
+  /// What screens opened from the title row show as their back label.
+  final String backLabel;
 
   /// How many songs are selected; null outside selection mode. While
   /// selecting, the title shows the count and "Done" replaces the buttons.
@@ -353,7 +366,7 @@ class _TitleRow extends StatelessWidget {
                 key: const Key('import-button'),
                 onImport: onImport,
                 onSearchOnline: () =>
-                    openSearchOnline(context, backLabel: title),
+                    openSearchOnline(context, backLabel: backLabel),
                 onNewPlaylist: () => showNewPlaylistSheet(context),
               ),
             ],

@@ -58,13 +58,21 @@ class LikedArtwork extends StatelessWidget {
 }
 
 /// Opens the Liked Songs page above the tab shell.
-Future<void> openLikedSongs(BuildContext context) => Navigator.of(context)
-    .push(MaterialPageRoute<void>(builder: (_) => const LikedSongsScreen()));
+Future<void> openLikedSongs(
+  BuildContext context, {
+  String backLabel = 'Playlists',
+}) => Navigator.of(context).push(
+  MaterialPageRoute<void>(
+    builder: (_) => LikedSongsScreen(backLabel: backLabel),
+  ),
+);
 
 /// The Liked Songs page: heart tile, meta, Play/Shuffle and the songs, newest
 /// like first. It has no "…" menu; songs leave it by being unliked.
 class LikedSongsScreen extends ConsumerWidget {
-  const LikedSongsScreen({super.key});
+  const LikedSongsScreen({super.key, this.backLabel = 'Playlists'});
+
+  final String backLabel;
 
   static const _source = QueueSource.liked();
 
@@ -82,7 +90,7 @@ class LikedSongsScreen extends ConsumerWidget {
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const NavRow(backLabel: 'Playlists'),
+          NavRow(backLabel: backLabel),
           Expanded(
             child: LayoutBuilder(
               builder: (context, constraints) => ListView(

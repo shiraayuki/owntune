@@ -21,7 +21,7 @@ Future<void> _filter(WidgetTester t, String label, String query) async {
 }
 
 void main() {
-  testWidgets('four tabs in order, starting on Library', (t) async {
+  testWidgets('four tabs in order, starting on Home', (t) async {
     await pumpApp(t, songs: _songs);
     final bar = find.byType(BackdropFilter);
     double x(String l) =>
@@ -30,16 +30,20 @@ void main() {
     for (var i = 1; i < labels.length; i++) {
       expect(x(labels[i - 1]), lessThan(x(labels[i])), reason: labels[i]);
     }
+    expect(find.byIcon(CupertinoIcons.house_fill), findsOneWidget);
+    expect(find.byIcon(CupertinoIcons.square_stack), findsOneWidget);
+
+    await _tab(t, 'Library');
     expect(find.text('Library'), findsNWidgets(2)); // title and tab item
     expect(find.byIcon(CupertinoIcons.square_stack_fill), findsOneWidget);
     expect(find.byIcon(CupertinoIcons.house), findsOneWidget);
   });
 
-  testWidgets('Home shows its placeholder without a search field', (t) async {
+  testWidgets('Home shows For You | Stats without a search field', (t) async {
     await pumpApp(t, songs: _songs);
-    await _tab(t, 'Home');
-    expect(find.text('Nothing here yet'), findsOneWidget);
-    expect(find.text('Home arrives in a later version.'), findsOneWidget);
+    expect(find.byKey(const Key('home-segments')), findsOneWidget);
+    expect(find.text('For You'), findsOneWidget);
+    expect(find.text('Stats'), findsOneWidget);
     expect(find.byType(TextField).hitTestable(), findsNothing);
     expect(find.byIcon(CupertinoIcons.house_fill), findsOneWidget);
   });
@@ -48,6 +52,7 @@ void main() {
     t,
   ) async {
     await pumpApp(t, songs: _songs);
+    await _tab(t, 'Library');
     expect(find.widgetWithText(TextField, 'Search Songs'), findsOneWidget);
     await _tab(t, 'Albums');
     expect(
@@ -65,6 +70,7 @@ void main() {
     t,
   ) async {
     await pumpApp(t, songs: _songs);
+    await _tab(t, 'Library');
     await _filter(t, 'Search Songs', 'back');
     await _tab(t, 'Albums');
     await _tab(t, 'Songs');
@@ -79,6 +85,7 @@ void main() {
 
   testWidgets('empty library: no sub-tabs, import still offered', (t) async {
     await pumpApp(t);
+    await _tab(t, 'Library');
     expect(find.byKey(const ValueKey('library-segments')), findsNothing);
     expect(find.text('Your library is empty'), findsOneWidget);
   });
@@ -106,6 +113,7 @@ void main() {
 
   testWidgets('Songs filters inline and Cancel restores the list', (t) async {
     await pumpApp(t, songs: _songs);
+    await _tab(t, 'Library');
     await _filter(t, 'Search Songs', 'back');
     expect(find.text('Backroads'), findsOneWidget);
     expect(find.text('Blue Hour'), findsNothing);
@@ -120,6 +128,7 @@ void main() {
 
   testWidgets('Albums filter by album artist, Artists by name', (t) async {
     await pumpApp(t, songs: _songs);
+    await _tab(t, 'Library');
     await _tab(t, 'Albums');
     await _filter(t, 'Search Albums', 'quiet');
     expect(find.text('Low Tide'), findsOneWidget);

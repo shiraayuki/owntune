@@ -23,6 +23,7 @@ void main() {
       songs: songs,
       overrides: [trackRepositoryProvider.overrideWithValue(repo)],
     );
+    await openLibraryTab(t);
     return repo;
   }
 
@@ -100,6 +101,7 @@ void main() {
         songs: songs,
         overrides: [trackRepositoryProvider.overrideWithValue(repo)],
       );
+      await openLibraryTab(t);
       await openDialog(t);
       await t.tap(find.text('Delete'));
       await t.pumpAndSettle();
@@ -133,6 +135,7 @@ void main() {
       songsStream: controller.stream,
       overrides: [trackRepositoryProvider.overrideWithValue(repo)],
     );
+    await openLibraryTab(t);
     await openDialog(t);
 
     // E.g. a running import updates the list: the long-pressed row is

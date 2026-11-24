@@ -16,19 +16,28 @@ import 'package:owntune/playlists/playlist_artwork.dart';
 import 'package:owntune/playlists/playlist_view.dart';
 
 /// Opens the playlist page above the tab shell.
-Future<void> openPlaylist(BuildContext context, int playlistId) =>
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => PlaylistScreen(playlistId: playlistId),
-      ),
-    );
+Future<void> openPlaylist(
+  BuildContext context,
+  int playlistId, {
+  String backLabel = 'Playlists',
+}) => Navigator.of(context).push(
+  MaterialPageRoute<void>(
+    builder: (_) =>
+        PlaylistScreen(playlistId: playlistId, backLabel: backLabel),
+  ),
+);
 
 /// Playlist detail (mockup 12): cover, name, meta, Play/Shuffle and the
 /// songs in playlist order. The page pops itself when the playlist is gone.
 class PlaylistScreen extends ConsumerStatefulWidget {
-  const PlaylistScreen({super.key, required this.playlistId});
+  const PlaylistScreen({
+    super.key,
+    required this.playlistId,
+    this.backLabel = 'Playlists',
+  });
 
   final int playlistId;
+  final String backLabel;
 
   @override
   ConsumerState<PlaylistScreen> createState() => _PlaylistScreenState();
@@ -118,7 +127,7 @@ class _PlaylistScreenState extends ConsumerState<PlaylistScreen> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           NavRow(
-            backLabel: 'Playlists',
+            backLabel: widget.backLabel,
             trailing: DetailMoreButton(
               items: [
                 DetailMenuItem(

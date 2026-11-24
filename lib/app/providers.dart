@@ -14,6 +14,7 @@ import 'package:owntune/download/download_job.dart';
 import 'package:owntune/edit/cover_picker.dart';
 import 'package:owntune/edit/tag_saver.dart';
 import 'package:owntune/edit/track_tags.dart';
+import 'package:owntune/home/home_repository.dart';
 import 'package:owntune/import/audio_file_picker.dart';
 import 'package:owntune/import/import_controller.dart';
 import 'package:owntune/import/importer.dart';
@@ -75,6 +76,10 @@ final playRepositoryProvider = Provider<PlayRepository>(
 
 /// The current time; tests override it.
 final clockProvider = Provider<DateTime Function()>((ref) => DateTime.now);
+
+final homeRepositoryProvider = Provider<HomeRepository>(
+  (ref) => HomeRepository(ref.watch(databaseProvider)),
+);
 
 final _playlistRowsProvider = StreamProvider<List<Playlist>>(
   (ref) => ref.watch(playlistRepositoryProvider).watchPlaylists(),

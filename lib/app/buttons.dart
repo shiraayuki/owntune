@@ -11,6 +11,7 @@ class PillButton extends StatelessWidget {
     this.icon,
     this.secondary = false,
     this.expand = false,
+    this.padding = 22,
   });
 
   final String label;
@@ -20,6 +21,9 @@ class PillButton extends StatelessWidget {
   /// Gray fill with text color instead of the accent.
   final bool secondary;
   final bool expand;
+
+  /// Horizontal padding.
+  final double padding;
 
   @override
   Widget build(BuildContext context) {
@@ -57,7 +61,7 @@ class PillButton extends StatelessWidget {
           child: ConstrainedBox(
             constraints: const BoxConstraints(minHeight: 50),
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 22),
+              padding: EdgeInsets.symmetric(horizontal: padding),
               child: content,
             ),
           ),

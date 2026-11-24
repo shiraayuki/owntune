@@ -64,7 +64,7 @@ void main() {
     );
     await t.tap(find.byKey(const Key('import-button')));
     await t.pumpAndSettle();
-    await t.tap(find.text('Search Online'));
+    await t.tap(find.byKey(const Key('menu-search-online')));
     await t.pumpAndSettle();
   }
 

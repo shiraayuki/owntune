@@ -34,6 +34,7 @@ void main() {
 
   testWidgets('lists artists by name with counts and a chevron', (t) async {
     await pumpApp(t, songs: songs);
+    await openLibraryTab(t);
     await t.tap(find.text('Artists'));
     await t.pumpAndSettle();
     final names = ['Neon Harbor', 'The Quiet Coast', 'Unknown Artist'];
@@ -51,6 +52,7 @@ void main() {
     final songs = StreamController<List<Track>>();
     addTearDown(songs.close);
     await pumpApp(t, songsStream: songs.stream);
+    await openLibraryTab(t);
     songs.add([track(1, title: 'x', artist: 'Y', album: 'Z')]);
     await t.pumpAndSettle();
     await t.tap(find.text('Artists'));
@@ -64,6 +66,7 @@ void main() {
 
   testWidgets('tapping an artist opens it with back label Artists', (t) async {
     await pumpApp(t, songs: songs);
+    await openLibraryTab(t);
     await t.tap(find.text('Artists'));
     await t.pumpAndSettle();
     await t.tap(find.text('Neon Harbor'));

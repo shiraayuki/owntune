@@ -23,12 +23,14 @@ Future<void> _play(WidgetTester t, String title) async {
 void main() {
   testWidgets('mini player is hidden while nothing plays', (t) async {
     await pumpApp(t, songs: _abc);
+    await openLibraryTab(t);
     expect(_mini, findsNothing);
   });
 
   testWidgets('shows title, artist and pauses in place', (t) async {
     final engine = FakeAudioEngine();
     await pumpApp(t, songs: _abc, engine: engine);
+    await openLibraryTab(t);
     await _play(t, 'B song');
 
     expect(_inMini(find.text('B song')), findsOneWidget);
@@ -53,6 +55,7 @@ void main() {
         track(1, title: 'First', album: 'Paper Lanterns', trackNumber: 1),
       ],
     );
+    await openLibraryTab(t);
     await t.tap(find.text('Albums'));
     await t.pumpAndSettle();
     await t.tap(find.text('Paper Lanterns'));
@@ -77,6 +80,7 @@ void main() {
       songs: [track(1, title: 'Silent', durationMs: 0)],
       engine: engine,
     );
+    await openLibraryTab(t);
     await _play(t, 'Silent');
     engine.emitPosition(const Duration(seconds: 5));
     await t.pumpAndSettle();
@@ -95,6 +99,7 @@ void main() {
       songs: [track(1, title: 'Long', durationMs: 200000)],
       engine: engine,
     );
+    await openLibraryTab(t);
     await _play(t, 'Long');
     engine.emitPosition(const Duration(seconds: 50));
     await t.pumpAndSettle();
@@ -110,6 +115,7 @@ void main() {
       for (var i = 1; i <= 30; i++) track(i, title: 'Song ${i + 100}'),
     ];
     await pumpApp(t, songs: songs);
+    await openLibraryTab(t);
     await _play(t, 'Song 101');
 
     await t.fling(find.byType(SongList), const Offset(0, -5000), 3000);
@@ -122,6 +128,7 @@ void main() {
 
   testWidgets('the mini player has only the play/pause button', (t) async {
     await pumpApp(t, songs: _abc);
+    await openLibraryTab(t);
     await _play(t, 'A song');
     expect(find.byKey(const Key('mini-play')), findsOneWidget);
     expect(_inMini(find.byType(IconButton)), findsOneWidget);
@@ -131,6 +138,7 @@ void main() {
   testWidgets('swiping left goes to the next song', (t) async {
     final engine = FakeAudioEngine();
     await pumpApp(t, songs: _abc, engine: engine);
+    await openLibraryTab(t);
     await _play(t, 'A song');
 
     await t.drag(_mini, const Offset(-300, 0));
@@ -144,6 +152,7 @@ void main() {
   ) async {
     final engine = FakeAudioEngine();
     await pumpApp(t, songs: _abc, engine: engine);
+    await openLibraryTab(t);
     await _play(t, 'B song');
     engine.emitPosition(const Duration(seconds: 30));
     await t.pump();
@@ -156,6 +165,7 @@ void main() {
   testWidgets('swiping right on the first song restarts it', (t) async {
     final engine = FakeAudioEngine();
     await pumpApp(t, songs: _abc, engine: engine);
+    await openLibraryTab(t);
     await _play(t, 'A song');
 
     await t.drag(_mini, const Offset(300, 0));
@@ -169,6 +179,7 @@ void main() {
   ) async {
     final engine = FakeAudioEngine();
     await pumpApp(t, songs: _abc, engine: engine);
+    await openLibraryTab(t);
     await _play(t, 'C song');
 
     await t.drag(_mini, const Offset(-300, 0));
@@ -179,6 +190,7 @@ void main() {
   testWidgets('a short slow swipe does nothing', (t) async {
     final engine = FakeAudioEngine();
     await pumpApp(t, songs: _abc, engine: engine);
+    await openLibraryTab(t);
     await _play(t, 'A song');
 
     final gesture = await t.startGesture(t.getCenter(_mini));

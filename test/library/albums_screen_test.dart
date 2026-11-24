@@ -26,6 +26,7 @@ void main() {
     t.view.devicePixelRatio = 1;
     addTearDown(t.view.reset);
     await pumpApp(t, songs: songs);
+    await openLibraryTab(t);
     await openAlbumsTab(t);
     final titles = ['Ember', 'Paper Lanterns', 'Velvet Hours'];
     for (final title in titles) {
@@ -47,6 +48,7 @@ void main() {
     final songs = StreamController<List<Track>>();
     addTearDown(songs.close);
     await pumpApp(t, songsStream: songs.stream);
+    await openLibraryTab(t);
     songs.add([track(1, title: 'x', artist: 'Y', album: 'Z')]);
     await t.pumpAndSettle();
     await t.tap(find.text('Albums'));
@@ -63,6 +65,7 @@ void main() {
       t,
       songs: [track(1, title: 'x', artist: 'Lumen Kids')],
     );
+    await openLibraryTab(t);
     await openAlbumsTab(t);
     expect(
       find.text(
@@ -80,6 +83,7 @@ void main() {
     t.view.devicePixelRatio = 1;
     addTearDown(t.view.reset);
     await pumpApp(t, songs: songs);
+    await openLibraryTab(t);
     await openAlbumsTab(t);
     await t.tap(find.text('Ember'));
     await t.pumpAndSettle();

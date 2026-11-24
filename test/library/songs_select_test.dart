@@ -43,6 +43,7 @@ Future<void> _pump(
       if (repo != null) trackRepositoryProvider.overrideWithValue(repo),
     ],
   );
+  await openLibraryTab(t);
 }
 
 Finder _bar(String label) => find.descendant(
@@ -247,6 +248,7 @@ void main() {
       t.view.devicePixelRatio = 1;
       addTearDown(t.view.reset);
       await pumpApp(t, songs: _songs, playlists: playlists);
+      await openLibraryTab(t);
       await _select(t, ['Cold', 'Amber']);
       await t.tap(_bar('Add to Playlist'));
       await t.pumpAndSettle();

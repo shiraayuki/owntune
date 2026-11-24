@@ -58,6 +58,7 @@ void main() {
       editRepo: repo,
       coverPicker: picker,
     );
+    await openLibraryTab(t);
     final context = t.element(find.text('Songs').first);
     openEditInfo(context, tracks).then((r) => results?.add(r));
     await t.pumpAndSettle();
@@ -168,6 +169,7 @@ void main() {
     addTearDown(t.view.reset);
     final engine = FakeAudioEngine();
     await pumpApp(t, songs: [_one, _two], storage: _storage, engine: engine);
+    await openLibraryTab(t);
     await t.tap(find.text('After the Rain'));
     await t.pumpAndSettle();
     expect(engine.loaded, ['hash1.mp3']);

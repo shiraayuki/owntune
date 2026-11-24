@@ -165,6 +165,7 @@ void main() {
         trackRepositoryProvider.overrideWithValue(FakeTrackRepository()),
       ],
     );
+    await openLibraryTab(t);
     await t.longPress(find.text('Amber Lights'));
     await t.pumpAndSettle();
     expect(find.byKey(const Key('menu-remove-from-playlist')), findsNothing);

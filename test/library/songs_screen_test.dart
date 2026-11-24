@@ -31,6 +31,7 @@ void main() {
 
   testWidgets('shows section headers A and B', (t) async {
     await pumpApp(t, songs: songs);
+    await openLibraryTab(t);
     Finder header(String l) => find.byKey(ValueKey('section-$l'));
     expect(header('A'), findsOneWidget);
     expect(header('B'), findsOneWidget);
@@ -51,6 +52,7 @@ void main() {
 
   testWidgets('shows title and artist · album per row', (t) async {
     await pumpApp(t, songs: songs);
+    await openLibraryTab(t);
     expect(find.text('After the Rain'), findsOneWidget);
     expect(find.text('Juno Vale · Paper Lanterns'), findsOneWidget);
     expect(find.text('Kettle & Pine · Northbound'), findsOneWidget);
@@ -58,12 +60,14 @@ void main() {
 
   testWidgets('shows demo_3 with Unknown Artist', (t) async {
     await pumpApp(t, songs: songs);
+    await openLibraryTab(t);
     expect(find.text('demo_3'), findsOneWidget);
     expect(find.text('Unknown Artist'), findsOneWidget);
   });
 
   testWidgets('a song without cover shows the placeholder icon', (t) async {
     await pumpApp(t, songs: [track(1, title: 'Song')]);
+    await openLibraryTab(t);
     expect(find.byIcon(CupertinoIcons.music_note), findsWidgets);
     expect(find.byType(Image), findsNothing);
   });
@@ -80,6 +84,7 @@ void main() {
       songs: [track(1, title: 'Song', cover: 'c0ffee.png')],
       storage: storage,
     );
+    await openLibraryTab(t);
 
     final image = t.widget<Image>(find.byType(Image));
     final provider = image.image as ResizeImage;
@@ -92,6 +97,7 @@ void main() {
 
   testWidgets('empty library shows the empty state', (t) async {
     await pumpApp(t);
+    await openLibraryTab(t);
     expect(find.text('Your library is empty'), findsOneWidget);
     expect(find.text('Import Music'), findsOneWidget);
     expect(find.text('MP3 · M4A/AAC · FLAC · WAV'), findsOneWidget);
@@ -103,6 +109,7 @@ void main() {
     final importer = FakeImporter();
     final picker = FakePicker(['/a/one.mp3', '/a/two.flac']);
     await pumpApp(t, importer: importer, picker: picker);
+    await openLibraryTab(t);
 
     await t.tap(find.text('Import Music'));
     await t.pumpAndSettle();
@@ -118,6 +125,7 @@ void main() {
     final importer = FakeImporter();
     final picker = FakePicker();
     await pumpApp(t, importer: importer, picker: picker);
+    await openLibraryTab(t);
 
     await t.tap(find.text('Import Music'));
     await t.pumpAndSettle();
@@ -129,11 +137,13 @@ void main() {
 
   testWidgets('shows the song count and sort order', (t) async {
     await pumpApp(t, songs: songs);
+    await openLibraryTab(t);
     expect(find.text('4 songs · sorted by title'), findsOneWidget);
   });
 
   testWidgets('a single song is counted in the singular', (t) async {
     await pumpApp(t, songs: [songs.first]);
+    await openLibraryTab(t);
     expect(find.text('1 song · sorted by title'), findsOneWidget);
   });
 
@@ -147,6 +157,7 @@ void main() {
         ),
       ],
     );
+    await openLibraryTab(t);
     expect(find.text('4 songs · sorted by recently added'), findsOneWidget);
     expect(find.byKey(const ValueKey('section-A')), findsNothing);
     expect(find.byType(SectionIndex), findsNothing);
@@ -168,6 +179,7 @@ void main() {
       t.view.devicePixelRatio = 3;
       addTearDown(t.view.reset);
       await pumpApp(t, songs: many);
+      await openLibraryTab(t);
       expect(find.byKey(const ValueKey('section-D')), findsNothing);
 
       await t.tap(strip('D'));
@@ -183,6 +195,7 @@ void main() {
       t,
     ) async {
       await pumpApp(t, songs: many);
+      await openLibraryTab(t);
       await t.tap(strip('#'));
       await t.pumpAndSettle();
       // Nothing after # — the list stays where it is.
@@ -194,6 +207,7 @@ void main() {
       t.view.devicePixelRatio = 2;
       addTearDown(t.view.reset);
       await pumpApp(t, songs: many);
+      await openLibraryTab(t);
       expect(strip('•'), findsWidgets);
       expect(strip('A'), findsOneWidget);
       expect(strip('#'), findsOneWidget);

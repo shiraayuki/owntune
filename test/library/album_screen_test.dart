@@ -51,6 +51,7 @@ Future<void> _open(WidgetTester t, {String album = 'Paper Lanterns'}) async {
 void main() {
   testWidgets('hero, meta line and tracks in order with durations', (t) async {
     await pumpApp(t, songs: _album);
+    await openLibraryTab(t);
     await _open(t);
 
     expect(find.text('Indie Folk · 2021'), findsOneWidget);
@@ -78,6 +79,7 @@ void main() {
         track(2, title: 'b', album: 'Bare'),
       ],
     );
+    await openLibraryTab(t);
     await _open(t, album: 'Yearly');
     expect(find.text('1999'), findsOneWidget);
     await tapBack(t);
@@ -92,6 +94,7 @@ void main() {
       t,
       songs: [_lantern(1, 'One', 1, disc: 1), _lantern(2, 'Two', 1, disc: 2)],
     );
+    await openLibraryTab(t);
     await _open(t);
     expect(find.text('Disc 1'), findsOneWidget);
     expect(find.text('Disc 2'), findsOneWidget);
@@ -103,6 +106,7 @@ void main() {
 
   testWidgets('Play and Shuffle are active', (t) async {
     await pumpApp(t, songs: _album);
+    await openLibraryTab(t);
     await _open(t);
     PillButton button(String label) => t.widget<PillButton>(
       find.ancestor(of: find.text(label), matching: find.byType(PillButton)),
@@ -113,6 +117,7 @@ void main() {
 
   testWidgets('back returns to the albums tab', (t) async {
     await pumpApp(t, songs: _album);
+    await openLibraryTab(t);
     await _open(t);
     await tapBack(t);
     await t.pumpAndSettle();
@@ -124,6 +129,7 @@ void main() {
     addTearDown(tracks.close);
     tracks.add([..._album, track(9, title: 'Other', album: 'Ember')]);
     await pumpApp(t, songsStream: tracks.stream);
+    await openLibraryTab(t);
     await _open(t);
     expect(find.byType(AlbumScreen), findsOneWidget);
 
@@ -141,6 +147,7 @@ void main() {
     addTearDown(tracks.close);
     tracks.add(_album);
     await pumpApp(t, songsStream: tracks.stream);
+    await openLibraryTab(t);
     await _open(t);
     expect(find.text('Late Arrival'), findsNothing);
 
@@ -151,6 +158,7 @@ void main() {
 
   testWidgets('album Edit Info edits all its songs', (t) async {
     await pumpApp(t, songs: _album);
+    await openLibraryTab(t);
     await _open(t);
     await t.tap(find.byKey(const Key('detail-more')));
     await t.pumpAndSettle();
@@ -171,6 +179,7 @@ void main() {
     final library = StreamController<List<Track>>();
     addTearDown(library.close);
     await pumpApp(t, songsStream: library.stream);
+    await openLibraryTab(t);
     library.add(_album);
     await t.pumpAndSettle();
     await _open(t);
@@ -195,6 +204,7 @@ void main() {
         trackRepositoryProvider.overrideWithValue(FakeTrackRepository()),
       ],
     );
+    await openLibraryTab(t);
     await _open(t);
     await t.tap(find.byKey(const Key('song-more-1')));
     await t.pumpAndSettle();
@@ -212,6 +222,7 @@ void main() {
         trackRepositoryProvider.overrideWithValue(FakeTrackRepository()),
       ],
     );
+    await openLibraryTab(t);
     await _open(t);
     await t.longPress(find.text('After the Rain'));
     await t.pumpAndSettle();
