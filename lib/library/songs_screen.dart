@@ -20,6 +20,7 @@ import 'package:owntune/library/section_index.dart';
 import 'package:owntune/library/song_sort.dart';
 import 'package:owntune/library/sort_key.dart';
 import 'package:owntune/player/player_controller.dart';
+import 'package:owntune/playlists/add_to_playlist_sheet.dart';
 
 /// The Songs tab: all tracks in the chosen order with letter sections, or
 /// the empty state.
@@ -95,7 +96,7 @@ class _SongsScreenState extends ConsumerState<SongsScreen> {
                     Expanded(child: _list(songs, sort)),
                   ],
                 ),
-          error: (e, _) => _LoadError(message: e.toString()),
+          error: (e, _) => LoadError(message: e.toString()),
           loading: () => const SizedBox.shrink(),
         );
   }
@@ -405,6 +406,12 @@ class SongRow extends ConsumerWidget {
                       ],
                     ),
                   ),
+                  if (selected == null)
+                    SongMoreButton(
+                      key: Key('song-more-${track.id}'),
+                      onPressed: (at) =>
+                          showSongMenu(context, ref, track, at, scope),
+                    ),
                 ],
               ),
             ),
@@ -416,6 +423,39 @@ class SongRow extends ConsumerWidget {
                 child: Container(height: 0.5, color: c.line),
               ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+/// The trailing "…" of a song row: opens the song menu at the button's
+/// bottom-right corner. [onPressed] gets that corner in global coordinates.
+class SongMoreButton extends StatelessWidget {
+  const SongMoreButton({super.key, required this.onPressed});
+
+  final void Function(Offset globalPosition) onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = Theme.of(context).extension<OwntuneColors>()!;
+    return Semantics(
+      container: true,
+      button: true,
+      label: 'More',
+      excludeSemantics: true,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: () {
+          final box = context.findRenderObject()! as RenderBox;
+          onPressed(box.localToGlobal(box.size.bottomRight(Offset.zero)));
+        },
+        child: SizedBox(
+          width: 44,
+          height: 44,
+          child: Center(
+            child: Icon(CupertinoIcons.ellipsis, size: 20, color: c.muted),
+          ),
         ),
       ),
     );
@@ -452,7 +492,16 @@ Color _red(BuildContext context) =>
     ? const Color(0xffff453a)
     : const Color(0xffff3b30);
 
-enum _SongAction { playNext, playLater, album, artist, edit, delete }
+enum _SongAction {
+  playNext,
+  playLater,
+  addToPlaylist,
+  album,
+  artist,
+  edit,
+  removeFromPlaylist,
+  delete,
+}
 
 /// Where a song row is shown, for its context menu: the back label of
 /// screens it opens, and the album/artist screen it is already on (whose
@@ -463,6 +512,7 @@ class SongMenuScope {
     this.currentAlbum,
     this.currentArtist,
     this.inPlayer = false,
+    this.playlistEntry,
   });
 
   final String backLabel;
@@ -472,6 +522,9 @@ class SongMenuScope {
   /// Opened from the player: no Play Next/Later, and "Go to" closes the
   /// player before it opens the screen.
   final bool inPlayer;
+
+  /// The playlist entry this row shows: adds "Remove from Playlist".
+  final ({int playlistId, int entryId})? playlistEntry;
 }
 
 /// The long-press context menu of a song row, opened at [position].
@@ -488,6 +541,7 @@ Future<void> showSongMenu(
 ) async {
   final repo = ref.read(trackRepositoryProvider);
   final player = ref.read(playerProvider.notifier);
+  final playlists = ref.read(playlistRepositoryProvider);
   final navigator = Navigator.of(context);
   final dark = Theme.of(context).brightness == Brightness.dark;
   final fg = dark ? const Color(0xffffffff) : const Color(0xff000000);
@@ -554,8 +608,15 @@ Future<void> showSongMenu(
           fg,
           key: const Key('menu-play-later'),
         ),
-        menuGap(context),
       ],
+      item(
+        _SongAction.addToPlaylist,
+        'Add to Playlist…',
+        CupertinoIcons.text_badge_plus,
+        fg,
+        key: const Key('menu-add-to-playlist'),
+      ),
+      menuGap(context),
       if (showAlbum)
         item(_SongAction.album, 'Go to Album', CupertinoIcons.square_stack, fg),
       if (showArtist)
@@ -569,6 +630,14 @@ Future<void> showSongMenu(
         key: const Key('menu-edit'),
       ),
       menuGap(context),
+      if (scope.playlistEntry != null)
+        item(
+          _SongAction.removeFromPlaylist,
+          'Remove from Playlist',
+          CupertinoIcons.minus_circle,
+          fg,
+          key: const Key('menu-remove-from-playlist'),
+        ),
       item(
         _SongAction.delete,
         'Delete from Library',
@@ -587,6 +656,8 @@ Future<void> showSongMenu(
       await player.playNext(track);
     case _SongAction.playLater:
       await player.playLater(track);
+    case _SongAction.addToPlaylist:
+      await showAddToPlaylist(navigator.context, [track]);
     case _SongAction.album:
       await openAlbum(navigator.context, albumKey!, backLabel: scope.backLabel);
     case _SongAction.artist:
@@ -597,6 +668,25 @@ Future<void> showSongMenu(
       );
     case _SongAction.edit:
       await openEditInfo(navigator.context, [track]);
+    case _SongAction.removeFromPlaylist:
+      try {
+        await playlists.removeEntry(scope.playlistEntry!.entryId);
+      } catch (e) {
+        if (!navigator.mounted) return;
+        await showAdaptiveDialog<void>(
+          context: navigator.context,
+          builder: (context) => AlertDialog.adaptive(
+            title: const Text('Could not remove the song'),
+            content: SelectableText('$e'),
+            actions: [
+              DialogAction(
+                label: 'OK',
+                onPressed: () => Navigator.pop(context),
+              ),
+            ],
+          ),
+        );
+      }
     case _SongAction.delete:
       await confirmDeleteSong(navigator.context, repo, track);
     case null:
@@ -833,9 +923,15 @@ class _Disc extends StatelessWidget {
   }
 }
 
-class _LoadError extends StatelessWidget {
-  const _LoadError({required this.message});
+/// A failed database load, shown as selectable text (no logs on the iPhone).
+class LoadError extends StatelessWidget {
+  const LoadError({
+    super.key,
+    required this.message,
+    this.title = 'Could not load your library',
+  });
 
+  final String title;
   final String message;
 
   @override
@@ -848,7 +944,7 @@ class _LoadError extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
-              'Could not load your library',
+              title,
               style: TextStyle(
                 fontSize: 17,
                 fontWeight: FontWeight.w600,

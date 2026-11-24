@@ -8,11 +8,12 @@ import 'package:owntune/app/theme.dart';
 import 'package:owntune/data/db/database.dart';
 import 'package:owntune/edit/edit_info_screen.dart';
 import 'package:owntune/library/songs_screen.dart';
+import 'package:owntune/playlists/add_to_playlist_sheet.dart';
 
 /// The bar at the bottom of the shell while songs are selected (`.selbar`);
 /// replaces the mini player and the tab bar. Edit Info and Delete act on
-/// every selected song, also those the search currently hides. Add to
-/// Playlist stays disabled until playlists exist (M4).
+/// every selected song, also those the search currently hides; so does Add to
+/// Playlist (the selection stays when its sheet is cancelled).
 class SelectionBar extends ConsumerWidget {
   const SelectionBar({super.key});
 
@@ -35,6 +36,13 @@ class SelectionBar extends ConsumerWidget {
       if (tracks.isEmpty) return;
       final saved = await openEditInfo(context, tracks);
       if (saved) ref.read(songSelectionProvider.notifier).end();
+    }
+
+    Future<void> addToPlaylist() async {
+      final tracks = selected();
+      if (tracks.isEmpty) return;
+      final added = await showAddToPlaylist(context, tracks);
+      if (added) ref.read(songSelectionProvider.notifier).end();
     }
 
     Future<void> delete() async {
@@ -75,10 +83,11 @@ class SelectionBar extends ConsumerWidget {
                   color: c.accent,
                   onTap: any ? editInfo : null,
                 ),
-                const _Action(
+                _Action(
                   icon: CupertinoIcons.text_badge_plus,
                   label: 'Add to Playlist',
-                  onTap: null,
+                  color: c.accent,
+                  onTap: any ? addToPlaylist : null,
                 ),
                 _Action(
                   icon: CupertinoIcons.trash,

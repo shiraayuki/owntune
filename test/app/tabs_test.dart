@@ -83,17 +83,15 @@ void main() {
     expect(find.text('Your library is empty'), findsOneWidget);
   });
 
-  testWidgets('Playlists shows its empty state without a search field', (
-    t,
-  ) async {
+  testWidgets('Playlists offers New Playlist and a hint when empty', (t) async {
     await pumpApp(t, songs: _songs);
     await _tab(t, 'Playlists');
-    expect(find.text('No playlists yet'), findsOneWidget);
+    expect(find.text('New Playlist'), findsOneWidget);
     expect(
-      find.text('Creating playlists arrives in a later version.'),
+      find.text('Create a playlist, or add songs with Add to Playlist.'),
       findsOneWidget,
     );
-    expect(find.byType(TextField), findsNothing);
+    expect(find.widgetWithText(TextField, 'Search Playlists'), findsOneWidget);
   });
 
   testWidgets('the Search tab searches everything, tab bar visible', (t) async {
@@ -135,20 +133,18 @@ void main() {
     expect(find.text('No results for "zzz"'), findsOneWidget);
   });
 
-  testWidgets('+ menu: New Playlist is disabled', (t) async {
+  testWidgets('+ menu: New Playlist is enabled, Import Music picks', (t) async {
     final picker = FakePicker();
     await pumpApp(t, songs: _songs, picker: picker);
     await t.tap(find.byKey(const Key('import-button')));
     await t.pumpAndSettle();
-    for (final label in ['New Playlist']) {
-      final item = t.widget<PopupMenuItem<Object>>(
-        find.ancestor(
-          of: find.text(label),
-          matching: find.byType(PopupMenuItem<Object>),
-        ),
-      );
-      expect(item.enabled, isFalse, reason: label);
-    }
+    final item = t.widget<PopupMenuItem<Object>>(
+      find.ancestor(
+        of: find.text('New Playlist'),
+        matching: find.byType(PopupMenuItem<Object>),
+      ),
+    );
+    expect(item.enabled, isTrue);
     await t.tap(find.byKey(const Key('menu-import')));
     await t.pumpAndSettle();
     expect(picker.picks, 1);

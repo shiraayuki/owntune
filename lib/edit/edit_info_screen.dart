@@ -1,5 +1,3 @@
-import 'dart:isolate';
-
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
@@ -7,8 +5,7 @@ import 'package:owntune/app/providers.dart';
 import 'package:owntune/app/theme.dart';
 import 'package:owntune/data/db/database.dart';
 import 'package:owntune/edit/cover_block.dart';
-import 'package:owntune/edit/cover_crop_screen.dart';
-import 'package:owntune/edit/cover_image.dart';
+import 'package:owntune/edit/cover_flow.dart';
 import 'package:owntune/edit/tag_saver.dart';
 import 'package:owntune/edit/track_tags.dart';
 import 'package:owntune/library/songs_screen.dart' show DialogAction;
@@ -50,14 +47,6 @@ const _labels = {
   TagField.track: 'Track',
   TagField.disc: 'Disc',
 };
-
-// Top-level so the isolate closures capture only their arguments (a closure
-// inside the State would try to send the whole widget tree).
-Future<UprightCover?> _uprightInIsolate(Uint8List bytes) =>
-    Isolate.run(() => uprightCover(bytes));
-
-Future<Uint8List> _cropInIsolate(Uint8List bytes, Rect rect) =>
-    Isolate.run(() => cropCover(bytes, rect));
 
 const _maxDigits = {TagField.track: 3, TagField.disc: 3, TagField.year: 4};
 
@@ -135,59 +124,20 @@ class _EditInfoScreenState extends ConsumerState<EditInfoScreen> {
       });
       return;
     }
-    final picker = ref.read(coverPickerProvider);
-    final Uint8List? bytes;
-    try {
-      bytes = action == CoverAction.photos
-          ? await picker.pickPhoto()
-          : await picker.pickFile();
-    } on Object catch (e) {
-      if (mounted) await _showCoverError('$e');
-      return;
-    }
-    if (bytes == null || !mounted) return;
-    final Uint8List source = bytes;
-    final upright = await _process(() => _uprightInIsolate(source));
-    if (!mounted || upright == null) return;
-    final image = upright.value;
-    if (image == null) {
-      await _showCoverError("This image can't be read. Choose a JPEG or PNG.");
-      return;
-    }
-    final rect = await openCoverCrop(context, image);
-    if (rect == null || !mounted) return;
-    final data = await _process(() => _cropInIsolate(image.bytes, rect));
-    if (!mounted || data == null) return;
+    final data = await pickAndCropCover(
+      context,
+      ref.read(coverPickerProvider),
+      action,
+      onBusy: (busy) {
+        if (mounted) setState(() => _processing = busy);
+      },
+    );
+    if (data == null || !mounted) return;
     setState(() {
-      _cover = CoverSet(data.value, 'image/jpeg');
-      _preview = data.value;
+      _cover = CoverSet(data, 'image/jpeg');
+      _preview = data;
     });
   }
-
-  /// Runs [work] with the spinner on; any error is shown in a dialog (no
-  /// logs on the iPhone) and gives null.
-  Future<({T value})?> _process<T>(Future<T> Function() work) async {
-    setState(() => _processing = true);
-    try {
-      return (value: await work());
-    } on Object catch (e) {
-      if (mounted) await _showCoverError('$e');
-      return null;
-    } finally {
-      if (mounted) setState(() => _processing = false);
-    }
-  }
-
-  Future<void> _showCoverError(String message) => showAdaptiveDialog<void>(
-    context: context,
-    builder: (context) => AlertDialog.adaptive(
-      title: const Text("Couldn't use this image"),
-      content: SelectableText(message),
-      actions: [
-        DialogAction(label: 'OK', onPressed: () => Navigator.pop(context)),
-      ],
-    ),
-  );
 
   Future<void> _save() async {
     setState(() => _saving = true);

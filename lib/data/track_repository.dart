@@ -8,6 +8,22 @@ import 'package:owntune/edit/track_tags.dart';
 import 'db/database.dart';
 import 'library_storage.dart';
 
+/// Whether any track or playlist uses [name] as its cover file.
+Future<bool> isCoverInUse(AppDatabase db, String name) async {
+  final track =
+      await (db.select(db.tracks)
+            ..where((t) => t.coverFile.equals(name))
+            ..limit(1))
+          .getSingleOrNull();
+  if (track != null) return true;
+  final playlist =
+      await (db.select(db.playlists)
+            ..where((p) => p.coverFile.equals(name))
+            ..limit(1))
+          .getSingleOrNull();
+  return playlist != null;
+}
+
 /// Persistence for imported tracks: database rows plus the files they own.
 class TrackRepository {
   TrackRepository(this._db, this._storage);
@@ -64,12 +80,40 @@ class TrackRepository {
     )..where((t) => t.id.equals(id))).getSingleOrNull();
     if (track == null) return;
 
-    await (_db.delete(_db.tracks)..where((t) => t.id.equals(id))).go();
+    await _db.transaction(() async {
+      await (_db.delete(_db.tracks)..where((t) => t.id.equals(id))).go();
+      await _removeFromPlaylists(id);
+    });
     await _deleteIfExists(_storage.audioFile(track.fileName));
 
     final cover = track.coverFile;
     if (cover != null && !await isCoverReferenced(cover)) {
       await _deleteIfExists(_storage.coverFile(cover));
+    }
+  }
+
+  /// Deletes the entries of [trackId] and renumbers the playlists they were in
+  /// densely from 0.
+  Future<void> _removeFromPlaylists(int trackId) async {
+    final removed = await (_db.select(
+      _db.playlistEntries,
+    )..where((e) => e.trackId.equals(trackId))).get();
+    if (removed.isEmpty) return;
+    await (_db.delete(
+      _db.playlistEntries,
+    )..where((e) => e.trackId.equals(trackId))).go();
+    for (final playlistId in {for (final e in removed) e.playlistId}) {
+      final rest =
+          await (_db.select(_db.playlistEntries)
+                ..where((e) => e.playlistId.equals(playlistId))
+                ..orderBy([(e) => OrderingTerm.asc(e.position)]))
+              .get();
+      for (var i = 0; i < rest.length; i++) {
+        if (rest[i].position == i) continue;
+        await (_db.update(_db.playlistEntries)
+              ..where((e) => e.id.equals(rest[i].id)))
+            .write(PlaylistEntriesCompanion(position: Value(i)));
+      }
     }
   }
 
@@ -110,10 +154,13 @@ class TrackRepository {
   /// errors still propagate.
   Future<void> cleanupOrphans() async {
     final tracks = await _db.select(_db.tracks).get();
+    final playlists = await _db.select(_db.playlists).get();
     final audioNames = {for (final t in tracks) t.fileName};
     final coverNames = {
       for (final t in tracks)
         if (t.coverFile != null) t.coverFile!,
+      for (final p in playlists)
+        if (p.coverFile != null) p.coverFile!,
     };
 
     await _deleteUnreferenced(_storage.audioDir, audioNames);
@@ -141,15 +188,8 @@ class TrackRepository {
     }
   }
 
-  /// Whether any row uses [cover] as its cover file name.
-  Future<bool> isCoverReferenced(String cover) async {
-    final row =
-        await (_db.select(_db.tracks)
-              ..where((t) => t.coverFile.equals(cover))
-              ..limit(1))
-            .getSingleOrNull();
-    return row != null;
-  }
+  /// Whether any track or playlist uses [cover] as its cover file name.
+  Future<bool> isCoverReferenced(String cover) => isCoverInUse(_db, cover);
 
   Future<void> _deleteIfExists(File file) async {
     try {

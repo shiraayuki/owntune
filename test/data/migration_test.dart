@@ -22,6 +22,14 @@ const _v1Schema = [
   'PRAGMA user_version = 1',
 ];
 
+/// The v1 schema plus what v0.6.0 added (schema version 2).
+final _v2Schema = [
+  ..._v1Schema.where((sql) => !sql.startsWith('PRAGMA')),
+  'ALTER TABLE "tracks" ADD COLUMN "source_key" TEXT NULL',
+  'CREATE UNIQUE INDEX "tracks_source_key" ON "tracks" ("source_key")',
+  'PRAGMA user_version = 2',
+];
+
 TracksCompanion _row(String hash, String? sourceKey) => TracksCompanion.insert(
   fileName: '$hash.m4a',
   originalName: '$hash.m4a',
@@ -54,5 +62,40 @@ void main() {
       db.into(db.tracks).insert(_row('h4', 'youtube:abc')),
       throwsA(isA<Exception>()),
     );
+  });
+
+  test('v2 database gains playlist tables and keeps its rows', () async {
+    final db = AppDatabase(
+      NativeDatabase.memory(
+        setup: (raw) {
+          for (final sql in _v2Schema) {
+            raw.execute(sql);
+          }
+        },
+      ),
+    );
+    addTearDown(db.close);
+
+    final track = (await db.select(db.tracks).get()).single;
+    expect(track.title, 'Old Song');
+
+    final playlistId = await db
+        .into(db.playlists)
+        .insert(
+          PlaylistsCompanion.insert(name: 'Mix', createdAt: DateTime(2026, 11)),
+        );
+    await db
+        .into(db.playlistEntries)
+        .insert(
+          PlaylistEntriesCompanion.insert(
+            playlistId: playlistId,
+            trackId: track.id,
+            position: 0,
+          ),
+        );
+
+    final entry = (await db.select(db.playlistEntries).get()).single;
+    expect(entry.trackId, track.id);
+    expect((await db.select(db.playlists).get()).single.name, 'Mix');
   });
 }

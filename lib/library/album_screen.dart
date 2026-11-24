@@ -15,6 +15,7 @@ import 'package:owntune/library/songs_screen.dart';
 import 'package:owntune/library/sort_key.dart';
 import 'package:owntune/player/mini_player.dart';
 import 'package:owntune/player/player_controller.dart';
+import 'package:owntune/playlists/add_to_playlist_sheet.dart';
 
 /// Album detail (mockup 07): cover, title, artist, meta, Play/Shuffle and
 /// the tracks by disc and number.
@@ -70,10 +71,26 @@ class _AlbumScreenState extends ConsumerState<AlbumScreen> {
           NavRow(
             backLabel: widget.backLabel,
             trailing: DetailMoreButton(
-              onEdit: () {
-                final album = ref.read(libraryProvider).value?.album(_key);
-                if (album != null) openEditInfo(context, album.tracks);
-              },
+              items: [
+                DetailMenuItem(
+                  key: const Key('menu-edit'),
+                  label: 'Edit Info',
+                  icon: CupertinoIcons.pencil,
+                  onTap: () {
+                    final album = ref.read(libraryProvider).value?.album(_key);
+                    if (album != null) openEditInfo(context, album.tracks);
+                  },
+                ),
+                DetailMenuItem(
+                  key: const Key('menu-add-to-playlist'),
+                  label: 'Add to Playlist…',
+                  icon: CupertinoIcons.text_badge_plus,
+                  onTap: () {
+                    final album = ref.read(libraryProvider).value?.album(_key);
+                    if (album != null) showAddToPlaylist(context, album.tracks);
+                  },
+                ),
+              ],
             ),
           ),
           Expanded(
@@ -300,7 +317,8 @@ class AlbumTrackRow extends ConsumerWidget {
       child: Stack(
         children: [
           Padding(
-            padding: const EdgeInsets.symmetric(vertical: 6),
+            // 2 + the 44pt button + 2 = the 48pt minimum row height.
+            padding: const EdgeInsets.symmetric(vertical: 2),
             child: Row(
               children: [
                 SizedBox(
@@ -348,6 +366,11 @@ class AlbumTrackRow extends ConsumerWidget {
                 ),
                 const SizedBox(width: 14),
                 Text(formatDuration(track.durationMs), style: muted),
+                SongMoreButton(
+                  key: Key('song-more-${track.id}'),
+                  onPressed: (at) =>
+                      showSongMenu(context, ref, track, at, scope),
+                ),
               ],
             ),
           ),

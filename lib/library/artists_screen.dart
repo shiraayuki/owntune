@@ -100,6 +100,7 @@ class LinkRow extends StatelessWidget {
     required this.subtitle,
     required this.onTap,
     this.divider = true,
+    this.dividerInset = 60,
   });
 
   final Widget leading;
@@ -107,6 +108,9 @@ class LinkRow extends StatelessWidget {
   final String subtitle;
   final VoidCallback onTap;
   final bool divider;
+
+  /// Left edge of the hairline: past the leading widget.
+  final double dividerInset;
 
   @override
   Widget build(BuildContext context) {
@@ -155,7 +159,7 @@ class LinkRow extends StatelessWidget {
             ),
             if (divider)
               Positioned(
-                left: 60,
+                left: dividerInset,
                 right: 0,
                 bottom: 0,
                 child: Container(height: 0.5, color: c.line),

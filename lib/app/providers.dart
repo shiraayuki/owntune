@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:owntune/data/db/database.dart';
 import 'package:owntune/data/library_storage.dart';
+import 'package:owntune/data/playlist_repository.dart';
 import 'package:owntune/data/sources/http_transport.dart';
 import 'package:owntune/data/sources/online_source.dart';
 import 'package:owntune/data/sources/youtube/youtube_sources.dart';
@@ -20,6 +21,7 @@ import 'package:owntune/library/library.dart';
 import 'package:owntune/library/song_sort.dart';
 import 'package:owntune/player/audio_engine.dart';
 import 'package:owntune/player/player_snapshot.dart';
+import 'package:owntune/playlists/playlist_view.dart';
 import 'package:owntune/settings/settings.dart';
 import 'package:owntune/src/rust/api/library.dart';
 import 'package:owntune/src/rust/api/metadata.dart';
@@ -57,6 +59,41 @@ final librarySourceKeysProvider = Provider<Set<String>>(
 final libraryProvider = Provider<AsyncValue<Library>>(
   (ref) => ref.watch(tracksProvider).whenData(Library.from),
 );
+
+final playlistRepositoryProvider = Provider<PlaylistRepository>(
+  (ref) => PlaylistRepository(
+    ref.watch(databaseProvider),
+    ref.watch(storageProvider),
+    hash: (data) => hashBytes(data: data),
+  ),
+);
+
+final _playlistRowsProvider = StreamProvider<List<Playlist>>(
+  (ref) => ref.watch(playlistRepositoryProvider).watchPlaylists(),
+);
+
+final _playlistEntryRowsProvider = StreamProvider<List<PlaylistEntry>>(
+  (ref) => ref.watch(playlistRepositoryProvider).watchEntries(),
+);
+
+/// The playlists with their songs, newest first; entries of songs deleted
+/// from the library are left out.
+final playlistsProvider = Provider<AsyncValue<List<PlaylistView>>>((ref) {
+  final playlists = ref.watch(_playlistRowsProvider);
+  final entries = ref.watch(_playlistEntryRowsProvider);
+  final tracks = ref.watch(tracksProvider);
+  for (final source in [playlists, entries, tracks]) {
+    if (source.hasError) {
+      return AsyncError(source.error!, source.stackTrace ?? StackTrace.empty);
+    }
+  }
+  if (!playlists.hasValue || !entries.hasValue || !tracks.hasValue) {
+    return const AsyncLoading();
+  }
+  return AsyncData(
+    resolvePlaylists(playlists.value!, entries.value!, tracks.value!),
+  );
+});
 
 /// The library's songs in the order chosen in the settings.
 final sortedSongsProvider = Provider<AsyncValue<List<Track>>>((ref) {

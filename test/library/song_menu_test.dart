@@ -51,6 +51,24 @@ void main() {
     expect(backLabel('Library'), findsOneWidget);
   });
 
+  testWidgets('the song menu has Add to Playlist right after Play Later', (
+    t,
+  ) async {
+    await pumpApp(
+      t,
+      songs: songs,
+      overrides: [
+        trackRepositoryProvider.overrideWithValue(FakeTrackRepository()),
+      ],
+    );
+    await longPress(t, 'Amber Lights');
+    final later = t.getTopLeft(find.byKey(const Key('menu-play-later'))).dy;
+    final add = t.getTopLeft(find.byKey(const Key('menu-add-to-playlist'))).dy;
+    expect(add, greaterThan(later));
+    expect(add - later, lessThan(60));
+    expect(find.text('Add to Playlist…'), findsOneWidget);
+  });
+
   testWidgets('Go to Album is missing for a track without album', (t) async {
     await pumpApp(
       t,
@@ -212,5 +230,56 @@ void main() {
           .text,
       'Amber Lights',
     );
+  });
+
+  testWidgets('tapping the "…" on a Songs row opens the song menu', (t) async {
+    await pumpApp(
+      t,
+      songs: songs,
+      overrides: [
+        trackRepositoryProvider.overrideWithValue(FakeTrackRepository()),
+      ],
+    );
+    expect(find.byKey(const Key('song-more-1')), findsOneWidget);
+    final semantics = t.ensureSemantics();
+    await t.pump();
+    expect(find.bySemanticsLabel('More'), findsWidgets);
+    semantics.dispose();
+    await t.tap(find.byKey(const Key('song-more-1')));
+    await t.pumpAndSettle();
+    expect(find.byKey(const Key('menu-play-next')), findsOneWidget);
+    expect(find.text('Go to Album'), findsOneWidget);
+    // The menu opens at the button, not at the row's left edge.
+    final button = t.getBottomRight(find.byKey(const Key('song-more-1')));
+    final menu = t.getTopLeft(find.byKey(const Key('menu-play-next')));
+    expect((menu.dx - button.dx).abs(), lessThan(300));
+    expect(menu.dx, greaterThan(300));
+  });
+
+  testWidgets('the "…" does not start playback', (t) async {
+    final engine = FakeAudioEngine();
+    await pumpApp(
+      t,
+      songs: songs,
+      engine: engine,
+      overrides: [
+        trackRepositoryProvider.overrideWithValue(FakeTrackRepository()),
+      ],
+    );
+    await t.tap(find.byKey(const Key('song-more-1')));
+    await t.pumpAndSettle();
+    expect(engine.loaded, isEmpty);
+  });
+
+  testWidgets('long-press on a row still opens the menu', (t) async {
+    await pumpApp(
+      t,
+      songs: songs,
+      overrides: [
+        trackRepositoryProvider.overrideWithValue(FakeTrackRepository()),
+      ],
+    );
+    await longPress(t, 'Amber Lights');
+    expect(find.byKey(const Key('menu-play-next')), findsOneWidget);
   });
 }

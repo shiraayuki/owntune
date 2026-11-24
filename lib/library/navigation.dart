@@ -93,16 +93,36 @@ class NavRow extends StatelessWidget {
   );
 }
 
-/// The "…" button of a detail page's top row: a menu with "Edit Info".
-class DetailMoreButton extends StatelessWidget {
-  const DetailMoreButton({super.key, required this.onEdit});
+/// One entry of a detail page's "…" menu.
+class DetailMenuItem {
+  const DetailMenuItem({
+    required this.label,
+    required this.icon,
+    required this.onTap,
+    this.key,
+    this.destructive = false,
+  });
 
-  final VoidCallback onEdit;
+  final String label;
+  final IconData icon;
+  final VoidCallback onTap;
+  final Key? key;
+
+  /// Shown in red.
+  final bool destructive;
+}
+
+/// The "…" button of a detail page's top row: a menu with [items].
+class DetailMoreButton extends StatelessWidget {
+  const DetailMoreButton({super.key, required this.items});
+
+  final List<DetailMenuItem> items;
 
   @override
   Widget build(BuildContext context) {
     final c = Theme.of(context).extension<OwntuneColors>()!;
     final dark = Theme.of(context).brightness == Brightness.dark;
+    final red = dark ? const Color(0xffff453a) : const Color(0xffff3b30);
     return IconButton(
       key: const Key('detail-more'),
       tooltip: 'More',
@@ -116,7 +136,7 @@ class DetailMoreButton extends StatelessWidget {
           box.size.bottomRight(Offset.zero),
           ancestor: overlay,
         );
-        final picked = await showMenu<String>(
+        final picked = await showMenu<DetailMenuItem>(
           context: context,
           position: RelativeRect.fromRect(
             at & Size.zero,
@@ -131,24 +151,32 @@ class DetailMoreButton extends StatelessWidget {
           ),
           constraints: const BoxConstraints.tightFor(width: 250),
           items: [
-            PopupMenuItem(
-              key: const Key('menu-edit'),
-              value: 'edit',
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      'Edit Info',
-                      style: TextStyle(fontSize: 17, color: c.text),
+            for (final item in items)
+              PopupMenuItem(
+                key: item.key,
+                value: item,
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        item.label,
+                        style: TextStyle(
+                          fontSize: 17,
+                          color: item.destructive ? red : c.text,
+                        ),
+                      ),
                     ),
-                  ),
-                  Icon(CupertinoIcons.pencil, size: 20, color: c.text),
-                ],
+                    Icon(
+                      item.icon,
+                      size: 20,
+                      color: item.destructive ? red : c.text,
+                    ),
+                  ],
+                ),
               ),
-            ),
           ],
         );
-        if (picked == 'edit') onEdit();
+        picked?.onTap();
       },
     );
   }

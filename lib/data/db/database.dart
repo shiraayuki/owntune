@@ -43,7 +43,26 @@ class SettingsEntries extends Table {
   Set<Column<Object>> get primaryKey => {key};
 }
 
-@DriftDatabase(tables: [Tracks, SettingsEntries])
+/// User playlists. [coverFile] is a file name in `covers/`, like for tracks.
+class Playlists extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  TextColumn get name => text()();
+  TextColumn get coverFile => text().nullable()();
+  DateTimeColumn get createdAt => dateTime()();
+}
+
+/// One song at one position of a playlist; the same song may appear twice.
+/// Foreign keys are declared but not enforced (`PRAGMA foreign_keys` stays
+/// off), so the repositories delete entries explicitly.
+@TableIndex(name: 'playlist_entries_order', columns: {#playlistId, #position})
+class PlaylistEntries extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  IntColumn get playlistId => integer().references(Playlists, #id)();
+  IntColumn get trackId => integer().references(Tracks, #id)();
+  IntColumn get position => integer()();
+}
+
+@DriftDatabase(tables: [Tracks, SettingsEntries, Playlists, PlaylistEntries])
 class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
@@ -61,7 +80,7 @@ class AppDatabase extends _$AppDatabase {
   );
 
   @override
-  int get schemaVersion => 2;
+  int get schemaVersion => 3;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -69,6 +88,11 @@ class AppDatabase extends _$AppDatabase {
       if (from < 2) {
         await m.addColumn(tracks, tracks.sourceKey);
         await m.createIndex(tracksSourceKey);
+      }
+      if (from < 3) {
+        await m.createTable(playlists);
+        await m.createTable(playlistEntries);
+        await m.createIndex(playlistEntriesOrder);
       }
     },
   );

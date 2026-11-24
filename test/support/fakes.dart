@@ -4,6 +4,8 @@ import 'dart:typed_data';
 
 import 'package:cupertino_ui/cupertino_ui.dart' show CupertinoIcons;
 
+import 'package:drift/drift.dart' show DatabaseConnection;
+import 'package:drift/native.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:flutter_test/flutter_test.dart';
@@ -11,6 +13,7 @@ import 'package:owntune/app/app_shell.dart';
 import 'package:owntune/app/providers.dart';
 import 'package:owntune/data/db/database.dart';
 import 'package:owntune/data/library_storage.dart';
+import 'package:owntune/data/playlist_repository.dart';
 import 'package:owntune/data/track_repository.dart';
 import 'package:owntune/edit/cover_picker.dart';
 import 'package:owntune/edit/tag_saver.dart';
@@ -371,13 +374,31 @@ Future<void> pumpApp(
   Map<OnlineSourceId, OnlineSource>? onlineSources,
   FakeDownloadController? downloads,
   FakeCoverPicker? coverPicker,
+  PlaylistRepository? playlists,
   List<Override> overrides = const [],
 }) async {
   final libraryStorage =
       storage ?? LibraryStorage(Directory('/nonexistent/owntune'));
+  var playlistRepo = playlists;
+  if (playlistRepo == null) {
+    // Streams close synchronously so cancelled queries leave no timer.
+    final db = AppDatabase(
+      DatabaseConnection(
+        NativeDatabase.memory(),
+        closeStreamsSynchronously: true,
+      ),
+    );
+    addTearDown(db.close);
+    playlistRepo = PlaylistRepository(
+      db,
+      libraryStorage,
+      hash: (_) => 'playlistcover',
+    );
+  }
   await t.pumpWidget(
     ProviderScope(
       overrides: [
+        playlistRepositoryProvider.overrideWithValue(playlistRepo),
         tracksProvider.overrideWith(
           (ref) => songsStream ?? Stream.value(songs),
         ),

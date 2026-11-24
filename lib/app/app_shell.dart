@@ -14,12 +14,13 @@ import 'package:owntune/import/import_sheets.dart';
 import 'package:owntune/home/home_screen.dart';
 import 'package:owntune/library/library_tab.dart';
 import 'package:owntune/library/selection_bar.dart';
-import 'package:owntune/library/playlists_screen.dart';
 import 'package:owntune/library/search_screen.dart';
 import 'package:owntune/library/song_sort.dart';
 import 'package:owntune/player/mini_player.dart';
 import 'package:owntune/player/player_controller.dart';
 import 'package:owntune/player/system_controls.dart';
+import 'package:owntune/playlists/new_playlist_sheet.dart';
+import 'package:owntune/playlists/playlists_tab.dart';
 import 'package:owntune/settings/settings.dart';
 import 'package:owntune/settings/settings_sheet.dart';
 
@@ -260,7 +261,7 @@ class _AppShellState extends ConsumerState<AppShell> {
                           setState(() => _section = s);
                         },
                       ),
-                      const PlaylistsScreen(),
+                      const PlaylistsTab(),
                     ],
                   ),
                 ),
@@ -353,6 +354,7 @@ class _TitleRow extends StatelessWidget {
                 onImport: onImport,
                 onSearchOnline: () =>
                     openSearchOnline(context, backLabel: title),
+                onNewPlaylist: () => showNewPlaylistSheet(context),
               ),
             ],
           ],
@@ -454,16 +456,18 @@ Color _menuColor(BuildContext context) =>
 
 enum _AddItem { playlist, import, online }
 
-/// The "+" pull-down menu: New Playlist is a placeholder for M4; Import
-/// Music is disabled while an import runs.
+/// The "+" pull-down menu: New Playlist, Import Music (disabled while an
+/// import runs) and Search Online.
 class _AddMenu extends StatelessWidget {
   const _AddMenu({
     super.key,
     required this.onImport,
     required this.onSearchOnline,
+    required this.onNewPlaylist,
   });
 
   final VoidCallback? onImport;
+  final VoidCallback onNewPlaylist;
   final VoidCallback onSearchOnline;
 
   @override
@@ -480,6 +484,7 @@ class _AddMenu extends StatelessWidget {
         constraints: const BoxConstraints.tightFor(width: 250),
         menuPadding: EdgeInsets.zero,
         onSelected: (value) {
+          if (value == _AddItem.playlist) onNewPlaylist();
           if (value == _AddItem.import) onImport?.call();
           if (value == _AddItem.online) onSearchOnline();
         },
@@ -488,8 +493,8 @@ class _AddMenu extends StatelessWidget {
             context,
             _AddItem.playlist,
             'New Playlist',
+            key: const Key('menu-new-playlist'),
             icon: CupertinoIcons.music_note_list,
-            enabled: false,
           ),
           _menuItem(
             context,

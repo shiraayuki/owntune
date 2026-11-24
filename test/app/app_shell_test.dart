@@ -14,7 +14,7 @@ void main() {
   testWidgets('shows Library › Songs with the title row first', (t) async {
     await pumpApp(t, songs: [track(1, title: 'a')]);
     expect(find.text('Library'), findsWidgets);
-    expect(find.byIcon(CupertinoIcons.ellipsis), findsOneWidget);
+    expect(find.byTooltip('More'), findsOneWidget);
     expect(find.byIcon(CupertinoIcons.plus), findsWidgets);
     for (final l in ['Songs', 'Albums', 'Artists']) {
       expect(find.text(l), findsOneWidget, reason: l);
@@ -66,7 +66,7 @@ void main() {
     var opened = 0;
     await pumpApp(t, onOpenSettings: (_) => opened++);
 
-    await t.tap(find.byIcon(CupertinoIcons.ellipsis));
+    await t.tap(find.byTooltip('More'));
     await t.pumpAndSettle();
     expect(find.text('Settings'), findsOneWidget);
 
@@ -168,7 +168,7 @@ void main() {
 
   testWidgets('the … menu on Songs offers sorting with checkmarks', (t) async {
     await pumpApp(t, songs: [track(1, title: 'a')]);
-    await t.tap(find.byIcon(CupertinoIcons.ellipsis));
+    await t.tap(find.byTooltip('More'));
     await t.pumpAndSettle();
     for (final label in [
       'Sort By',
@@ -200,7 +200,7 @@ void main() {
       lessThan(t.getTopLeft(find.text('Beta')).dy),
     );
 
-    await t.tap(find.byIcon(CupertinoIcons.ellipsis));
+    await t.tap(find.byTooltip('More'));
     await t.pumpAndSettle();
     await t.tap(find.text('Artist'));
     await t.pumpAndSettle();
@@ -212,7 +212,7 @@ void main() {
       lessThan(t.getTopLeft(find.text('Alpha')).dy),
     );
 
-    await t.tap(find.byIcon(CupertinoIcons.ellipsis));
+    await t.tap(find.byTooltip('More'));
     await t.pumpAndSettle();
     await t.tap(find.text('Descending'));
     await t.pumpAndSettle();
@@ -225,7 +225,7 @@ void main() {
     for (final place in ['Albums', 'Artists', 'Home', 'Search', 'Playlists']) {
       await t.tap(find.text(place).last);
       await t.pumpAndSettle();
-      await t.tap(find.byIcon(CupertinoIcons.ellipsis));
+      await t.tap(find.byTooltip('More'));
       await t.pumpAndSettle();
       expect(find.text('Settings'), findsOneWidget, reason: place);
       expect(find.text('Sort By'), findsNothing, reason: place);
@@ -261,7 +261,7 @@ void main() {
 
   testWidgets('menu section gaps are subtle, not dark bars', (t) async {
     await pumpApp(t, songs: [track(1, title: 'a')]);
-    await t.tap(find.byIcon(CupertinoIcons.ellipsis));
+    await t.tap(find.byTooltip('More'));
     await t.pumpAndSettle();
     final gaps = t.widgetList<PopupMenuDivider>(find.byType(PopupMenuDivider));
     expect(gaps, hasLength(2));

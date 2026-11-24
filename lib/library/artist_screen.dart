@@ -1,3 +1,4 @@
+import 'package:cupertino_ui/cupertino_ui.dart' show CupertinoIcons;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:owntune/edit/edit_info_screen.dart';
@@ -12,6 +13,7 @@ import 'package:owntune/library/navigation.dart';
 import 'package:owntune/library/songs_screen.dart';
 import 'package:owntune/player/mini_player.dart';
 import 'package:owntune/player/player_controller.dart';
+import 'package:owntune/playlists/add_to_playlist_sheet.dart';
 
 /// Number of songs shown on the artist screen before "See All".
 const _previewCount = 5;
@@ -72,10 +74,34 @@ class _ArtistScreenState extends ConsumerState<ArtistScreen> {
           NavRow(
             backLabel: widget.backLabel,
             trailing: DetailMoreButton(
-              onEdit: () {
-                final artist = ref.read(libraryProvider).value?.artist(_key);
-                if (artist != null) openEditInfo(context, artist.songs);
-              },
+              items: [
+                DetailMenuItem(
+                  key: const Key('menu-edit'),
+                  label: 'Edit Info',
+                  icon: CupertinoIcons.pencil,
+                  onTap: () {
+                    final artist = ref
+                        .read(libraryProvider)
+                        .value
+                        ?.artist(_key);
+                    if (artist != null) openEditInfo(context, artist.songs);
+                  },
+                ),
+                DetailMenuItem(
+                  key: const Key('menu-add-to-playlist'),
+                  label: 'Add to Playlist…',
+                  icon: CupertinoIcons.text_badge_plus,
+                  onTap: () {
+                    final artist = ref
+                        .read(libraryProvider)
+                        .value
+                        ?.artist(_key);
+                    if (artist != null) {
+                      showAddToPlaylist(context, artist.songs);
+                    }
+                  },
+                ),
+              ],
             ),
           ),
           Expanded(

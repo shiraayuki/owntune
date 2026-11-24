@@ -4,6 +4,7 @@ import 'package:drift/drift.dart' show Value;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:owntune/app/buttons.dart';
+import 'package:owntune/app/providers.dart';
 import 'package:owntune/data/db/database.dart';
 import 'package:owntune/library/album_screen.dart';
 
@@ -182,5 +183,38 @@ void main() {
     expect(find.byType(AlbumScreen), findsOneWidget);
     expect(find.text('Lanterns'), findsWidgets);
     expect(find.text('After the Rain'), findsOneWidget);
+  });
+
+  testWidgets('tapping the "…" on an album track opens the song menu', (
+    t,
+  ) async {
+    await pumpApp(
+      t,
+      songs: _album,
+      overrides: [
+        trackRepositoryProvider.overrideWithValue(FakeTrackRepository()),
+      ],
+    );
+    await _open(t);
+    await t.tap(find.byKey(const Key('song-more-1')));
+    await t.pumpAndSettle();
+    expect(find.byKey(const Key('menu-play-next')), findsOneWidget);
+    // Already on the album: no Go to Album.
+    expect(find.text('Go to Album'), findsNothing);
+    expect(find.text('Go to Artist'), findsOneWidget);
+  });
+
+  testWidgets('long-press on an album track still opens the menu', (t) async {
+    await pumpApp(
+      t,
+      songs: _album,
+      overrides: [
+        trackRepositoryProvider.overrideWithValue(FakeTrackRepository()),
+      ],
+    );
+    await _open(t);
+    await t.longPress(find.text('After the Rain'));
+    await t.pumpAndSettle();
+    expect(find.byKey(const Key('menu-play-next')), findsOneWidget);
   });
 }

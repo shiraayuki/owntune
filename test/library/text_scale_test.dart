@@ -1,6 +1,13 @@
+import 'dart:io';
+
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:owntune/app/providers.dart';
+import 'package:owntune/app/theme.dart';
+import 'package:owntune/data/library_storage.dart';
 import 'package:owntune/library/section_index.dart';
+import 'package:owntune/library/songs_screen.dart';
 
 import '../support/fakes.dart';
 
@@ -63,4 +70,42 @@ void main() {
       expect(t.takeException(), isNull, reason: sub);
     }
   });
+
+  for (final factor in [1.0, 1.5]) {
+    testWidgets('a song row is as high as SongRow.extentFor at $factor', (
+      t,
+    ) async {
+      await t.pumpWidget(
+        ProviderScope(
+          overrides: [
+            storageProvider.overrideWithValue(
+              LibraryStorage(Directory('/nonexistent/owntune')),
+            ),
+          ],
+          child: MaterialApp(
+            theme: buildTheme(Brightness.light, const Color(0xff0a84ff)),
+            builder: (context, child) => MediaQuery(
+              data: MediaQuery.of(context)
+                  .copyWith(textScaler: TextScaler.linear(factor)),
+              child: child!,
+            ),
+            home: Scaffold(
+              body: Align(
+                alignment: Alignment.topCenter,
+                child: SongRow(
+                  track: track(1, title: 'A song', artist: 'Artist'),
+                  scope: const SongMenuScope(backLabel: 'Library'),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      expect(find.byKey(const Key('song-more-1')), findsOneWidget);
+      expect(
+        t.getSize(find.byType(SongRow)).height,
+        SongRow.extentFor(TextScaler.linear(factor)),
+      );
+    });
+  }
 }

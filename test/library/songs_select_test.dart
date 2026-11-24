@@ -1,8 +1,15 @@
+import 'dart:io';
+
 import 'package:cupertino_ui/cupertino_ui.dart' show CupertinoIcons;
+import 'package:drift/drift.dart' show DatabaseConnection;
+import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 
 import 'package:owntune/app/providers.dart';
+import 'package:owntune/data/db/database.dart';
+import 'package:owntune/data/library_storage.dart';
+import 'package:owntune/data/playlist_repository.dart';
 
 import '../support/fakes.dart';
 
@@ -170,9 +177,7 @@ void main() {
   });
 
   group('selection bar', () {
-    testWidgets('shows Edit Info, disabled Add to Playlist and Delete', (
-      t,
-    ) async {
+    testWidgets('shows Edit Info, Add to Playlist and Delete', (t) async {
       await _pump(t);
       await _startSelecting(t);
       expect(_bar('Edit Info'), findsOneWidget);
@@ -185,7 +190,7 @@ void main() {
       await t.pump();
       expect(_enabled(t, 'Edit Info'), isTrue);
       expect(_enabled(t, 'Delete'), isTrue);
-      expect(_enabled(t, 'Add to Playlist'), isFalse);
+      expect(_enabled(t, 'Add to Playlist'), isTrue);
     });
 
     testWidgets('Edit Info opens the bulk editor; Save ends selection', (
@@ -220,6 +225,51 @@ void main() {
       await t.tap(_bar('Edit Info'));
       await t.pumpAndSettle();
       expect(find.byKey(const Key('edit-field-title')), findsOneWidget);
+    });
+
+    testWidgets('Add to Playlist adds all selected and ends the selection', (
+      t,
+    ) async {
+      final db = AppDatabase(
+        DatabaseConnection(
+          NativeDatabase.memory(),
+          closeStreamsSynchronously: true,
+        ),
+      );
+      addTearDown(db.close);
+      final playlists = PlaylistRepository(
+        db,
+        LibraryStorage(Directory('/nonexistent/owntune')),
+        hash: (_) => 'h',
+      );
+      await t.runAsync(() => playlists.create('Rainy Days'));
+      t.view.physicalSize = const Size(800, 1600);
+      t.view.devicePixelRatio = 1;
+      addTearDown(t.view.reset);
+      await pumpApp(t, songs: _songs, playlists: playlists);
+      await _select(t, ['Cold', 'Amber']);
+      await t.tap(_bar('Add to Playlist'));
+      await t.pumpAndSettle();
+      expect(find.text('2 songs'), findsOneWidget);
+      await t.tap(find.text('Rainy Days'));
+      await t.pumpAndSettle();
+
+      final entries = await t.runAsync(() => playlists.watchEntries().first);
+      entries!.sort((a, b) => a.position.compareTo(b.position));
+      // In library order, not in the order of the taps.
+      expect([for (final e in entries) e.trackId], [1, 3]);
+      expect(find.byKey(const Key('selection-bar')), findsNothing);
+      expect(find.text('Added to Rainy Days'), findsOneWidget);
+    });
+
+    testWidgets('Add to Playlist cancelled keeps the selection', (t) async {
+      await _pump(t);
+      await _select(t, ['Amber']);
+      await t.tap(_bar('Add to Playlist'));
+      await t.pumpAndSettle();
+      await t.tap(find.text('Cancel'));
+      await t.pumpAndSettle();
+      expect(find.text('1 Selected'), findsOneWidget);
     });
 
     testWidgets('Delete asks and deletes all selected', (t) async {
@@ -284,5 +334,13 @@ void main() {
       await t.pumpAndSettle();
       expect(repo.deleted.toSet(), {1, 2});
     });
+  });
+
+  testWidgets('the "…" buttons are hidden in selection mode', (t) async {
+    await _pump(t);
+    expect(find.byKey(const Key('song-more-1')), findsOneWidget);
+    await _startSelecting(t);
+    expect(find.byKey(const Key('song-more-1')), findsNothing);
+    expect(find.byKey(const Key('song-more-2')), findsNothing);
   });
 }

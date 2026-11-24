@@ -250,4 +250,85 @@ void main() {
     await repo.updateTags({id: const TrackTags(title: 'T')});
     expect((await repo.watchAll().first).single.coverFile, 'old.jpg');
   });
+
+  group('playlists', () {
+    Future<int> addPlaylist(String name, {String? cover}) => db
+        .into(db.playlists)
+        .insert(
+          PlaylistsCompanion.insert(
+            name: name,
+            createdAt: DateTime(2026, 1, 1),
+            coverFile: Value(cover),
+          ),
+        );
+
+    Future<void> addEntry(int playlistId, int trackId, int position) => db
+        .into(db.playlistEntries)
+        .insert(
+          PlaylistEntriesCompanion.insert(
+            playlistId: playlistId,
+            trackId: trackId,
+            position: position,
+          ),
+        );
+
+    test('delete removes the track from playlists and renumbers', () async {
+      await repo.insert(row('h1'));
+      await repo.insert(row('h2'));
+      final tracks = await repo.watchAll().first;
+      final t1 = tracks.firstWhere((t) => t.fileName == 'h1.mp3').id;
+      final t2 = tracks.firstWhere((t) => t.fileName == 'h2.mp3').id;
+      final p1 = await addPlaylist('A');
+      final p2 = await addPlaylist('B');
+      await addEntry(p1, t1, 0);
+      await addEntry(p1, t2, 1);
+      await addEntry(p1, t1, 2);
+      await addEntry(p1, t2, 3);
+      await addEntry(p2, t2, 0);
+
+      await repo.delete(t1);
+
+      final e1 = await (db.select(
+        db.playlistEntries,
+      )..where((e) => e.playlistId.equals(p1))).get();
+      e1.sort((a, b) => a.position.compareTo(b.position));
+      expect([for (final e in e1) e.trackId], [t2, t2]);
+      expect([for (final e in e1) e.position], [0, 1]);
+      final e2 = await (db.select(
+        db.playlistEntries,
+      )..where((e) => e.playlistId.equals(p2))).get();
+      expect(e2.single.trackId, t2);
+      expect(e2.single.position, 0);
+    });
+
+    test('delete keeps a cover a playlist still uses', () async {
+      writeAudio('h1.mp3');
+      writeCover('c1.jpg');
+      await repo.insert(row('h1', cover: 'c1.jpg'));
+      await addPlaylist('A', cover: 'c1.jpg');
+      final id = (await repo.watchAll().first).single.id;
+
+      await repo.delete(id);
+
+      expect(storage.coverFile('c1.jpg').existsSync(), isTrue);
+    });
+
+    test('cleanupOrphans keeps playlist covers', () async {
+      writeCover('p1.jpg');
+      writeCover('stray.jpg');
+      await addPlaylist('A', cover: 'p1.jpg');
+
+      await repo.cleanupOrphans();
+
+      expect(storage.coverFile('p1.jpg').existsSync(), isTrue);
+      expect(storage.coverFile('stray.jpg').existsSync(), isFalse);
+    });
+
+    test('isCoverReferenced sees playlist covers', () async {
+      await addPlaylist('A', cover: 'p1.jpg');
+
+      expect(await repo.isCoverReferenced('p1.jpg'), isTrue);
+      expect(await repo.isCoverReferenced('other.jpg'), isFalse);
+    });
+  });
 }
