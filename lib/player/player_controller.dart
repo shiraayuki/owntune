@@ -52,6 +52,10 @@ const _restartThreshold = Duration(seconds: 3);
 /// While playing, the position is saved this often.
 const _saveEvery = Duration(seconds: 5);
 
+/// How close to its stored length a song counts as at its end, for the
+/// stall watch (see `_endStall`).
+const _endMargin = Duration(seconds: 1);
+
 /// Resuming after a pause at least this long starts a new listen session.
 const _longPause = Duration(minutes: 30);
 
@@ -83,6 +87,19 @@ class PlayerController extends Notifier<PlayerState> {
   /// Whether the current entry's file finished loading; positions before
   /// that may still come from the previous file.
   var _loaded = false;
+
+  /// Fires when the position stands still at the end of a playing song: iOS
+  /// does not always report the end (with a downloaded, fragmented MP4 the
+  /// AVPlayer can stop at the last position without its end notification,
+  /// and just_audio ignores the stall signals), so the player moves on by
+  /// itself. A position that keeps moving re-arms it, so a song whose stored
+  /// length is too short is never cut.
+  Timer? _endStall;
+  Duration? _stallPosition;
+
+  /// The load generation whose end was handled, so a late end report after
+  /// the stall timer (or the other way round) does not skip a song.
+  int? _endedGeneration;
 
   /// What has been heard of the current entry, and the key of that entry.
   ListenSession? _session;
@@ -116,6 +133,7 @@ class PlayerController extends Notifier<PlayerState> {
       for (final s in subs) {
         s.cancel();
       }
+      _endStall?.cancel();
     });
     // Not fireImmediately: _onTracks reads `state`, which does not exist
     // until build returns.
@@ -283,6 +301,8 @@ class PlayerController extends Notifier<PlayerState> {
       return;
     }
     _loaded = false;
+    _endStall?.cancel();
+    _endStall = null;
     if (!keepSession || _session == null || _sessionKey != entry.key) {
       _endSession();
       _beginSession(queue);
@@ -335,6 +355,10 @@ class PlayerController extends Notifier<PlayerState> {
     if (entry == null) return;
     // A completion during a load belongs to the song that was replaced.
     if (!_loaded) return;
+    if (_endedGeneration == _generation) return;
+    _endedGeneration = _generation;
+    _endStall?.cancel();
+    _endStall = null;
     final session = _session;
     if (session != null && session.complete()) _markPlayed(session.trackId);
     _endSession();
@@ -359,6 +383,8 @@ class PlayerController extends Notifier<PlayerState> {
       state = PlayerState(queue: _queue);
       _beginSession(_queue);
       await seek(Duration.zero);
+      // The same load plays again: its next end counts again.
+      _endedGeneration = null;
       return;
     }
     await _start(next, play: true);
@@ -495,6 +521,36 @@ class PlayerController extends Notifier<PlayerState> {
       }
     }
     if (state.playing && (p - _savedPosition).abs() >= _saveEvery) _save();
+    _watchEnd(p);
+  }
+
+  /// Arms [_endStall] while a playing song is within a second of its end,
+  /// again whenever the position moves.
+  void _watchEnd(Duration p) {
+    final moved = p != _stallPosition;
+    _stallPosition = p;
+    final entry = _queue.current;
+    final track = entry == null ? null : _tracks[entry.trackId];
+    final atEnd =
+        _loaded &&
+        state.playing &&
+        track != null &&
+        track.durationMs > 0 &&
+        p >= Duration(milliseconds: track.durationMs) - _endMargin;
+    if (!atEnd) {
+      _endStall?.cancel();
+      _endStall = null;
+      return;
+    }
+    if (!moved && _endStall != null) return;
+    _endStall?.cancel();
+    final generation = _generation;
+    _endStall = Timer(ref.read(endStallWaitProvider), () {
+      _endStall = null;
+      if (generation == _generation && _loaded && state.playing) {
+        _onCompleted();
+      }
+    });
   }
 
   /// Saves when the queue, its index, source, repeat or shuffle changed.

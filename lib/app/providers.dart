@@ -81,6 +81,12 @@ final playRepositoryProvider = Provider<PlayRepository>(
 /// The current time; tests override it.
 final clockProvider = Provider<DateTime Function()>((ref) => DateTime.now);
 
+/// How long the position may stand still at the end of a playing song before
+/// the player moves on by itself; tests shorten it.
+final endStallWaitProvider = Provider<Duration>(
+  (ref) => const Duration(seconds: 2),
+);
+
 final homeRepositoryProvider = Provider<HomeRepository>(
   (ref) => HomeRepository(ref.watch(databaseProvider)),
 );

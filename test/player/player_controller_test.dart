@@ -16,6 +16,9 @@ final a = track(1, title: 'A', durationMs: 240000);
 final b = track(2, title: 'B', durationMs: 240000);
 final c = track(3, title: 'C', durationMs: 240000);
 
+/// How long a position may stand still at the end of a song (short in tests).
+const stallWait = Duration(milliseconds: 60);
+
 void main() {
   late FakeAudioEngine engine;
   late FakeTrackRepository repo;
@@ -46,6 +49,7 @@ void main() {
         ),
         tracksProvider.overrideWith((ref) => library.stream),
         playerStateStoreProvider.overrideWithValue(FakePlayerStateStore()),
+        endStallWaitProvider.overrideWithValue(stallWait),
       ],
     );
     container.listen(playerProvider, (_, _) {});
@@ -134,6 +138,59 @@ void main() {
     expect(engine.calls, ['pause', 'load hash2.mp3', 'play']);
     expect(state().playing, isTrue);
     expect(state().queue.current!.trackId, 2);
+  });
+
+  group('a song stuck at its end', () {
+    // iOS does not always report the end of a song: with a downloaded
+    // (fragmented) MP4 the AVPlayer can stop at the last position without
+    // the end notification, and just_audio ignores its stall signals.
+    const nearEnd = Duration(minutes: 3, seconds: 59, milliseconds: 800);
+    test('moves on to the next song', () async {
+      await playAt(0);
+      engine.calls.clear();
+      engine.emitPosition(nearEnd);
+      engine.emitPosition(nearEnd);
+      await Future<void>.delayed(stallWait * 3);
+      await pumpEventQueue();
+      expect(engine.calls, ['pause', 'load hash2.mp3', 'play']);
+      expect(state().queue.current!.trackId, 2);
+      expect(state().playing, isTrue);
+    });
+
+    test('is not cut while its position still moves past the stored length',
+        () async {
+      await playAt(0);
+      engine.calls.clear();
+      for (var i = 0; i < 6; i++) {
+        engine.emitPosition(nearEnd + Duration(milliseconds: 300 * i));
+        await Future<void>.delayed(stallWait ~/ 3);
+      }
+      expect(engine.calls, isEmpty);
+      expect(state().queue.current!.trackId, 1);
+    });
+
+    test('does not move on while paused', () async {
+      await playAt(0);
+      engine.emitPosition(nearEnd);
+      await player().togglePlay();
+      await pumpEventQueue();
+      engine.calls.clear();
+      await Future<void>.delayed(stallWait * 3);
+      await pumpEventQueue();
+      expect(engine.calls, isEmpty);
+      expect(state().queue.current!.trackId, 1);
+    });
+
+    test('a real end report wins and nothing moves on twice', () async {
+      await playAt(0);
+      engine.emitPosition(nearEnd);
+      engine.complete();
+      await pumpEventQueue();
+      await Future<void>.delayed(stallWait * 3);
+      await pumpEventQueue();
+      expect(engine.loaded, ['hash1.mp3', 'hash2.mp3']);
+      expect(state().queue.current!.trackId, 2);
+    });
   });
 
   test('the player never shows paused between two songs', () async {
