@@ -7,6 +7,7 @@ import 'package:owntune/app/providers.dart';
 import 'package:owntune/app/theme.dart';
 import 'package:owntune/library/artwork.dart';
 import 'package:owntune/library/sort_key.dart';
+import 'package:owntune/player/like_button.dart';
 import 'package:owntune/player/player_controller.dart';
 import 'package:owntune/player/player_sheet.dart';
 
@@ -16,9 +17,10 @@ double progressOf(Duration position, int durationMs) => durationMs <= 0
     ? 0
     : (position.inMilliseconds / durationMs).clamp(0.0, 1.0).toDouble();
 
-/// The floating mini player (`.mini`): cover, title, artist, play/pause and
-/// a thin progress line. Hidden while nothing is loaded. Tap opens the
-/// player; swipe left for the next song, right for the previous one.
+/// The floating mini player (`.mini`): cover, title, artist, the heart,
+/// play/pause and a thin progress line. Hidden while nothing is loaded. Tap
+/// opens the player; swipe left for the next song, right for the previous
+/// one.
 ///
 /// It sits in a Scaffold's bottom bar, so menus and dialogs dim it with the
 /// rest of the screen. Above the tab bar [overTabBar] is true; on pushed
@@ -179,6 +181,11 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer> {
                                 ],
                               ),
                             ),
+                          ),
+                          LikeButton(
+                            key: const Key('mini-like'),
+                            track: track,
+                            iconSize: 24,
                           ),
                           _MiniButton(
                             key: const Key('mini-play'),

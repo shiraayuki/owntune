@@ -1,6 +1,8 @@
 import 'package:cupertino_ui/cupertino_ui.dart' show CupertinoIcons;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:owntune/app/providers.dart';
+import 'package:owntune/app/theme.dart';
 import 'package:owntune/library/songs_screen.dart';
 
 import '../support/fakes.dart';
@@ -126,13 +128,66 @@ void main() {
     expect(t.getBottomLeft(last).dy, lessThanOrEqualTo(t.getTopLeft(_mini).dy));
   });
 
-  testWidgets('the mini player has only the play/pause button', (t) async {
+  testWidgets('the mini player has a heart and play/pause', (t) async {
     await pumpApp(t, songs: _abc);
     await openLibraryTab(t);
     await _play(t, 'A song');
     expect(find.byKey(const Key('mini-play')), findsOneWidget);
-    expect(_inMini(find.byType(IconButton)), findsOneWidget);
+    expect(find.byKey(const Key('mini-like')), findsOneWidget);
+    expect(_inMini(find.byType(IconButton)), findsNWidgets(2));
+    expect(
+      t.getCenter(find.byKey(const Key('mini-like'))).dx,
+      lessThan(t.getCenter(find.byKey(const Key('mini-play'))).dx),
+    );
     expect(_inMini(find.byIcon(CupertinoIcons.forward_fill)), findsNothing);
+  });
+
+  testWidgets('the mini player heart likes the song without opening the '
+      'player', (t) async {
+    final repo = FakeTrackRepository();
+    await pumpApp(
+      t,
+      songs: _abc,
+      overrides: [trackRepositoryProvider.overrideWithValue(repo)],
+    );
+    await openLibraryTab(t);
+    await _play(t, 'B song');
+
+    final like = find.byKey(const Key('mini-like'));
+    expect(
+      find.descendant(of: like, matching: find.byIcon(CupertinoIcons.heart)),
+      findsOneWidget,
+    );
+    await t.tap(like);
+    await t.pumpAndSettle();
+    expect(repo.likeCalls.map((c) => (c.ids.single, c.liked)), [(2, true)]);
+    expect(find.byKey(const Key('player-sheet')), findsNothing);
+  });
+
+  testWidgets('a liked song shows a filled accent heart in the mini player', (
+    t,
+  ) async {
+    final repo = FakeTrackRepository();
+    await pumpApp(
+      t,
+      songs: [track(1, title: 'A song', likedAt: DateTime(2026, 11, 24))],
+      overrides: [trackRepositoryProvider.overrideWithValue(repo)],
+    );
+    await openLibraryTab(t);
+    await _play(t, 'A song');
+
+    final like = find.byKey(const Key('mini-like'));
+    final icon = t.widget<Icon>(
+      find.descendant(of: like, matching: find.byType(Icon)),
+    );
+    expect(icon.icon, CupertinoIcons.heart_fill);
+    expect(
+      icon.color,
+      Theme.of(t.element(like)).extension<OwntuneColors>()!.accent,
+    );
+    await t.tap(like);
+    await t.pump();
+    expect(repo.likeCalls.map((c) => (c.ids.single, c.liked)), [(1, false)]);
   });
 
   testWidgets('swiping left goes to the next song', (t) async {
