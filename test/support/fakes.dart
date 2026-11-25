@@ -413,6 +413,9 @@ class FakeAudioEngine implements AudioEngine {
   /// When set, [load] waits for it before it returns.
   Completer<void>? holdLoad;
 
+  /// When set, [pause] waits for it after the play state changed.
+  Completer<void>? holdPause;
+
   final _position = StreamController<Duration>.broadcast();
   final _completed = StreamController<void>.broadcast();
   final _errors = StreamController<Object>.broadcast();
@@ -437,7 +440,11 @@ class FakeAudioEngine implements AudioEngine {
   Future<void> play() async => _setPlaying(true);
 
   @override
-  Future<void> pause() async => _setPlaying(false);
+  Future<void> pause() async {
+    _setPlaying(false);
+    final hold = holdPause;
+    if (hold != null) await hold.future;
+  }
 
   void _setPlaying(bool value) {
     if (playing == value) return;

@@ -91,6 +91,10 @@ class PlayerController extends Notifier<PlayerState> {
   /// When playback was paused, to tell a long pause from a short one.
   DateTime? _pausedAt;
 
+  /// True during the pause between two songs, so the engine's report of it
+  /// is not taken for a pause by the system.
+  var _advancing = false;
+
   /// History writes, one after another: an update never overtakes the
   /// insert that gives it its row id.
   Future<void> _writes = Future.value();
@@ -334,17 +338,25 @@ class PlayerController extends Notifier<PlayerState> {
     final session = _session;
     if (session != null && session.complete()) _markPlayed(session.trackId);
     _endSession();
-    final next = _queue.following(auto: true, spread: _spread);
     // just_audio still counts as playing after the end, so its play() would
     // do nothing and the next song depended on the native player resuming
     // on its own, which iOS did not do. Pausing first gives the next song a
-    // real play request once it is loaded.
+    // real play request once it is loaded. The player state stays playing
+    // meanwhile, so the system controls do not flicker to paused.
     final generation = _generation;
-    state = PlayerState(queue: _queue);
+    _advancing = true;
     await _engine.pause();
+    // just_audio reports the pause before its future completes; should no
+    // report come (the engine was paused already), the flag must not
+    // swallow a later pause by the system.
+    _advancing = false;
     if (generation != _generation) return;
+    // Read after the pause: Play Next, repeat and the like may have changed
+    // the queue meanwhile.
+    final next = _queue.following(auto: true, spread: _spread);
     if (next == null) {
       // Played again from the start, the last song is a new listen.
+      state = PlayerState(queue: _queue);
       _beginSession(_queue);
       await seek(Duration.zero);
       return;
@@ -355,6 +367,11 @@ class PlayerController extends Notifier<PlayerState> {
   /// The engine changed its play state, possibly on its own (a call, a
   /// system pause); the player state follows it.
   void _onEnginePlaying(bool playing) {
+    if (_advancing) {
+      // The pause between two songs is the controller's own.
+      _advancing = false;
+      if (!playing) return;
+    }
     if (_queue.isEmpty || playing == state.playing) return;
     if (playing) {
       _onResume();

@@ -136,6 +136,58 @@ void main() {
     expect(state().queue.current!.trackId, 2);
   });
 
+  test('the player never shows paused between two songs', () async {
+    // The lock screen and the Android notification follow `playing`; a
+    // pause there at every song change would flicker and, on Android, drop
+    // the foreground service.
+    await playAt(0);
+    final seen = <bool>[];
+    final sub = container.listen(
+      playerProvider.select((s) => s.playing),
+      (_, next) => seen.add(next),
+    );
+    addTearDown(sub.close);
+    engine.complete();
+    await pumpEventQueue();
+    expect(seen, isNot(contains(false)));
+    expect(engine.current, 'hash2.mp3');
+    expect(engine.playing, isTrue);
+  });
+
+  test('a system pause after a song change is still followed', () async {
+    await playAt(0);
+    engine.complete();
+    await pumpEventQueue();
+    engine.emitPlaying(false);
+    await pumpEventQueue();
+    expect(state().playing, isFalse);
+  });
+
+  test('Play Next while the ended song pauses is kept', () async {
+    await playAt(0);
+    final hold = engine.holdPause = Completer<void>();
+    engine.complete();
+    await pumpEventQueue();
+    await player().playNext(c);
+    engine.holdPause = null;
+    hold.complete();
+    await pumpEventQueue();
+    expect(state().queue.current!.trackId, 3);
+    expect(engine.current, 'hash3.mp3');
+    expect(queueIds(), [1, 3, 2, 3]);
+  });
+
+  test('repeat one replays with its own play request', () async {
+    await playAt(0);
+    player()
+      ..cycleRepeat()
+      ..cycleRepeat();
+    engine.calls.clear();
+    engine.complete();
+    await pumpEventQueue();
+    expect(engine.calls, ['pause', 'load hash1.mp3', 'play']);
+  });
+
   test('end of queue pauses on the last song at zero', () async {
     await playAt(2);
     engine.complete();

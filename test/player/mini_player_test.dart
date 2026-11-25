@@ -164,6 +164,23 @@ void main() {
     expect(find.byKey(const Key('player-sheet')), findsNothing);
   });
 
+  testWidgets('a failed like from the mini player shows a dialog', (t) async {
+    await pumpApp(
+      t,
+      songs: _abc,
+      overrides: [
+        trackRepositoryProvider.overrideWithValue(_FailingLikeRepository()),
+      ],
+    );
+    await openLibraryTab(t);
+    await _play(t, 'A song');
+
+    await t.tap(find.byKey(const Key('mini-like')));
+    await t.pumpAndSettle();
+    expect(find.text('Could not update Liked Songs'), findsOneWidget);
+    expect(find.textContaining('disk full'), findsOneWidget);
+  });
+
   testWidgets('a liked song shows a filled accent heart in the mini player', (
     t,
   ) async {
@@ -258,4 +275,10 @@ void main() {
     await t.pumpAndSettle();
     expect(engine.loaded, ['hash1.mp3']);
   });
+}
+
+class _FailingLikeRepository extends FakeTrackRepository {
+  @override
+  Future<void> setLiked(Iterable<int> ids, {required bool liked}) async =>
+      throw StateError('disk full');
 }

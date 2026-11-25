@@ -83,13 +83,17 @@ class _CoverCarouselState extends ConsumerState<CoverCarousel>
   /// Slides the neighbour into place, then switches the song. The controller
   /// changes the current song synchronously, so the reset to 0 lands in the
   /// same frame as the new cover.
+  ///
+  /// If the song changed during the slide (it ended, or Next was pressed),
+  /// the swipe has been overtaken and skips nothing more.
   void _commit(double target, Future<void> Function() skip) {
     _committing = true;
+    final from = ref.read(playerProvider).queue.current?.key;
     _dx
         .animateTo(target, duration: _settle, curve: Curves.easeOut)
         .whenCompleteOrCancel(() {
           if (!mounted) return;
-          skip();
+          if (ref.read(playerProvider).queue.current?.key == from) skip();
           _dx.value = 0;
           _committing = false;
         });
@@ -114,7 +118,13 @@ class _CoverCarouselState extends ConsumerState<CoverCarousel>
 
     final current = at(queue.current == null ? null : queue.index);
     final hasNext = queue.hasNext;
-    final next = hasNext ? at(queue.nextIndex(auto: false)) : null;
+    // A shuffled queue wrapping under repeat all is shuffled again, so the
+    // song after the last one is not known yet.
+    final reshuffles =
+        queue.shuffled && queue.index == queue.entries.length - 1;
+    final next = hasNext && !reshuffles
+        ? at(queue.nextIndex(auto: false))
+        : null;
     final hasPrevious = queue.previousIndex != null;
     final previous = at(queue.previousIndex);
     final side = widget.side;

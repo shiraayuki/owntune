@@ -517,6 +517,44 @@ void main() {
       expect(engine.current, 'hash1.mp3');
     });
 
+    testWidgets('shuffled under repeat all, the last song shows no next '
+        'cover (the wrap shuffles again) but still swipes on', (t) async {
+      final engine = await open(t, 'Song 1');
+      await t.tap(find.byKey(const Key('player-shuffle')));
+      await t.pumpAndSettle();
+      await t.tap(find.byKey(const Key('player-repeat')));
+      await t.pumpAndSettle();
+      final container = ProviderScope.containerOf(
+        t.element(find.byType(OwntuneApp)),
+      );
+      final last = _state(t).queue.entries.last;
+      await container.read(playerProvider.notifier).jumpTo(last.key);
+      await t.pumpAndSettle();
+
+      final gesture = await t.startGesture(t.getCenter(cover));
+      await gesture.moveBy(const Offset(-40, 0));
+      await gesture.moveBy(const Offset(-160, 0));
+      await t.pump();
+      expect(nextCover, findsNothing);
+      await gesture.up();
+      await t.pumpAndSettle();
+      expect(engine.current, isNot('hash${last.trackId}.mp3'));
+    });
+
+    testWidgets('a song change during the slide skips nothing more', (t) async {
+      final engine = await open(t, 'Song 2');
+      final container = ProviderScope.containerOf(
+        t.element(find.byType(OwntuneApp)),
+      );
+      await t.drag(cover, const Offset(-200, 0));
+      // The slide is running; the song ends meanwhile.
+      await t.pump(const Duration(milliseconds: 50));
+      await container.read(playerProvider.notifier).next();
+      await t.pumpAndSettle();
+      expect(engine.current, 'hash3.mp3');
+      expect(engine.loaded, ['hash2.mp3', 'hash3.mp3']);
+    });
+
     testWidgets('swiping down on the cover still closes the player', (t) async {
       await open(t, 'Song 2');
       await t.drag(cover, const Offset(0, 600));
