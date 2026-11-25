@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:cupertino_ui/cupertino_ui.dart' show CupertinoIcons;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:owntune/app/app_shell.dart';
@@ -10,6 +11,9 @@ import 'package:owntune/app/theme.dart';
 import 'package:owntune/data/db/database.dart';
 import 'package:owntune/library/album_screen.dart';
 import 'package:owntune/library/artwork.dart';
+import 'package:owntune/settings/settings.dart';
+import 'package:owntune/player/cover_colors.dart';
+import 'package:owntune/player/cover_tint.dart';
 import 'package:owntune/player/play_queue.dart';
 import 'package:owntune/player/player_controller.dart';
 
@@ -43,6 +47,8 @@ Future<void> _open(WidgetTester t, String title) async {
 }
 
 void main() {
+  _tintTests();
+
   testWidgets('tapping the mini player opens the player', (t) async {
     await pumpApp(t, songs: _songs);
     await openLibraryTab(t);
@@ -568,4 +574,124 @@ class _FailingLikeRepository extends FakeTrackRepository {
   @override
   Future<void> setLiked(Iterable<int> ids, {required bool liked}) async =>
       throw StateError('disk full');
+}
+
+const _tint = CoverColors(
+  background: Color(0xff5a1e00),
+  button: Color(0xffffd9b8),
+  onButton: Color(0xff16120f),
+);
+const _tint2 = CoverColors(
+  background: Color(0xff0a2a5a),
+  button: Color(0xffb8d4ff),
+  onButton: Color(0xff16120f),
+);
+
+/// Settings with [mode]; the accent is Sky, to tell it from the tint.
+Override _appearance(AppearanceMode mode) =>
+    initialSettingsProvider.overrideWithValue(
+      AppSettings(mode: mode, accent: const Color(0xff5ab4ff)),
+    );
+
+final _tinted = [
+  track(
+    1,
+    title: 'After the Rain',
+    cover: 'a.jpg',
+    likedAt: DateTime(2026, 11, 20),
+  ),
+  track(2, title: 'Blue Hour', cover: 'b.jpg'),
+  track(3, title: 'Coverless'),
+];
+
+Color? _playBackground(WidgetTester t) => t
+    .widget<IconButton>(find.byKey(const Key('player-play')))
+    .style
+    ?.backgroundColor
+    ?.resolve({});
+
+Color? _iconColor(WidgetTester t, Key key) {
+  final icon = find.descendant(
+    of: find.byKey(key),
+    matching: find.byType(Icon),
+  );
+  final widget = t.widget<Icon>(icon);
+  return widget.color ?? IconTheme.of(t.element(icon)).color;
+}
+
+const _sky = Color(0xff5ab4ff);
+
+void _tintTests() {
+  group('cover tint', () {
+    Future<void> openTinted(
+      WidgetTester t,
+      String title, {
+      AppearanceMode mode = AppearanceMode.dark,
+      Map<String, CoverColors> colors = const {'a.jpg': _tint, 'b.jpg': _tint2},
+      bool never = false,
+    }) async {
+      await pumpApp(
+        t,
+        songs: _tinted,
+        overrides: [
+          _appearance(mode),
+          coverColorsProvider.overrideWith(
+            (ref, name) => never
+                ? Completer<CoverColors?>().future
+                : Future.value(colors[name]),
+          ),
+        ],
+      );
+      await openLibraryTab(t);
+      await _open(t, title);
+      await t.pump(const Duration(milliseconds: 500));
+    }
+
+    testWidgets('dark mode with a cover tints play button and liked heart', (
+      t,
+    ) async {
+      await openTinted(t, 'After the Rain');
+      expect(_playBackground(t), _tint.button);
+      expect(_iconColor(t, const Key('player-play')), _tint.onButton);
+      expect(_iconColor(t, const Key('player-like')), _tint.button);
+    });
+
+    testWidgets('active repeat uses the tint', (t) async {
+      await openTinted(t, 'After the Rain');
+      await t.tap(find.byKey(const Key('player-repeat')));
+      await t.pump(const Duration(milliseconds: 500));
+      expect(_state(t).queue.repeat, QueueRepeat.all);
+      final repeat = t.widget<IconButton>(
+        find.byKey(const Key('player-repeat')),
+      );
+      expect(repeat.color, _tint.button);
+    });
+
+    testWidgets('light mode keeps the accent', (t) async {
+      await openTinted(t, 'After the Rain', mode: AppearanceMode.light);
+      final c = Theme.of(t.element(find.byKey(const Key('player-play'))))
+          .extension<OwntuneColors>()!;
+      expect(_playBackground(t), c.accent);
+      expect(_playBackground(t), isNot(_tint.button));
+    });
+
+    testWidgets('a song without a cover keeps the accent', (t) async {
+      await openTinted(t, 'Coverless');
+      expect(_playBackground(t), _sky);
+    });
+
+    testWidgets('colours not ready keep the accent', (t) async {
+      await openTinted(t, 'After the Rain', never: true);
+      expect(_playBackground(t), _sky);
+    });
+
+    testWidgets('the tint follows a song change', (t) async {
+      await openTinted(t, 'After the Rain');
+      expect(_playBackground(t), _tint.button);
+      await t.tap(find.byKey(const Key('player-next')));
+      await t.pump();
+      await t.pump(const Duration(milliseconds: 500));
+      expect(_playBackground(t), _tint2.button);
+    });
+  });
 }

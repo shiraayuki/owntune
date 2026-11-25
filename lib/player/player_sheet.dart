@@ -12,6 +12,7 @@ import 'package:owntune/library/artwork.dart';
 import 'package:owntune/library/songs_screen.dart';
 import 'package:owntune/library/sort_key.dart';
 import 'package:owntune/player/cover_carousel.dart';
+import 'package:owntune/player/cover_tint.dart';
 import 'package:owntune/player/like_button.dart';
 import 'package:owntune/player/play_queue.dart';
 import 'package:owntune/player/player_controller.dart';
@@ -29,6 +30,40 @@ Future<void> showPlayer(BuildContext context) => showModalBottomSheet<void>(
   backgroundColor: Colors.transparent,
   builder: (_) => const PlayerSheet(),
 );
+
+/// How long the cover tint takes to change with the song.
+const _tintFade = Duration(milliseconds: 400);
+
+/// The veil in the cover's background colour over the blurred cover
+/// (mockup 19): strong at the top, gone at three quarters of the height.
+/// Fades with the song; nothing without a [color].
+class _TintVeil extends StatelessWidget {
+  const _TintVeil({required this.color});
+
+  final Color? color;
+
+  @override
+  Widget build(BuildContext context) => TweenAnimationBuilder<Color?>(
+    tween: ColorTween(end: color ?? const Color(0x00000000)),
+    duration: _tintFade,
+    builder: (context, c, _) {
+      if (c == null || c.a == 0) return const SizedBox.shrink();
+      return DecoratedBox(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              c.withValues(alpha: 0.85 * c.a),
+              c.withValues(alpha: 0),
+            ],
+            stops: const [0, 0.75],
+          ),
+        ),
+      );
+    },
+  );
+}
 
 /// Now Playing (mockup 09): blurred cover backdrop, cover, title, scrubber,
 /// controls and the Up Next pill.
@@ -64,6 +99,13 @@ class _PlayerSheetState extends ConsumerState<PlayerSheet> {
     final storage = ref.watch(storageProvider);
     final cover = track?.coverFile;
     final coverFile = cover == null ? null : storage.coverFile(cover);
+    // Dark mode takes the accent from the cover (light mode stays
+    // monochrome); the next song's colours are computed ahead.
+    final tint = dark && cover != null
+        ? ref.watch(coverColorsProvider(cover)).value
+        : null;
+    if (dark) _warmNext();
+    final theme = Theme.of(context);
     final padding = MediaQuery.viewPaddingOf(context);
     // The sheet route (and the Scaffold bar the player opens from) remove the
     // top padding from the MediaQuery; the screen's own inset is the status
@@ -73,62 +115,90 @@ class _PlayerSheetState extends ConsumerState<PlayerSheet> {
     return SizedBox(
       key: const Key('player-sheet'),
       height: MediaQuery.sizeOf(context).height,
-      child: ClipRect(
-        child: ColoredBox(
-          color: c.bg,
-          child: Stack(
-            children: [
-              if (coverFile != null)
+      child: AnimatedTheme(
+        duration: _tintFade,
+        data: tint == null
+            ? theme
+            : theme.copyWith(
+                extensions: [
+                  c.copyWith(accent: tint.button, accentText: tint.onButton),
+                ],
+              ),
+        child: ClipRect(
+          child: ColoredBox(
+            color: c.bg,
+            child: Stack(
+              children: [
+                if (coverFile != null)
+                  Positioned.fill(
+                    child: Opacity(
+                      opacity: dark ? 0.55 : 0.28,
+                      child: ImageFiltered(
+                        imageFilter: ImageFilter.blur(sigmaX: 60, sigmaY: 60),
+                        child: Image.file(
+                          coverFile,
+                          fit: BoxFit.cover,
+                          cacheWidth: 200,
+                          errorBuilder: (_, _, _) => const SizedBox.shrink(),
+                        ),
+                      ),
+                    ),
+                  ),
+                Positioned.fill(child: _TintVeil(color: tint?.background)),
                 Positioned.fill(
-                  child: Opacity(
-                    opacity: dark ? 0.55 : 0.28,
-                    child: ImageFiltered(
-                      imageFilter: ImageFilter.blur(sigmaX: 60, sigmaY: 60),
-                      child: Image.file(
-                        coverFile,
-                        fit: BoxFit.cover,
-                        cacheWidth: 200,
-                        errorBuilder: (_, _, _) => const SizedBox.shrink(),
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          c.bg.withValues(alpha: 0),
+                          c.bg.withValues(alpha: 0.7),
+                        ],
+                        stops: const [0, 0.92],
                       ),
                     ),
                   ),
                 ),
-              Positioned.fill(
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [
-                        c.bg.withValues(alpha: 0),
-                        c.bg.withValues(alpha: 0.7),
-                      ],
-                      stops: const [0, 0.92],
-                    ),
+                Padding(
+                  padding: EdgeInsets.only(
+                    top: topInset,
+                    bottom: padding.bottom + 16,
                   ),
+                  child: track == null
+                      ? const SizedBox.shrink()
+                      : _Content(
+                          track: track,
+                          coverFile: coverFile,
+                          showQueue: _showQueue,
+                          onClose: _close,
+                          onToggleQueue: () =>
+                              setState(() => _showQueue = !_showQueue),
+                        ),
                 ),
-              ),
-              Padding(
-                padding: EdgeInsets.only(
-                  top: topInset,
-                  bottom: padding.bottom + 16,
-                ),
-                child: track == null
-                    ? const SizedBox.shrink()
-                    : _Content(
-                        track: track,
-                        coverFile: coverFile,
-                        showQueue: _showQueue,
-                        onClose: _close,
-                        onToggleQueue: () =>
-                            setState(() => _showQueue = !_showQueue),
-                      ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
     );
+  }
+
+  /// Computes the next queue entry's cover colours ahead, so a song change
+  /// is tinted at once.
+  void _warmNext() {
+    final queue = ref.watch(playerProvider.select((s) => s.queue));
+    final index = queue.nextIndex(auto: true);
+    if (index == null) return;
+    final id = queue.entries[index].trackId;
+    final tracks = ref.watch(tracksProvider).value ?? const <Track>[];
+    for (final t in tracks) {
+      if (t.id == id) {
+        final cover = t.coverFile;
+        if (cover != null) ref.watch(coverColorsProvider(cover));
+        return;
+      }
+    }
   }
 }
 
