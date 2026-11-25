@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:isolate';
@@ -26,7 +27,10 @@ typedef WriteDownloadTags = Future<String?> Function(
 /// The app-wide download queue. Runs one job at a time: resolve the stream,
 /// download it into its own temp folder, fetch the cover, write tags and
 /// cover into the file, then hand it to the Importer with its source key.
-/// The job's folder is deleted in every outcome.
+/// The folder of a job that ends as done or duplicate is deleted. A failed or
+/// cancelled job keeps it (with the part file and its checkpoint), so Retry
+/// continues where the download stopped; `clearFinished` and the next start
+/// delete what is left.
 class DownloadController extends Notifier<List<DownloadJob>> {
   var _nextId = 1;
   var _running = false;
@@ -34,18 +38,34 @@ class DownloadController extends Notifier<List<DownloadJob>> {
   CancelToken? _cancel;
   final _random = Random.secure();
 
+  /// The folder of each job that has one, by job id. Retry keeps the id.
+  final _folders = <int, Directory>{};
+
   @override
   List<DownloadJob> build() => const [];
 
   /// Queues [result] with the confirmed [tags]. Does nothing while a job for
-  /// the same song is waiting or running.
+  /// the same song is waiting or running. Failed and cancelled jobs of the
+  /// same song are dropped with their folders (the new job starts over);
+  /// done and duplicate jobs stay.
   void enqueue(OnlineResult result, TrackTags tags) {
     if (state.any(
       (j) => j.isActive && j.result.sourceKey == result.sourceKey,
     )) {
       return;
     }
-    state = [...state, DownloadJob(id: _nextId++, result: result, tags: tags)];
+    final stale = [
+      for (final j in state)
+        if (_isStopped(j) && j.result.sourceKey == result.sourceKey) j.id,
+    ];
+    for (final id in stale) {
+      _deleteFolder(id);
+    }
+    state = [
+      for (final j in state)
+        if (!stale.contains(j.id)) j,
+      DownloadJob(id: _nextId++, result: result, tags: tags),
+    ];
     _pump();
   }
 
@@ -83,11 +103,35 @@ class DownloadController extends Notifier<List<DownloadJob>> {
     _pump();
   }
 
-  /// Drops every job that is no longer waiting or running.
-  void clearFinished() => state = [
-    for (final j in state)
-      if (j.isActive) j,
-  ];
+  /// Drops every job that is no longer waiting or running, with its folder.
+  void clearFinished() {
+    for (final j in state) {
+      if (!j.isActive) _deleteFolder(j.id);
+    }
+    state = [
+      for (final j in state)
+        if (j.isActive) j,
+    ];
+  }
+
+  static bool _isStopped(DownloadJob j) =>
+      j.phase == DownloadPhase.failed || j.phase == DownloadPhase.cancelled;
+
+  /// Deletes the folder of job [id] in the background, if it has one. Best
+  /// effort: startup empties the download folder anyway.
+  void _deleteFolder(int id) => unawaited(_deleteFolderNow(id));
+
+  /// Deletes the folder of job [id], if it has one, and completes when it is
+  /// gone. Never throws.
+  Future<void> _deleteFolderNow(int id) async {
+    final folder = _folders.remove(id);
+    if (folder == null) return;
+    try {
+      await folder.delete(recursive: true);
+    } on Object {
+      // Best effort; the next start empties the download folder.
+    }
+  }
 
   DownloadJob? _job(int id) => state.where((j) => j.id == id).firstOrNull;
 
@@ -114,7 +158,6 @@ class DownloadController extends Notifier<List<DownloadJob>> {
   Future<void> _run(DownloadJob job) async {
     final cancel = _cancel = CancelToken();
     _runningId = job.id;
-    Directory? folder;
     try {
       _set(job.id, (j) => j.copyWith(phase: DownloadPhase.downloading));
       final source = ref.read(onlineSourcesProvider)[job.result.source]!;
@@ -122,12 +165,12 @@ class DownloadController extends Notifier<List<DownloadJob>> {
       if (cancel.isCancelled) throw DownloadCancelled();
 
       final root = await ref.read(downloadDirProvider)();
-      folder = Directory(
+      // A retry finds its folder (and the part file in it) again.
+      final folder = _folders[job.id] ??= Directory(
         p.join(root.path, '${job.id}-${_random.nextInt(1 << 32)}'),
       );
       await folder.create(recursive: true);
       final part = File(p.join(folder.path, 'audio.part.${stream.extension}'));
-      _set(job.id, (j) => j.copyWith(total: stream.contentLength));
       var percent = -1;
       await downloadStream(
         ref.read(httpTransportProvider),
@@ -135,7 +178,9 @@ class DownloadController extends Notifier<List<DownloadJob>> {
         part,
         cancel: cancel,
         onProgress: (received, total) {
-          final now = received * 100 ~/ total;
+          // Without a total (0 or below) there is no percent to show: report
+          // once and wait for a usable total.
+          final now = total > 0 ? received * 100 ~/ total : -2;
           if (now == percent) return;
           percent = now;
           _set(job.id, (j) => j.copyWith(received: received, total: total));
@@ -157,6 +202,25 @@ class DownloadController extends Notifier<List<DownloadJob>> {
       if (error != null) {
         throw OnlineError('The tags could not be written: $error');
       }
+      // The tags changed the file, so the checkpoint no longer describes it:
+      // a retry after a cancel from here on starts over (resuming would cut
+      // the tagged file back to the checkpoint's length).
+      try {
+        await File('${part.path}.progress').delete();
+      } on Object {
+        // A checkpoint that stays would let a resume cut the tagged file
+        // back to its old length, so the part file goes too.
+        try {
+          await part.delete();
+        } on Object {
+          // Neither can be removed: this job never looks at the folder again,
+          // so a retry downloads into a fresh one.
+          _folders.remove(job.id);
+        }
+        throw const OnlineError(
+          'The download could not be finished. Try again to start over.',
+        );
+      }
       if (cancel.isCancelled) throw DownloadCancelled();
       final named = await part.rename(
         p.join(
@@ -173,8 +237,10 @@ class DownloadController extends Notifier<List<DownloadJob>> {
             sourceKeys: {named.path: job.result.sourceKey},
           );
       if (summary.added == 1) {
+        await _deleteFolderNow(job.id);
         _set(job.id, (j) => j.copyWith(phase: DownloadPhase.done));
       } else if (summary.duplicates == 1) {
+        await _deleteFolderNow(job.id);
         _set(
           job.id,
           (j) => j.copyWith(
@@ -193,12 +259,6 @@ class DownloadController extends Notifier<List<DownloadJob>> {
         job.id,
         (j) => j.copyWith(phase: DownloadPhase.failed, error: () => '$e'),
       );
-    } finally {
-      try {
-        await folder?.delete(recursive: true);
-      } on Object {
-        // Startup empties the download folder anyway.
-      }
     }
   }
 

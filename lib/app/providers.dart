@@ -7,6 +7,9 @@ import 'package:owntune/data/play_repository.dart';
 import 'package:owntune/data/playlist_repository.dart';
 import 'package:owntune/data/sources/http_transport.dart';
 import 'package:owntune/data/sources/online_source.dart';
+import 'package:owntune/data/sources/soundcloud/client_id_store.dart';
+import 'package:owntune/data/sources/soundcloud/soundcloud_client.dart';
+import 'package:owntune/data/sources/soundcloud/soundcloud_source.dart';
 import 'package:owntune/data/sources/youtube/youtube_sources.dart';
 import 'package:owntune/data/track_repository.dart';
 import 'package:owntune/download/download_controller.dart';
@@ -251,14 +254,25 @@ final httpTransportProvider = Provider<HttpTransport>(
   (ref) => IoHttpTransport(),
 );
 
+/// Keeps SoundCloud's scraped `client_id` between app starts; tests override
+/// it.
+final soundcloudClientIdStoreProvider = Provider<SoundcloudClientIdStore>(
+  (ref) => DbSoundcloudClientIdStore(ref.watch(databaseProvider)),
+);
+
 /// The searchable online sources by id.
 final onlineSourcesProvider = Provider<Map<OnlineSourceId, OnlineSource>>((
   ref,
 ) {
-  final youtube = YoutubeSources(ref.watch(httpTransportProvider));
+  final http = ref.watch(httpTransportProvider);
+  final youtube = YoutubeSources(http);
+  final soundcloud = SoundcloudSource(
+    SoundcloudClient(http, ref.watch(soundcloudClientIdStoreProvider)),
+  );
   return {
     OnlineSourceId.ytmusic: youtube.music,
     OnlineSourceId.youtube: youtube.video,
+    OnlineSourceId.soundcloud: soundcloud,
   };
 });
 

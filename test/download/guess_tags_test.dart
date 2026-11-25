@@ -56,4 +56,20 @@ void main() {
       expect(tags.album, isNull);
     });
   }
+
+  for (final raw in [
+    'Numb (FREE DL)',
+    'Numb [FREE DOWNLOAD]',
+    'Numb (Free Download)',
+  ]) {
+    test('"$raw" loses the bracket', () {
+      final tags = guessTags(videoTitle: raw, channel: 'SRY4U');
+      expect(tags.title, 'Numb');
+    });
+  }
+
+  test('"(Free Mix)" is kept', () {
+    final tags = guessTags(videoTitle: 'Numb (Free Mix)', channel: 'SRY4U');
+    expect(tags.title, 'Numb (Free Mix)');
+  });
 }

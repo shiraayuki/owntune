@@ -5,6 +5,7 @@ import 'package:owntune/app/providers.dart';
 import 'package:owntune/app/theme.dart';
 import 'package:owntune/data/sources/online_source.dart';
 import 'package:owntune/download/download_sheet.dart';
+import 'package:owntune/edit/track_tags.dart';
 
 import '../support/fakes.dart';
 
@@ -85,7 +86,7 @@ void main() {
     await t.tap(find.byKey(const Key('download-confirm')));
     await t.pumpAndSettle();
     final call = downloads.enqueued.single;
-    expect(call.result.videoId, 'abc');
+    expect(call.result.id, 'abc');
     expect(call.tags.title, 'Numb (Live)');
     expect(call.tags.artist, 'Linkin Park');
     expect(call.tags.album, isNull);
@@ -127,5 +128,57 @@ void main() {
     await t.tap(find.byKey(const Key('download-confirm')), warnIfMissed: false);
     await t.pumpAndSettle();
     expect(downloads.enqueued, hasLength(1));
+  });
+
+  testWidgets('the sheet shows "From SoundCloud · M4A, 96 kbps" for kbps 96', (
+    t,
+  ) async {
+    await show(
+      t,
+      onlineResult('9', source: OnlineSourceId.soundcloud, kbps: 96),
+    );
+    expect(find.text('From SoundCloud · M4A, 96 kbps'), findsOneWidget);
+  });
+
+  testWidgets('the sheet shows the 160 kbps line', (t) async {
+    await show(
+      t,
+      onlineResult('9', source: OnlineSourceId.soundcloud, kbps: 160),
+    );
+    expect(find.text('From SoundCloud · M4A, 160 kbps'), findsOneWidget);
+  });
+
+  testWidgets('Download enqueues the edited title/artist/album with the '
+      "result's genre and year", (t) async {
+    final downloads = await show(
+      t,
+      onlineResult(
+        '9',
+        source: OnlineSourceId.soundcloud,
+        title: 'Smoke Signals',
+        artist: 'SRY4U',
+        album: null,
+        genre: 'Hip-hop',
+        year: 2023,
+        kbps: 160,
+      ),
+    );
+    expect(field(t, 'download-title'), 'Smoke Signals');
+    expect(field(t, 'download-artist'), 'SRY4U');
+    await t.enterText(find.byKey(const Key('download-title')), 'Smoke');
+    await t.enterText(find.byKey(const Key('download-artist')), 'Sry4u');
+    await t.enterText(find.byKey(const Key('download-album')), 'EP');
+    await t.tap(find.byKey(const Key('download-confirm')));
+    await t.pumpAndSettle();
+    expect(
+      downloads.enqueued.single.tags,
+      const TrackTags(
+        title: 'Smoke',
+        artist: 'Sry4u',
+        album: 'EP',
+        genre: 'Hip-hop',
+        year: 2023,
+      ),
+    );
   });
 }

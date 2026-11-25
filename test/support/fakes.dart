@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
@@ -27,6 +28,7 @@ import 'package:owntune/library/navigation.dart';
 import 'package:owntune/player/audio_engine.dart';
 import 'package:owntune/data/sources/http_transport.dart';
 import 'package:owntune/data/sources/online_source.dart';
+import 'package:owntune/data/sources/soundcloud/client_id_store.dart';
 import 'package:owntune/download/cover_image.dart';
 import 'package:owntune/download/download_controller.dart';
 import 'package:owntune/download/download_job.dart';
@@ -677,9 +679,23 @@ class FakeHttpTransport implements HttpTransport {
     Uri url,
     Map<String, Object?> body, {
     Map<String, String> headers = const {},
+    String service = 'YouTube',
   }) async {
     posts.add((url: url, body: body, headers: headers));
     return onPost!(url, body);
+  }
+
+  @override
+  Future<Map<String, Object?>> getJson(
+    Uri url, {
+    Map<String, String> headers = const {},
+    required String service,
+  }) async {
+    gets.add(url);
+    final res = await onGet!(url, headers);
+    final text = await utf8.decoder.bind(res.stream).join();
+    if (res.statusCode != 200) throw HttpStatusError(service, res.statusCode);
+    return jsonDecode(text) as Map<String, Object?>;
   }
 
   @override
@@ -689,29 +705,59 @@ class FakeHttpTransport implements HttpTransport {
   }
 }
 
-/// A search result for tests.
+/// [SoundcloudClientIdStore] in memory.
+class MemorySoundcloudClientIdStore implements SoundcloudClientIdStore {
+  MemorySoundcloudClientIdStore([this.id]);
+
+  String? id;
+
+  @override
+  Future<String?> read() async => id;
+
+  @override
+  Future<void> write(String id) async => this.id = id;
+}
+
+/// A search result for tests. SoundCloud results get `soundcloud:` keys and
+/// carry their genre and year in the tags; YouTube ones get `youtube:` keys.
 OnlineResult onlineResult(
-  String videoId, {
+  String id, {
   OnlineSourceId source = OnlineSourceId.ytmusic,
   String title = 'Numb',
   String? artist = 'Linkin Park',
   String? album = 'Meteora',
   String? channel,
-}) => OnlineResult(
-  sourceKey: 'youtube:$videoId',
-  videoId: videoId,
-  source: source,
-  title: title,
-  subtitle: [?artist, ?album].join(' · '),
-  duration: const Duration(minutes: 3, seconds: 8),
-  thumbnail: Uri.parse('https://example.invalid/thumb/$videoId.jpg'),
-  coverUrl: Uri.parse('https://example.invalid/cover/$videoId.jpg'),
-  squareCover: source == OnlineSourceId.ytmusic,
-  channel: channel,
-  tags: source == OnlineSourceId.ytmusic
-      ? TrackTags(title: title, artist: artist, album: album)
-      : const TrackTags(),
-);
+  String? subtitle,
+  String? genre,
+  int? year,
+  OnlineAvailability availability = OnlineAvailability.available,
+  int? kbps,
+}) {
+  final soundcloud = source == OnlineSourceId.soundcloud;
+  return OnlineResult(
+    sourceKey: '${soundcloud ? 'soundcloud' : 'youtube'}:$id',
+    id: id,
+    source: source,
+    title: title,
+    subtitle: subtitle ?? [?artist, ?album].join(' · '),
+    duration: const Duration(minutes: 3, seconds: 8),
+    thumbnail: Uri.parse('https://example.invalid/thumb/$id.jpg'),
+    coverUrl: Uri.parse('https://example.invalid/cover/$id.jpg'),
+    squareCover: source != OnlineSourceId.youtube,
+    channel: channel,
+    tags: source == OnlineSourceId.youtube
+        ? const TrackTags()
+        : TrackTags(
+            title: title,
+            artist: artist,
+            album: album,
+            genre: genre,
+            year: year,
+          ),
+    availability: availability,
+    kbps: kbps,
+  );
+}
 
 /// A source with canned results; [resolve] answers from [streams] (or
 /// throws [resolveError]) and records the ids it was asked for.
@@ -740,11 +786,11 @@ class FakeOnlineSource implements OnlineSource {
 
   @override
   Future<ResolvedStream> resolve(OnlineResult result) async {
-    resolved.add(result.videoId);
+    resolved.add(result.id);
     if (resolveError case final e?) throw e;
-    return streams[result.videoId] ??
-        ResolvedStream(
-          url: Uri.parse('https://example.invalid/audio/${result.videoId}'),
+    return streams[result.id] ??
+        RangedStream(
+          url: Uri.parse('https://example.invalid/audio/${result.id}'),
           contentLength: 4,
           extension: 'm4a',
           bitrate: 128000,
@@ -786,6 +832,22 @@ Future<HttpBody> Function(Uri, Map<String, String>) serveRanges(
   };
 }
 
+/// Answers a GET by `url.path` with the bytes in [byPath], or 404 for a path
+/// that is not in it; [status] can replace the code for a path.
+Future<HttpBody> Function(Uri, Map<String, String>) serveSegments(
+  Map<String, List<int>> byPath, {
+  int Function(String path)? status,
+}) {
+  return (url, headers) async {
+    final data = byPath[url.path];
+    final code = data == null ? 404 : status?.call(url.path) ?? 200;
+    if (data == null || code != 200) {
+      return HttpBody(code, const Stream.empty());
+    }
+    return HttpBody(200, Stream.value(data));
+  };
+}
+
 /// A download queue whose state the test sets; records the calls.
 class FakeDownloadController extends DownloadController {
   FakeDownloadController([this.initial = const []]);
@@ -818,15 +880,16 @@ class FakeDownloadController extends DownloadController {
 /// A job for tests.
 DownloadJob downloadJob(
   int id,
-  String videoId, {
+  String resultId, {
   DownloadPhase phase = DownloadPhase.waiting,
   int received = 0,
   int total = 0,
   String? error,
   String title = 'Numb',
+  OnlineSourceId source = OnlineSourceId.ytmusic,
 }) => DownloadJob(
   id: id,
-  result: onlineResult(videoId, title: title),
+  result: onlineResult(resultId, title: title, source: source),
   tags: TrackTags(title: title, artist: 'Linkin Park'),
   phase: phase,
   received: received,

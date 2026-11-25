@@ -45,7 +45,7 @@ void main() {
     final rows = await sources.video.search('linkin park numb');
     final stream = await sources.video.resolve(rows.first);
 
-    expect(stream.contentLength, 3037787);
+    expect((stream as RangedStream).contentLength, 3037787);
     final player = http.posts.last;
     expect(
       player.url.toString(),

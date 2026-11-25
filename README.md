@@ -57,7 +57,7 @@ owntune is a music app for people who still keep **their own music files**, such
 | 🏠 **Home: For You** | Your recently played albums and playlists, "Continue listening", On Repeat, Recently Added, Rediscover and Never Played. |
 | 📊 **Stats** | Listening time per week, month or year, your listening streak, top artists, songs and albums, favourite time of day and your genre mix. |
 | ✏️ **Edit song info** | Fix titles, artists, albums and covers, for one song or a whole album at once. Changes are written back into the files. |
-| 🔎 **Search online** | Find a song on YouTube Music or YouTube and download it straight into your library, with title, artist and cover. |
+| 🔎 **Search online** | Find a song on YouTube Music, YouTube or SoundCloud and download it straight into your library, with title, artist and cover. Long DJ mixes work too. |
 | 🌗 **Light & dark** | A calm light design ("Paper") and a dark one ("Midnight") with an accent colour you choose. |
 
 ---
@@ -133,7 +133,7 @@ This usually comes from SideStore's sign-in servers or from Apple, not from your
 **Is there an Android version?**
 The app is built for Android too, but there is no ready-to-install download yet. It is planned.
 
-**Is downloading from YouTube allowed?**
+**Is downloading from YouTube and SoundCloud allowed?**
 The download feature is meant for personal use, for songs you have the right to keep. Please respect the rights of artists and your local laws.
 
 **Why is owntune not in the App Store?**

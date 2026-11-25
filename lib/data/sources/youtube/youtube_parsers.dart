@@ -6,9 +6,7 @@ import 'package:owntune/edit/track_tags.dart';
 /// name, wherever it sits), because YouTube moves containers around more
 /// often than it changes the renderers themselves.
 
-const _changed = OnlineError(
-  'YouTube changed something; owntune needs an update',
-);
+final _changed = changedError('YouTube');
 
 /// Songs from a YouTube Music search response (`WEB_REMIX`, songs filter).
 List<OnlineResult> parseMusicSearch(Map<String, Object?> json) {
@@ -26,7 +24,7 @@ List<OnlineResult> parseVideoSearch(Map<String, Object?> json) {
 }
 
 /// The M4A audio stream from a player response.
-ResolvedStream parsePlayer(Map<String, Object?> json) {
+RangedStream parsePlayer(Map<String, Object?> json) {
   final status = _map(json['playabilityStatus']);
   if (status?['status'] != 'OK') {
     final reason = status?['reason'] ?? status?['status'] ?? 'no answer';
@@ -38,7 +36,7 @@ ResolvedStream parsePlayer(Map<String, Object?> json) {
       .where((f) => f?['itag'] == m4aAudioItag && f?['url'] is String)
       .firstOrNull;
   if (format == null) throw const OnlineError('No M4A audio for this video');
-  return ResolvedStream(
+  return RangedStream(
     url: Uri.parse(format['url']! as String),
     contentLength: int.tryParse('${format['contentLength']}') ?? 0,
     extension: 'm4a',
@@ -95,7 +93,7 @@ OnlineResult? _musicRow(Map<String, Object?> row) {
   final artist = artists.isEmpty ? null : artists.join(', ');
   return OnlineResult(
     sourceKey: 'youtube:$videoId',
-    videoId: videoId,
+    id: videoId,
     source: OnlineSourceId.ytmusic,
     title: title,
     subtitle: [?artist, ?album].join(' · '),
@@ -121,7 +119,7 @@ OnlineResult? _videoRow(Map<String, Object?> row) {
   final length = _text(row['lengthText']);
   return OnlineResult(
     sourceKey: 'youtube:$videoId',
-    videoId: videoId,
+    id: videoId,
     source: OnlineSourceId.youtube,
     title: _text(row['title']),
     subtitle: [channel, views].where((s) => s.isNotEmpty).join(' · '),

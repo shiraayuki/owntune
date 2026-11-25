@@ -6,6 +6,7 @@ import 'package:owntune/app/providers.dart';
 import 'package:owntune/data/sources/online_source.dart';
 import 'package:owntune/download/download_job.dart';
 import 'package:owntune/download/download_sheet.dart';
+import 'package:owntune/download/online_image.dart';
 import 'package:owntune/download/search_online_screen.dart';
 import 'package:owntune/settings/settings.dart';
 
@@ -14,6 +15,7 @@ import '../support/fakes.dart';
 void main() {
   late FakeOnlineSource music;
   late FakeOnlineSource video;
+  late FakeOnlineSource cloud;
   late FakeSettingsRepository settings;
 
   setUp(() {
@@ -37,6 +39,54 @@ void main() {
         ),
       ],
     );
+    cloud = FakeOnlineSource(
+      OnlineSourceId.soundcloud,
+      results: [
+        onlineResult(
+          '111',
+          source: OnlineSourceId.soundcloud,
+          title: 'Smoke Signals',
+          artist: 'SRY4U',
+          album: null,
+          subtitle: 'SRY4U · 442 plays',
+        ),
+        onlineResult(
+          '555',
+          source: OnlineSourceId.soundcloud,
+          title: 'Second Track',
+          artist: 'SRY4U',
+          album: null,
+          subtitle: 'SRY4U · 12 plays',
+        ),
+        onlineResult(
+          '222',
+          source: OnlineSourceId.soundcloud,
+          title: 'Locked Track',
+          artist: 'Someone',
+          album: null,
+          subtitle: 'Someone · 9 plays',
+          availability: OnlineAvailability.protected,
+        ),
+        onlineResult(
+          '333',
+          source: OnlineSourceId.soundcloud,
+          title: 'Snippet Track',
+          artist: 'Someone',
+          album: null,
+          subtitle: 'Someone · 3 plays',
+          availability: OnlineAvailability.previewOnly,
+        ),
+        onlineResult(
+          '444',
+          source: OnlineSourceId.soundcloud,
+          title: 'Gone Track',
+          artist: 'Someone',
+          album: null,
+          subtitle: 'Someone · 1 plays',
+          availability: OnlineAvailability.unavailable,
+        ),
+      ],
+    );
     settings = FakeSettingsRepository();
   });
 
@@ -55,6 +105,7 @@ void main() {
       onlineSources: {
         OnlineSourceId.ytmusic: music,
         OnlineSourceId.youtube: video,
+        OnlineSourceId.soundcloud: cloud,
       },
       downloads: downloads,
       overrides: [
@@ -247,6 +298,132 @@ void main() {
     await open(t);
     await search(t, 'numb');
     await t.tap(find.text('Numb'));
+    await t.pumpAndSettle();
+    expect(find.byType(DownloadSheet), findsOneWidget);
+  });
+
+  testWidgets('the SoundCloud tab shows "Search SoundCloud" and searches the '
+      'soundcloud source', (t) async {
+    await open(t);
+    expect(find.text('SoundCloud'), findsOneWidget);
+    await t.tap(find.text('SoundCloud'));
+    await t.pumpAndSettle();
+    expect(find.text('Search SoundCloud'), findsOneWidget);
+    await search(t, 'sry4u');
+    expect(cloud.searches, ['sry4u']);
+    expect(music.searches, isEmpty);
+    expect(find.text('Smoke Signals'), findsOneWidget);
+  });
+
+  testWidgets('the tab choice is saved as soundcloud', (t) async {
+    await open(t);
+    await t.tap(find.text('SoundCloud'));
+    await t.pumpAndSettle();
+    expect(settings.saved.last.onlineSource, OnlineSourceId.soundcloud);
+  });
+
+  testWidgets('a SoundCloud row shows the square art with the duration on it '
+      'and "SRY4U · 442 plays"', (t) async {
+    await open(
+      t,
+      initial: AppSettings.defaults.copyWith(
+        onlineSource: OnlineSourceId.soundcloud,
+      ),
+    );
+    await search(t, 'sry4u');
+    final row = find.byKey(const ValueKey('online-row-soundcloud:111'));
+    expect(
+      find.descendant(of: row, matching: find.text('SRY4U · 442 plays')),
+      findsOneWidget,
+    );
+    // The duration sits on the art; the subtitle does not repeat it.
+    expect(
+      find.descendant(of: row, matching: find.text('3:08')),
+      findsOneWidget,
+    );
+    final art = find.descendant(of: row, matching: find.byType(OnlineImage));
+    expect(t.getSize(art), const Size(48, 48));
+  });
+
+  for (final (id, note) in [
+    ('222', 'Protected'),
+    ('333', 'Preview only'),
+    ('444', 'Not available'),
+  ]) {
+    testWidgets('a $note row is dimmed, shows its note and opens no sheet '
+        'on tap', (t) async {
+      await open(
+        t,
+        initial: AppSettings.defaults.copyWith(
+          onlineSource: OnlineSourceId.soundcloud,
+        ),
+      );
+      await search(t, 'x');
+      final row = find.byKey(ValueKey('online-row-soundcloud:$id'));
+      expect(
+        find.descendant(of: row, matching: find.text(note)),
+        findsOneWidget,
+      );
+      final opacity = find.descendant(
+        of: row,
+        matching: find.byWidgetPredicate((w) => w is Opacity && w.opacity < 1),
+      );
+      expect(opacity, findsWidgets);
+      expect(t.widget<InkWell>(row).onTap, isNull);
+      await t.tap(row);
+      await t.pumpAndSettle();
+      expect(find.byType(DownloadSheet), findsNothing);
+    });
+  }
+
+  testWidgets('In Library and Downloading NN % show on SoundCloud rows', (
+    t,
+  ) async {
+    await open(
+      t,
+      initial: AppSettings.defaults.copyWith(
+        onlineSource: OnlineSourceId.soundcloud,
+      ),
+      inLibrary: ['soundcloud:111'],
+      downloads: FakeDownloadController([
+        downloadJob(
+          1,
+          '555',
+          phase: DownloadPhase.downloading,
+          received: 64,
+          total: 100,
+          source: OnlineSourceId.soundcloud,
+        ),
+      ]),
+    );
+    await search(t, 'x');
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('online-row-soundcloud:111')),
+        matching: find.text('In Library'),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('online-row-soundcloud:555')),
+        matching: find.text('Downloading 64 %'),
+      ),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('tapping an available SoundCloud row opens the download sheet', (
+    t,
+  ) async {
+    await open(
+      t,
+      initial: AppSettings.defaults.copyWith(
+        onlineSource: OnlineSourceId.soundcloud,
+      ),
+    );
+    await search(t, 'x');
+    await t.tap(find.text('Smoke Signals'));
     await t.pumpAndSettle();
     expect(find.byType(DownloadSheet), findsOneWidget);
   });

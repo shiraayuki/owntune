@@ -31,7 +31,7 @@ class YoutubeMusicSource implements OnlineSource {
 
   @override
   Future<ResolvedStream> resolve(OnlineResult result) async =>
-      parsePlayer(await _client.player(result.videoId));
+      parsePlayer(await _client.player(result.id));
 }
 
 /// Any video from YouTube.
@@ -49,5 +49,5 @@ class YoutubeSource implements OnlineSource {
 
   @override
   Future<ResolvedStream> resolve(OnlineResult result) async =>
-      parsePlayer(await _client.player(result.videoId));
+      parsePlayer(await _client.player(result.id));
 }

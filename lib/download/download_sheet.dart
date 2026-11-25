@@ -21,8 +21,8 @@ Future<void> showDownloadSheet(BuildContext context, OnlineResult result) =>
       builder: (_) => DownloadSheet(result: result),
     );
 
-/// The tags a download starts with: the song's own (YouTube Music) or a
-/// guess from the video title (YouTube).
+/// The tags a download starts with: the song's own (YouTube Music,
+/// SoundCloud) or a guess from the video title (YouTube).
 TrackTags suggestedTags(OnlineResult r) => r.source == OnlineSourceId.youtube
     ? guessTags(videoTitle: r.title, channel: r.channel ?? '')
     : r.tags;
@@ -33,6 +33,7 @@ String sourceLine(OnlineResult r) => switch (r.source) {
   OnlineSourceId.youtube =>
     'From YouTube · "${r.title}"'
         '${r.channel == null ? '' : ' by ${r.channel}'} · M4A, 128 kbps',
+  OnlineSourceId.soundcloud => 'From SoundCloud · M4A, ${r.kbps ?? 160} kbps',
 };
 
 /// Title, artist and album of a result, editable, and the Download button.
@@ -49,12 +50,13 @@ class _DownloadSheetState extends ConsumerState<DownloadSheet> {
   late final TextEditingController _title;
   late final TextEditingController _artist;
   late final TextEditingController _album;
+  late final TrackTags _suggested = suggestedTags(widget.result);
   var _sent = false;
 
   @override
   void initState() {
     super.initState();
-    final tags = suggestedTags(widget.result);
+    final tags = _suggested;
     _title = TextEditingController(text: tags.title ?? '')
       ..addListener(_changed);
     _artist = TextEditingController(text: tags.artist ?? '')
@@ -84,10 +86,14 @@ class _DownloadSheetState extends ConsumerState<DownloadSheet> {
         .read(downloadControllerProvider.notifier)
         .enqueue(
           widget.result,
+          // The three edited fields on top of the result's own tags, so the
+          // genre and year SoundCloud knows survive.
           TrackTags(
             title: _value(_title),
             artist: _value(_artist),
             album: _value(_album),
+            genre: _suggested.genre,
+            year: _suggested.year,
           ),
         );
     Navigator.of(context).pop();

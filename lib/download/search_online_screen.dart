@@ -24,8 +24,8 @@ Future<void> openSearchOnline(
   ),
 );
 
-/// Search YouTube Music (songs) or YouTube (videos) and pick a result to
-/// download (mockups 06, 07).
+/// Search YouTube Music (songs), YouTube (videos) or SoundCloud and pick a
+/// result to download (mockups 06, 07, 08).
 class SearchOnlineScreen extends ConsumerStatefulWidget {
   const SearchOnlineScreen({super.key, this.backLabel = 'Library'});
 
@@ -160,6 +160,7 @@ class _SearchOnlineScreenState extends ConsumerState<SearchOnlineScreen> {
               segments: const {
                 OnlineSourceId.ytmusic: 'Songs',
                 OnlineSourceId.youtube: 'Videos',
+                OnlineSourceId.soundcloud: 'SoundCloud',
               },
               value: _source,
               onChanged: _switchTo,
@@ -167,9 +168,11 @@ class _SearchOnlineScreenState extends ConsumerState<SearchOnlineScreen> {
           ),
           TabSearchField(
             key: const Key('online-search-field'),
-            label: _source == OnlineSourceId.ytmusic
-                ? 'Search Songs'
-                : 'Search Videos',
+            label: switch (_source) {
+              OnlineSourceId.ytmusic => 'Search Songs',
+              OnlineSourceId.youtube => 'Search Videos',
+              OnlineSourceId.soundcloud => 'Search SoundCloud',
+            },
             controller: _query,
             onSubmitted: _submit,
           ),
@@ -321,74 +324,73 @@ class _ResultRow extends ConsumerWidget {
             .firstOrNull,
       ),
     );
-    final song = r.source == OnlineSourceId.ytmusic;
+    final video = r.source == OnlineSourceId.youtube;
+    final soundcloud = r.source == OnlineSourceId.soundcloud;
     final duration = r.duration == null ? null : formatDuration(r.duration!);
-    final image = song
-        ? OnlineImage(url: r.thumbnail, width: 48, height: 48)
-        : Stack(
+    final available = r.availability == OnlineAvailability.available;
+    final image = video
+        ? Stack(
             children: [
               OnlineImage(url: r.thumbnail, width: 112, height: 63, radius: 6),
-              if (duration != null)
-                Positioned(
-                  right: 4,
-                  bottom: 4,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 4,
-                      vertical: 1,
-                    ),
-                    decoration: BoxDecoration(
-                      color: const Color.fromRGBO(0, 0, 0, 0.75),
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: Text(
-                      duration,
-                      style: const TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ),
-                ),
+              if (duration != null) _DurationBadge(duration),
             ],
-          );
-    final state = _state(inLibrary, job);
+          )
+        : soundcloud
+        ? Stack(
+            children: [
+              OnlineImage(url: r.thumbnail, width: 48, height: 48),
+              if (duration != null) _DurationBadge(duration, compact: true),
+            ],
+          )
+        : OnlineImage(url: r.thumbnail, width: 48, height: 48);
+    final state = available
+        ? _state(inLibrary, job)
+        : (_unavailableIcon(r.availability), r.availability.note!);
+    final dim = available ? 1.0 : 0.45;
     return InkWell(
       key: ValueKey('online-row-${r.sourceKey}'),
-      onTap: () => showDownloadSheet(context, r),
+      onTap: available ? () => showDownloadSheet(context, r) : null,
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 7),
         child: Row(
-          crossAxisAlignment: song
-              ? CrossAxisAlignment.center
-              : CrossAxisAlignment.start,
+          crossAxisAlignment: video
+              ? CrossAxisAlignment.start
+              : CrossAxisAlignment.center,
           children: [
-            image,
+            Opacity(opacity: dim, child: image),
             const SizedBox(width: 12),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    r.title,
-                    maxLines: song ? 1 : 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontSize: song ? 17 : 15,
-                      height: 1.25,
-                      color: c.text,
+                  Opacity(
+                    opacity: dim,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          r.title,
+                          maxLines: video || soundcloud ? 2 : 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: video || soundcloud ? 15 : 17,
+                            height: 1.25,
+                            color: c.text,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          [
+                            if (r.subtitle.isNotEmpty) r.subtitle,
+                            if (!video && !soundcloud && duration != null)
+                              duration,
+                          ].join(' · '),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(fontSize: 13, color: c.muted),
+                        ),
+                      ],
                     ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    [
-                      if (r.subtitle.isNotEmpty) r.subtitle,
-                      if (song && duration != null) duration,
-                    ].join(' · '),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(fontSize: 13, color: c.muted),
                   ),
                   if (state != null) ...[
                     const SizedBox(height: 3),
@@ -397,7 +399,7 @@ class _ResultRow extends ConsumerWidget {
                         Icon(
                           state.$1,
                           size: 13,
-                          color: inLibrary ? c.muted : c.accent,
+                          color: inLibrary || !available ? c.muted : c.accent,
                         ),
                         const SizedBox(width: 4),
                         Text(
@@ -405,7 +407,7 @@ class _ResultRow extends ConsumerWidget {
                           style: TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w600,
-                            color: inLibrary ? c.muted : c.accent,
+                            color: inLibrary || !available ? c.muted : c.accent,
                           ),
                         ),
                       ],
@@ -419,6 +421,12 @@ class _ResultRow extends ConsumerWidget {
       ),
     );
   }
+
+  static IconData _unavailableIcon(OnlineAvailability a) => switch (a) {
+    OnlineAvailability.protected => CupertinoIcons.lock,
+    OnlineAvailability.previewOnly => CupertinoIcons.time,
+    _ => CupertinoIcons.nosign,
+  };
 
   static (IconData, String)? _state(bool inLibrary, DownloadJob? job) {
     if (job != null) {
@@ -441,6 +449,37 @@ class _ResultRow extends ConsumerWidget {
     if (inLibrary) return (CupertinoIcons.checkmark, 'In Library');
     return null;
   }
+}
+
+/// The duration on the bottom right of a thumbnail or cover.
+class _DurationBadge extends StatelessWidget {
+  const _DurationBadge(this.text, {this.compact = false});
+
+  final String text;
+
+  /// Smaller and tighter, for the 48 px square art.
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) => Positioned(
+    right: compact ? 2 : 4,
+    bottom: compact ? 2 : 4,
+    child: Container(
+      padding: EdgeInsets.symmetric(horizontal: compact ? 3 : 4, vertical: 1),
+      decoration: BoxDecoration(
+        color: const Color.fromRGBO(0, 0, 0, 0.75),
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: Text(
+        text,
+        style: TextStyle(
+          fontSize: compact ? 9 : 11,
+          fontWeight: FontWeight.w600,
+          color: Colors.white,
+        ),
+      ),
+    ),
+  );
 }
 
 /// `3:08`, `1:02:14`.

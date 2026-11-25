@@ -1,0 +1,1 @@
+ost.soundcloud.com",web_errors_host:"https://web-errors.soundcloud.com",client_application_id:46941,client_id:"FIXTURECLIENTIDFIXTURECLIENTID00",client_is_expiring:!1,force_sso_via_connect_session_cookie:!1,env:"production",eventlogger_tracking

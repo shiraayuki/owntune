@@ -2,7 +2,7 @@ import 'package:owntune/edit/track_tags.dart';
 
 final _bracket = RegExp(r'\s*[(\[]([^()\[\]]*)[)\]]');
 final _noise = RegExp(
-  r'official|lyric|visuali[sz]er|\b(4k|hd|hq|mv)\b|upgrade|remaster',
+  r'official|lyric|visuali[sz]er|\b(4k|hd|hq|mv)\b|upgrade|remaster|free\s*(dl|download)',
   caseSensitive: false,
 );
 final _keep = RegExp(

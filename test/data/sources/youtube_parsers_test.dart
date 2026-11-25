@@ -16,7 +16,7 @@ void main() {
     final rows = parseMusicSearch(fixture('ytmusic_search'));
     expect(rows, hasLength(20));
     final numb = rows.first;
-    expect(numb.videoId, '5qZQEq_C3vc');
+    expect(numb.id, '5qZQEq_C3vc');
     expect(numb.sourceKey, 'youtube:5qZQEq_C3vc');
     expect(numb.source, OnlineSourceId.ytmusic);
     expect(numb.title, 'Numb');
@@ -38,7 +38,7 @@ void main() {
       final rows = parseVideoSearch(fixture('youtube_search'));
       expect(rows, hasLength(20));
       final v = rows.first;
-      expect(v.videoId, 'kXYiU_JCYtU');
+      expect(v.id, 'kXYiU_JCYtU');
       expect(v.sourceKey, 'youtube:kXYiU_JCYtU');
       expect(v.source, OnlineSourceId.youtube);
       expect(v.title, startsWith('Numb'));

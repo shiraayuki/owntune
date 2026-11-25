@@ -18,13 +18,25 @@ import 'package:owntune/src/rust/api/library.dart';
 import 'package:owntune/src/rust/api/metadata.dart';
 import 'package:owntune/src/rust/frb_generated.dart';
 
-/// Against the real YouTube: off by default (CI runner IPs are often
+import '../test/support/fakes.dart' show MemorySoundcloudClientIdStore;
+
+/// Against the real YouTube and SoundCloud: off by default (CI runner IPs are often
 /// bot-flagged, and a red CI must not mean "YouTube changed"). Run locally
 /// before each release:
 ///
 ///     flutter test integration_test/online_live_test.dart -d linux \
 ///       --dart-define=OWNTUNE_LIVE=true
 const live = bool.fromEnvironment('OWNTUNE_LIVE');
+
+/// A container without the app database: SoundCloud's scraped `client_id`
+/// only lives in memory for the test.
+ProviderContainer liveContainer() => ProviderContainer(
+  overrides: [
+    soundcloudClientIdStoreProvider.overrideWithValue(
+      MemorySoundcloudClientIdStore(),
+    ),
+  ],
+);
 
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
@@ -38,7 +50,7 @@ void main() {
     (t) async {
       final tmp = Directory.systemTemp.createTempSync('owntune_live_it');
       addTearDown(() => tmp.deleteSync(recursive: true));
-      final container = ProviderContainer();
+      final container = liveContainer();
       addTearDown(container.dispose);
       final http = container.read(httpTransportProvider);
       final music = container.read(
@@ -57,7 +69,7 @@ void main() {
         onProgress: (_, _) {},
         cancel: CancelToken(),
       );
-      expect(part.lengthSync(), stream.contentLength);
+      expect(part.lengthSync(), (stream as RangedStream).contentLength);
 
       final body = await http.get(result.coverUrl!);
       expect(body.statusCode, 200);
@@ -91,7 +103,7 @@ void main() {
       expect(summary.added, 1, reason: '${summary.failures}');
 
       final row = (await repo.watchAll().first).single;
-      expect(row.sourceKey, 'youtube:${result.videoId}');
+      expect(row.sourceKey, 'youtube:${result.id}');
       expect(row.title, isNotEmpty);
       expect(row.coverFile, isNotNull);
       expect(row.durationMs, greaterThan(120000));
@@ -99,6 +111,44 @@ void main() {
       print(
         'live: "${row.title}" by ${row.artist} on ${row.album}, '
         '${row.durationMs} ms, ${stream.contentLength} bytes',
+      );
+    },
+    skip: !live,
+  );
+
+  testWidgets(
+    'searches SoundCloud and fetches the init and first segment of a track',
+    (t) async {
+      final container = liveContainer();
+      addTearDown(container.dispose);
+      final http = container.read(httpTransportProvider);
+      final soundcloud = container.read(
+        onlineSourcesProvider,
+      )[OnlineSourceId.soundcloud]!;
+
+      final results = await soundcloud.search('linkin park numb');
+      expect(results, isNotEmpty);
+      final result = results.firstWhere(
+        (r) => r.availability == OnlineAvailability.available,
+      );
+      final stream = await soundcloud.resolve(result) as SegmentedStream;
+      expect(stream.segments, isNotEmpty);
+
+      final fetched = <int>[];
+      for (final url in [stream.initUrl, stream.segments.first.url]) {
+        final body = await http.get(url);
+        expect(body.statusCode, 200);
+        final bytes = await body.stream.expand((c) => c).toList();
+        expect(bytes, isNotEmpty);
+        fetched.add(bytes.length);
+      }
+      expect(result.sourceKey, 'soundcloud:${result.id}');
+      // ignore: avoid_print
+      print(
+        'live: SoundCloud "${result.title}" (${result.subtitle}), '
+        '${stream.segments.length} segments, '
+        '${stream.total.inSeconds} s, init ${fetched[0]} bytes, '
+        'first segment ${fetched[1]} bytes',
       );
     },
     skip: !live,

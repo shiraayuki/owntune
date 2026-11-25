@@ -147,6 +147,13 @@ void main() {
     expect(AppSettings.defaults.recentSearches, isEmpty);
   });
 
+  test('online_source soundcloud round-trips', () async {
+    await repo.save(
+      AppSettings.defaults.copyWith(onlineSource: OnlineSourceId.soundcloud),
+    );
+    expect((await repo.load()).onlineSource, OnlineSourceId.soundcloud);
+  });
+
   test('malformed online_recent and unknown online_source fall back', () async {
     for (final (key, value) in [
       ('online_recent', '{not json'),

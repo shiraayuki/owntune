@@ -70,6 +70,30 @@ img=(-f lavfi -i "color=c=0x3366cc:s=16x16:d=1")
   -metadata title="Rain Loop" \
   "$out/dash.m4a"
 
+# hls.m3u8 + hls_init.mp4 + hls_seg0..2.m4s: the same tone as an fMP4 HLS
+# stream (init segment plus three media segments), like SoundCloud serves it.
+# The playlist's segment URIs are relative. The init's mvhd duration must be
+# 0 (the duration lives in the fragments); the check below fails the script if
+# an ffmpeg version writes a real one, so the download test keeps proving the
+# duration patch.
+rm -f "$out"/hls_seg*.m4s
+"${ff[@]}" "${sine[@]}" "${bx[@]}" -c:a aac -b:a 32k -ar 8000 -ac 1 \
+  -f hls -hls_segment_type fmp4 -hls_time 0.4 -hls_playlist_type vod \
+  -hls_fmp4_init_filename hls_init.mp4 \
+  -hls_segment_filename "$out/hls_seg%d.m4s" "$out/hls.m3u8"
+python3 - "$out/hls_init.mp4" <<'PY'
+import sys
+
+data = open(sys.argv[1], "rb").read()
+i = data.index(b"mvhd") + 4  # the version byte
+if data[i] == 1:  # flags, 2 x 64-bit times, timescale, 64-bit duration
+    duration = data[i + 24:i + 32]
+else:  # flags, 2 x 32-bit times, timescale, 32-bit duration
+    duration = data[i + 16:i + 20]
+if any(duration):
+    sys.exit("hls_init.mp4 has a real mvhd duration; zero it in this script")
+PY
+
 # demo_3.wav: plain PCM, no tags.
 "${ff[@]}" "${sine[@]}" "${bx[@]}" -c:a pcm_s16le "$out/demo_3.wav"
 

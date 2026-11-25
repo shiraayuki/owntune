@@ -16,11 +16,22 @@ class HttpBody {
 /// it with a fake.
 abstract interface class HttpTransport {
   /// POSTs [body] as JSON and returns the decoded JSON object. Fails with an
-  /// [OnlineError] on a non-200 status or when the network is unreachable.
+  /// [OnlineError] on a non-200 status or when the network is unreachable;
+  /// [service] names the source in the message.
   Future<Map<String, Object?>> postJson(
     Uri url,
     Map<String, Object?> body, {
     Map<String, String> headers,
+    String service,
+  });
+
+  /// GETs [url] and returns the decoded JSON object. A non-200 status fails
+  /// with an [HttpStatusError], a body that is not a JSON object with
+  /// [changedError]; an unreachable network with an [OnlineError].
+  Future<Map<String, Object?>> getJson(
+    Uri url, {
+    Map<String, String> headers,
+    required String service,
   });
 
   /// GETs [url]; the caller checks the status and reads (or cancels) the
@@ -46,25 +57,43 @@ class IoHttpTransport implements HttpTransport {
     Uri url,
     Map<String, Object?> body, {
     Map<String, String> headers = const {},
+    String service = 'YouTube',
   }) => _guard(() async {
     final req = await _client.postUrl(url);
     req.headers.contentType = ContentType.json;
     headers.forEach(req.headers.set);
     req.add(utf8.encode(jsonEncode(body)));
     final res = await req.close().timeout(timeout);
+    return _readJson(res, service);
+  });
+
+  @override
+  Future<Map<String, Object?>> getJson(
+    Uri url, {
+    Map<String, String> headers = const {},
+    required String service,
+  }) => _guard(() async {
+    final req = await _client.getUrl(url);
+    headers.forEach(req.headers.set);
+    final res = await req.close().timeout(timeout);
+    return _readJson(res, service);
+  });
+
+  Future<Map<String, Object?>> _readJson(
+    HttpClientResponse res,
+    String service,
+  ) async {
     final text = await res.transform(utf8.decoder).join().timeout(timeout);
-    if (res.statusCode != 200) {
-      throw OnlineError("YouTube didn't answer: HTTP ${res.statusCode}");
-    }
+    if (res.statusCode != 200) throw HttpStatusError(service, res.statusCode);
     final Object? json;
     try {
       json = jsonDecode(text);
     } on FormatException {
-      throw _changed;
+      throw changedError(service);
     }
-    if (json is! Map<String, Object?>) throw _changed;
+    if (json is! Map<String, Object?>) throw changedError(service);
     return json;
-  });
+  }
 
   @override
   Future<HttpBody> get(Uri url, {Map<String, String> headers = const {}}) =>
@@ -83,10 +112,6 @@ class IoHttpTransport implements HttpTransport {
           ),
         );
       });
-
-  static const _changed = OnlineError(
-    'YouTube changed something; owntune needs an update',
-  );
 
   static Future<T> _guard<T>(Future<T> Function() call) async {
     try {
