@@ -34,6 +34,13 @@ jobs:
         with:
           workspaces: rust
 
+      # Gradle's plugins and dependencies from the cache instead of Maven
+      # Central, which answers GitHub's runners with 429 at times. Runs on
+      # main write the cache; tag builds (releases) only read it.
+      - uses: gradle/actions/setup-gradle@v6
+        with:
+          add-job-summary: never
+
       - name: Linux dependencies
         run: |
           sudo apt-get update

@@ -40,6 +40,13 @@ jobs:
         with:
           workspaces: rust
 
+      # Gradle's plugins and dependencies from the cache instead of Maven
+      # Central, which answers GitHub's runners with 429 at times. Runs on
+      # main write the cache; tag builds (releases) only read it.
+      - uses: gradle/actions/setup-gradle@v6
+        with:
+          add-job-summary: never
+
       - name: Version from the tag
         id: version
         run: |
@@ -72,8 +79,14 @@ jobs:
           OWNTUNE_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           OWNTUNE_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           OWNTUNE_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        # Up to three attempts: Maven Central's 429s pass after a while.
         run: |
-          flutter build apk --release ${{ steps.version.outputs.args }}
+          for attempt in 1 2 3; do
+            flutter build apk --release ${{ steps.version.outputs.args }} && break
+            [[ $attempt == 3 ]] && exit 1
+            echo "::warning::APK build failed (attempt $attempt), retrying in 90 s"
+            sleep 90
+          done
           mv build/app/outputs/flutter-apk/app-release.apk owntune.apk
 
       - name: APK is signed with the owntune key
