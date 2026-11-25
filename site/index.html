@@ -181,9 +181,9 @@ h1 { margin: 0 auto 20px; font: 700 clamp(44px, 7.4vw, 116px)/0.95 var(--font); 
 .needs { display: flex; flex-wrap: wrap; gap: 10px; margin: 0 0 56px; padding: 0; list-style: none; }
 .needs li { background: var(--glass); backdrop-filter: blur(14px); border: 1px solid var(--line); border-radius: 14px; padding: 12px 16px; font-size: 16px; color: #d9d7df; }
 .needs b { color: var(--text); }
-.steps { position: relative; display: grid; gap: 64px; padding-left: 72px; max-width: 760px; }
+.steps { position: relative; display: grid; grid-template-columns: minmax(0, 1fr); gap: 64px; padding-left: 72px; max-width: 760px; }
 .steps::before, .steps .fill {
-  content: ""; position: absolute; left: 21px; top: 8px; bottom: 8px; width: 3px; border-radius: 2px; background: var(--surface-2);
+  content: ""; position: absolute; left: 21px; top: 8px; bottom: var(--end, 8px); width: 3px; border-radius: 2px; background: var(--surface-2);
 }
 .steps .fill { background: var(--accent); transform-origin: top; transform: scaleY(var(--p, 0)); transition: background 0.4s; }
 .step { position: relative; }
@@ -193,6 +193,8 @@ h1 { margin: 0 auto 20px; font: 700 clamp(44px, 7.4vw, 116px)/0.95 var(--font); 
   font: 700 18px/1 var(--font); transition: background 0.35s, color 0.35s, transform 0.35s var(--ease);
 }
 .step.done .num { background: var(--accent); color: var(--on-accent); transform: scale(1.06); }
+.step .num svg { width: 22px; height: 22px; }
+.step.end p { margin: 0; color: #d9d7df; }
 .step h3 { font: 700 28px/1.15 var(--font); letter-spacing: -0.035em; margin: 0 0 6px; }
 .step .when { color: var(--accent); font-weight: 600; font-size: 15px; margin: 0 0 14px; transition: color 0.4s; }
 .step ol { margin: 0; padding-left: 22px; color: #d9d7df; }
@@ -403,6 +405,11 @@ footer a { color: var(--muted); }
             <li>Open SideStore and tap Refresh All in My Apps, or turn on Background Refresh.</li>
           </ol>
         </div>
+        <div class="step end">
+          <span class="num"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span>
+          <h3>Start listening</h3>
+          <p>That's it. Open owntune, pick a song and press play.</p>
+        </div>
       </div>
     </div>
 
@@ -439,6 +446,11 @@ footer a { color: var(--muted); }
             <li>Tap Install. owntune appears in your apps.</li>
             <li>For a new version, download it the same way and install it over the old one. Your library stays.</li>
           </ol>
+        </div>
+        <div class="step end">
+          <span class="num"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span>
+          <h3>Start listening</h3>
+          <p>That's it. Tap ＋ in owntune to import your music or search online, then press play.</p>
         </div>
       </div>
     </div>
@@ -596,7 +608,9 @@ footer a { color: var(--muted); }
     for (const list of stepLists) {
       if (list.offsetParent === null) continue;
       const r = list.getBoundingClientRect();
-      list.querySelector('.fill').style.setProperty('--p', clamp((vh * 0.6 - r.top) / r.height));
+      const end = list.querySelector('.step:last-child .num').getBoundingClientRect();
+      list.style.setProperty('--end', `${r.bottom - (end.top + end.height / 2)}px`);
+      list.querySelector('.fill').style.setProperty('--p', clamp((vh * 0.6 - r.top) / (end.top + end.height / 2 - r.top)));
       for (const step of list.querySelectorAll('.step')) {
         step.classList.toggle('done', step.getBoundingClientRect().top < vh * 0.6);
       }
