@@ -53,14 +53,17 @@ a { color: inherit; }
 h2 { font: 700 clamp(38px, 6vw, 80px)/1 var(--font); letter-spacing: -0.055em; margin: 0 0 16px; }
 
 /* ---------- Aurora: fixed, dims as you scroll ---------- */
-.aurora {
-  position: fixed; inset: -20%; z-index: -1; pointer-events: none;
-  filter: blur(80px) saturate(1.2); opacity: var(--glow, 0.72);
+/* soft gradients instead of a blur filter: a full-screen blur would be
+   repainted on every animation frame */
+.aurora { position: fixed; inset: -20%; z-index: -1; pointer-events: none; opacity: var(--glow, 0.72); }
+.aurora i {
+  position: absolute; border-radius: 50%; mix-blend-mode: screen; will-change: translate, scale;
+  background: radial-gradient(closest-side, var(--c), color-mix(in oklch, var(--c) 50%, transparent) 50%, transparent);
+  animation: float 18s ease-in-out infinite alternate;
 }
-.aurora i { position: absolute; border-radius: 50%; mix-blend-mode: screen; animation: float 18s ease-in-out infinite alternate; transition: background 0.6s; }
-.aurora i:nth-child(1) { width: 50vw; height: 50vw; left: 15%; top: 30%; background: var(--accent); }
-.aurora i:nth-child(2) { width: 40vw; height: 40vw; left: 50%; top: 20%; background: color-mix(in oklch, var(--accent), #5a3cff 60%); animation-duration: 22s; }
-.aurora i:nth-child(3) { width: 35vw; height: 35vw; left: 35%; top: 55%; background: color-mix(in oklch, var(--accent), #ffd84d 45%); animation-duration: 26s; }
+.aurora i:nth-child(1) { --c: var(--accent); width: max(80vw, 90vh); aspect-ratio: 1; left: 0; top: 14%; }
+.aurora i:nth-child(2) { --c: color-mix(in oklch, var(--accent), #5a3cff 60%); width: max(70vw, 80vh); aspect-ratio: 1; left: 36%; top: 2%; animation-duration: 22s; }
+.aurora i:nth-child(3) { --c: color-mix(in oklch, var(--accent), #ffd84d 45%); width: max(62vw, 70vh); aspect-ratio: 1; left: 20%; top: 40%; animation-duration: 26s; }
 @keyframes float { to { translate: 8vw -6vh; scale: 1.15; } }
 
 /* ---------- Top bar ---------- */
@@ -87,6 +90,7 @@ h2 { font: 700 clamp(38px, 6vw, 80px)/1 var(--font); letter-spacing: -0.055em; m
   position: absolute; top: clamp(90px, 14vh, 140px); left: 0; right: 0; text-align: center; padding: 0 var(--gutter);
   opacity: calc(1 - var(--p, 0) * 2.2); translate: 0 calc(var(--p, 0) * -8vh);
 }
+.head.gone { visibility: hidden; } /* faded out: its links take no taps */
 .pill {
   display: inline-flex; align-items: center; gap: 10px; margin-bottom: 26px; padding: 8px 16px 8px 12px; border-radius: 999px;
   background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.14);
@@ -549,6 +553,7 @@ footer a { color: var(--muted); }
     const p = clamp(y / heroRange);
     hero.style.setProperty('--p', p.toFixed(4));
     top.classList.toggle('scrolled', y > heroRange);
+    head.classList.toggle('gone', p > 0.44); // opacity reaches 0 at p = 1 / 2.2
 
     // The phone: rises tilted from below the buttons, settles centred, then
     // glides to the slot beside the chapters and follows it (wide screens)
