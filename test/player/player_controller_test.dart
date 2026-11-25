@@ -157,17 +157,19 @@ void main() {
       expect(state().playing, isTrue);
     });
 
-    test('is not cut while its position still moves past the stored length',
-        () async {
-      await playAt(0);
-      engine.calls.clear();
-      for (var i = 0; i < 6; i++) {
-        engine.emitPosition(nearEnd + Duration(milliseconds: 300 * i));
-        await Future<void>.delayed(stallWait ~/ 3);
-      }
-      expect(engine.calls, isEmpty);
-      expect(state().queue.current!.trackId, 1);
-    });
+    test(
+      'is not cut while its position still moves past the stored length',
+      () async {
+        await playAt(0);
+        engine.calls.clear();
+        for (var i = 0; i < 6; i++) {
+          engine.emitPosition(nearEnd + Duration(milliseconds: 300 * i));
+          await Future<void>.delayed(stallWait ~/ 3);
+        }
+        expect(engine.calls, isEmpty);
+        expect(state().queue.current!.trackId, 1);
+      },
+    );
 
     test('does not move on while paused', () async {
       await playAt(0);
@@ -176,6 +178,46 @@ void main() {
       await pumpEventQueue();
       engine.calls.clear();
       await Future<void>.delayed(stallWait * 3);
+      await pumpEventQueue();
+      expect(engine.calls, isEmpty);
+      expect(state().queue.current!.trackId, 1);
+    });
+
+    test('a download moves on once its position passes its length', () async {
+      // just_audio keeps counting the position up while the AVPlayer still
+      // "plays" past the end of a fragmented MP4, so it never stands still;
+      // a download's length is exact (computed from the HLS playlist).
+      final sc = track(
+        4,
+        title: 'SC',
+        durationMs: 240000,
+        sourceKey: 'soundcloud:1',
+      );
+      library.add([a, b, c, sc]);
+      await pumpEventQueue();
+      await player().playList(
+        [sc, b],
+        start: 0,
+        source: const QueueSource.songs(),
+      );
+      await pumpEventQueue();
+      engine.calls.clear();
+      engine.emitPosition(const Duration(minutes: 4, milliseconds: 800));
+      await pumpEventQueue();
+      expect(engine.calls, isEmpty, reason: 'within a second past its length');
+      await pumpEventQueue();
+      engine.emitPosition(
+        const Duration(minutes: 4, seconds: 1, milliseconds: 100),
+      );
+      await pumpEventQueue();
+      expect(engine.calls, ['pause', 'load hash2.mp3', 'play']);
+      expect(state().queue.current!.trackId, 2);
+    });
+
+    test('an imported song past its stored length keeps playing', () async {
+      await playAt(0);
+      engine.calls.clear();
+      engine.emitPosition(const Duration(minutes: 4, milliseconds: 600));
       await pumpEventQueue();
       expect(engine.calls, isEmpty);
       expect(state().queue.current!.trackId, 1);

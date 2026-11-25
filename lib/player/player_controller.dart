@@ -56,6 +56,10 @@ const _saveEvery = Duration(seconds: 5);
 /// stall watch (see `_endStall`).
 const _endMargin = Duration(seconds: 1);
 
+/// How far past its length a download may play before it counts as ended
+/// (see `_watchEnd`).
+const _downloadOverrun = Duration(seconds: 1);
+
 /// Resuming after a pause at least this long starts a new listen session.
 const _longPause = Duration(minutes: 30);
 
@@ -525,7 +529,11 @@ class PlayerController extends Notifier<PlayerState> {
   }
 
   /// Arms [_endStall] while a playing song is within a second of its end,
-  /// again whenever the position moves.
+  /// again whenever the position moves. A download ends once its position
+  /// passes its length: that length is exact (computed from the HLS
+  /// playlist), while just_audio keeps counting the position up as long as
+  /// the AVPlayer still "plays" past the end of a fragmented MP4, so the
+  /// position never stands still there.
   void _watchEnd(Duration p) {
     final moved = p != _stallPosition;
     _stallPosition = p;
@@ -540,6 +548,13 @@ class PlayerController extends Notifier<PlayerState> {
     if (!atEnd) {
       _endStall?.cancel();
       _endStall = null;
+      return;
+    }
+    final length = Duration(milliseconds: track.durationMs);
+    if (track.sourceKey != null && p >= length + _downloadOverrun) {
+      _endStall?.cancel();
+      _endStall = null;
+      unawaited(_onCompleted());
       return;
     }
     if (!moved && _endStall != null) return;
