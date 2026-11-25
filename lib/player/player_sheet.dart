@@ -11,6 +11,7 @@ import 'package:owntune/data/db/database.dart';
 import 'package:owntune/library/artwork.dart';
 import 'package:owntune/library/songs_screen.dart';
 import 'package:owntune/library/sort_key.dart';
+import 'package:owntune/player/cover_carousel.dart';
 import 'package:owntune/player/like_button.dart';
 import 'package:owntune/player/play_queue.dart';
 import 'package:owntune/player/player_controller.dart';
@@ -188,19 +189,7 @@ class _Content extends ConsumerWidget {
                       constraints.maxWidth,
                       constraints.maxHeight,
                     ].reduce((a, b) => a < b ? a : b);
-                    return DecoratedBox(
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(14),
-                        boxShadow: const [
-                          BoxShadow(
-                            color: Color.fromRGBO(0, 0, 0, 0.45),
-                            blurRadius: 60,
-                            offset: Offset(0, 24),
-                          ),
-                        ],
-                      ),
-                      child: Artwork(file: coverFile, size: side, radius: 14),
-                    );
+                    return CoverCarousel(side: side);
                   },
                 ),
               ),

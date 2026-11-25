@@ -9,6 +9,7 @@ import 'package:owntune/app/providers.dart';
 import 'package:owntune/app/theme.dart';
 import 'package:owntune/data/db/database.dart';
 import 'package:owntune/library/album_screen.dart';
+import 'package:owntune/library/artwork.dart';
 import 'package:owntune/player/play_queue.dart';
 import 'package:owntune/player/player_controller.dart';
 
@@ -383,6 +384,145 @@ void main() {
     await t.tap(find.text('Add to Liked Songs'));
     await t.pumpAndSettle();
     expect(repo.likeCalls.map((c) => (c.ids.single, c.liked)), [(1, true)]);
+  });
+
+  group('swiping the cover', () {
+    final cover = find.byKey(const Key('player-cover'));
+    final nextCover = find.byKey(const Key('player-cover-next'));
+    final songs = [
+      for (var i = 1; i <= 5; i++)
+        track(i, title: 'Song $i', artist: 'Artist $i', cover: 'c$i.jpg'),
+    ];
+
+    /// The cover file the neighbour [finder] shows.
+    String? coverOf(WidgetTester t, Finder finder) => t
+        .widget<Artwork>(
+          find.descendant(of: finder, matching: find.byType(Artwork)),
+        )
+        .file
+        ?.uri
+        .pathSegments
+        .last;
+
+    Future<FakeAudioEngine> open(WidgetTester t, String title) async {
+      t.view.physicalSize = const Size(390, 844);
+      t.view.devicePixelRatio = 1;
+      addTearDown(t.view.reset);
+      final engine = FakeAudioEngine();
+      await pumpApp(t, songs: songs, engine: engine);
+      await openLibraryTab(t);
+      await _open(t, title);
+      return engine;
+    }
+
+    testWidgets('left plays the next song', (t) async {
+      final engine = await open(t, 'Song 2');
+      await t.drag(cover, const Offset(-200, 0));
+      await t.pumpAndSettle();
+      expect(engine.current, 'hash3.mp3');
+      expect(
+        find.descendant(of: _sheet, matching: find.text('Song 3')),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('right goes to the previous song even late in it', (t) async {
+      final engine = await open(t, 'Song 2');
+      engine.emitPosition(const Duration(seconds: 30));
+      await t.pump();
+      await t.drag(cover, const Offset(200, 0));
+      await t.pumpAndSettle();
+      expect(engine.current, 'hash1.mp3');
+    });
+
+    testWidgets('right on the first song restarts it', (t) async {
+      final engine = await open(t, 'Song 1');
+      await t.drag(cover, const Offset(200, 0));
+      await t.pumpAndSettle();
+      expect(engine.loaded, ['hash1.mp3']);
+      expect(engine.lastSeek, Duration.zero);
+    });
+
+    testWidgets('a short slow drag springs back', (t) async {
+      final engine = await open(t, 'Song 2');
+      final gesture = await t.startGesture(t.getCenter(cover));
+      for (var i = 0; i < 6; i++) {
+        await gesture.moveBy(const Offset(-5, 0));
+        await t.pump(const Duration(milliseconds: 50));
+      }
+      await gesture.up();
+      await t.pumpAndSettle();
+      expect(engine.loaded, ['hash2.mp3']);
+      expect(nextCover, findsNothing);
+    });
+
+    testWidgets('the next cover shows beside the cover while dragging', (
+      t,
+    ) async {
+      await open(t, 'Song 2');
+      expect(nextCover, findsNothing);
+      final gesture = await t.startGesture(t.getCenter(cover));
+      await gesture.moveBy(const Offset(-40, 0));
+      await gesture.moveBy(const Offset(-60, 0));
+      await t.pump();
+      expect(coverOf(t, nextCover), 'c3.jpg');
+      expect(
+        t.getTopLeft(nextCover).dx,
+        greaterThan(t.getTopRight(cover).dx - 100),
+      );
+      await gesture.up();
+      await t.pumpAndSettle();
+    });
+
+    testWidgets('with shuffle on the next cover is the next in play order', (
+      t,
+    ) async {
+      final engine = await open(t, 'Song 1');
+      await t.tap(find.byKey(const Key('player-shuffle')));
+      await t.pumpAndSettle();
+      final q = _state(t).queue;
+      final upcoming = q.entries[q.index + 1].trackId;
+
+      final gesture = await t.startGesture(t.getCenter(cover));
+      await gesture.moveBy(const Offset(-40, 0));
+      await gesture.moveBy(const Offset(-60, 0));
+      await t.pump();
+      expect(coverOf(t, nextCover), 'c$upcoming.jpg');
+      await gesture.moveBy(const Offset(-150, 0));
+      await gesture.up();
+      await t.pumpAndSettle();
+      expect(engine.current, 'hash$upcoming.mp3');
+    });
+
+    testWidgets('on the last song with repeat off left does nothing', (
+      t,
+    ) async {
+      final engine = await open(t, 'Song 5');
+      final gesture = await t.startGesture(t.getCenter(cover));
+      await gesture.moveBy(const Offset(-40, 0));
+      await gesture.moveBy(const Offset(-260, 0));
+      await t.pump();
+      expect(nextCover, findsNothing);
+      await gesture.up();
+      await t.pumpAndSettle();
+      expect(engine.loaded, ['hash5.mp3']);
+    });
+
+    testWidgets('with repeat all the last song swipes to the first', (t) async {
+      final engine = await open(t, 'Song 5');
+      await t.tap(find.byKey(const Key('player-repeat')));
+      await t.pumpAndSettle();
+      await t.drag(cover, const Offset(-200, 0));
+      await t.pumpAndSettle();
+      expect(engine.current, 'hash1.mp3');
+    });
+
+    testWidgets('swiping down on the cover still closes the player', (t) async {
+      await open(t, 'Song 2');
+      await t.drag(cover, const Offset(0, 600));
+      await t.pumpAndSettle();
+      expect(_sheet, findsNothing);
+    });
   });
 }
 
