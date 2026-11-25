@@ -18,9 +18,11 @@ final soundcloudHomeUrl = Uri.parse('https://soundcloud.com/');
 const apiHost = 'api-v2.soundcloud.com';
 const searchPath = '/search/tracks';
 String trackPath(String id) => '/tracks/$id';
+const resolvePath = '/resolve';
 
 const queryParam = 'q';
 const limitParam = 'limit';
+const urlParam = 'url';
 const searchLimit = '20';
 const localeParam = 'app_locale';
 const locale = 'en';

@@ -101,7 +101,7 @@ SideStore is a free app that installs apps that are not in the App Store. It sig
 2. Open **owntune**, tap **＋** at the top right and choose **Import Music**.
 3. Select the songs or a whole folder and tap **Open**. owntune copies them into its library and reads the song details and covers.
 
-Prefer to search? Tap **＋ → Search Online**, type a song name and tap **Download**.
+Prefer to search? Tap **＋ → Search Online**, type a song name and tap **Download**. You can also **paste a YouTube or SoundCloud link** into the search field, and the song opens right away.
 
 ### Step 4: Keep it running (every 7 days)
 

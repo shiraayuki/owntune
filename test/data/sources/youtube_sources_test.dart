@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:owntune/data/sources/http_transport.dart';
+import 'package:owntune/data/sources/online_link.dart';
 import 'package:owntune/data/sources/online_source.dart';
 import 'package:owntune/data/sources/youtube/youtube_sources.dart';
 
@@ -74,6 +75,33 @@ void main() {
     expect(search.body['params'], 'EgWKAQIIAWoKEAoQAxAEEAkQBQ==');
     final client = (search.body['context']! as Map)['client']! as Map;
     expect(client['clientName'], 'WEB_REMIX');
+  });
+
+  test('YoutubeSource.lookup asks the player for the link\'s id', () async {
+    final result = await sources.video.lookup(const YoutubeLink('5qZQEq_C3vc'));
+
+    expect(result.sourceKey, 'youtube:5qZQEq_C3vc');
+    expect(result.title, 'Numb');
+    expect(result.source, OnlineSourceId.youtube);
+    final player = http.posts.last;
+    expect(player.url.path, '/youtubei/v1/player');
+    expect(player.body['videoId'], '5qZQEq_C3vc');
+  });
+
+  test('YoutubeMusicSource.lookup also answers as a YouTube video', () async {
+    final result = await sources.music.lookup(const YoutubeLink('5qZQEq_C3vc'));
+
+    expect(result.source, OnlineSourceId.youtube);
+    expect(http.posts.last.body['videoId'], '5qZQEq_C3vc');
+  });
+
+  test('lookup of a SoundCloud link is an ArgumentError', () {
+    expect(
+      sources.video.lookup(
+        SoundcloudLink(Uri.parse('https://soundcloud.com/a/b')),
+      ),
+      throwsArgumentError,
+    );
   });
 
   test('resolve before any search fetches visitorData first', () async {

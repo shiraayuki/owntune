@@ -1,4 +1,5 @@
 import 'package:owntune/data/sources/http_transport.dart';
+import 'package:owntune/data/sources/online_link.dart';
 import 'package:owntune/data/sources/online_source.dart';
 import 'package:owntune/data/sources/youtube/innertube_client.dart';
 import 'package:owntune/data/sources/youtube/youtube_parsers.dart';
@@ -14,6 +15,18 @@ class YoutubeSources {
 
   final YoutubeMusicSource music;
   final YoutubeSource video;
+}
+
+/// The video behind [link], from the player response. Songs and videos
+/// share one answer, so both sources use this.
+Future<OnlineResult> _lookupVideo(
+  InnertubeClient client,
+  OnlineLink link,
+) async {
+  if (link is! YoutubeLink) {
+    throw ArgumentError.value(link, 'link', 'not a YouTube link');
+  }
+  return parseVideoDetails(await client.player(link.videoId));
 }
 
 /// Songs from YouTube Music, with title, artist, album and album art.
@@ -32,6 +45,9 @@ class YoutubeMusicSource implements OnlineSource {
   @override
   Future<ResolvedStream> resolve(OnlineResult result) async =>
       parsePlayer(await _client.player(result.id));
+
+  @override
+  Future<OnlineResult> lookup(OnlineLink link) => _lookupVideo(_client, link);
 }
 
 /// Any video from YouTube.
@@ -50,4 +66,7 @@ class YoutubeSource implements OnlineSource {
   @override
   Future<ResolvedStream> resolve(OnlineResult result) async =>
       parsePlayer(await _client.player(result.id));
+
+  @override
+  Future<OnlineResult> lookup(OnlineLink link) => _lookupVideo(_client, link);
 }

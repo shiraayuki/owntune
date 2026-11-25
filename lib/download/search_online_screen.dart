@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:cupertino_ui/cupertino_ui.dart' show CupertinoIcons;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
@@ -5,6 +7,7 @@ import 'package:owntune/app/buttons.dart';
 import 'package:owntune/app/providers.dart';
 import 'package:owntune/app/text_tabs.dart';
 import 'package:owntune/app/theme.dart';
+import 'package:owntune/data/sources/online_link.dart';
 import 'package:owntune/data/sources/online_source.dart';
 import 'package:owntune/download/download_job.dart';
 import 'package:owntune/download/download_sheet.dart';
@@ -47,20 +50,96 @@ class _SearchOnlineScreenState extends ConsumerState<SearchOnlineScreen> {
   var _loading = false;
   var _serial = 0;
 
+  /// Whether the spinner belongs to a link lookup, which an edit of the field
+  /// cancels.
+  var _linkLoading = false;
+
+  /// The trimmed text of the link whose lookup and sheet are in progress.
+  String? _openingLink;
+
+  /// False for the error of a link: there is no search to repeat.
+  var _retryable = true;
+
+  /// The field's text at the last change, to tell a paste from typing.
+  var _lastText = '';
+
+  /// Whether the field holds a link whose lookup, sheet or error the body
+  /// shows. The next edit ends it and brings back what was shown before.
+  var _linkActive = false;
+
+  /// The query the shown results belonged to before the link; [_searched]
+  /// is null while the field holds a link.
+  String? _searchedBeforeLink;
+
   @override
   void initState() {
     super.initState();
-    _query.addListener(() {
-      if (_query.text.isEmpty && _searched != null) {
-        setState(() {
-          _serial++;
-          _searched = null;
-          _results = null;
+    _query.addListener(_queryChanged);
+  }
+
+  void _queryChanged() {
+    final text = _query.text;
+    final last = _lastText;
+    _lastText = text;
+    if (text == last) return;
+    if (_linkLoading) {
+      // The user moved on: the late answer must not open a sheet, and the
+      // same link can be submitted again.
+      setState(() {
+        _serial++;
+        _loading = false;
+        _linkLoading = false;
+        _openingLink = null;
+      });
+    }
+    if (_linkActive) {
+      // Back to what the body showed before the link: the previous results
+      // (kept in `_results`) or the recent searches.
+      setState(() {
+        _linkActive = false;
+        _searched = _searchedBeforeLink;
+        _searchedBeforeLink = null;
+        if (!_retryable) {
           _error = null;
-          _loading = false;
-        });
-      }
-    });
+          _retryable = true;
+        }
+      });
+    }
+    if (text.isEmpty) {
+      setState(() {
+        _serial++;
+        _searched = null;
+        _results = null;
+        _error = null;
+        _retryable = true;
+        _loading = false;
+      });
+    }
+    // A paste (or a typed-in recent search) arrives in one piece; typing and
+    // deleting change the text by one character.
+    if (_insertedLength(last, text) > 1) {
+      final link = parseOnlineLink(text);
+      if (link != null) _openLink(link);
+    }
+  }
+
+  /// How many characters the change from [before] to [after] inserted,
+  /// found through their common prefix and suffix; a paste over a selection
+  /// counts as its inserted text.
+  static int _insertedLength(String before, String after) {
+    final shorter = math.min(before.length, after.length);
+    var prefix = 0;
+    while (prefix < shorter &&
+        before.codeUnitAt(prefix) == after.codeUnitAt(prefix)) {
+      prefix++;
+    }
+    var suffix = 0;
+    while (suffix < shorter - prefix &&
+        before.codeUnitAt(before.length - 1 - suffix) ==
+            after.codeUnitAt(after.length - 1 - suffix)) {
+      suffix++;
+    }
+    return after.length - prefix - suffix;
   }
 
   @override
@@ -72,6 +151,11 @@ class _SearchOnlineScreenState extends ConsumerState<SearchOnlineScreen> {
   void _submit(String text) {
     final q = text.trim();
     if (q.isEmpty) return;
+    if (parseOnlineLink(q) case final link?) {
+      // A paste already started this lookup; submitting must not repeat it.
+      if (_openingLink != q) _openLink(link);
+      return;
+    }
     ref.read(settingsProvider.notifier).addRecentSearch(q);
     _search(q);
   }
@@ -80,9 +164,12 @@ class _SearchOnlineScreenState extends ConsumerState<SearchOnlineScreen> {
     final serial = ++_serial;
     setState(() {
       _searched = q;
+      _linkActive = false;
       _loading = true;
+      _linkLoading = false;
       _results = null;
       _error = null;
+      _retryable = true;
     });
     final source = ref.read(onlineSourcesProvider)[_source]!;
     try {
@@ -101,9 +188,78 @@ class _SearchOnlineScreenState extends ConsumerState<SearchOnlineScreen> {
     }
   }
 
+  /// Looks up the song of a pasted link and opens its Download sheet, on any
+  /// tab. The shown results stay behind the spinner and come back after it.
+  Future<void> _openLink(OnlineLink link) async {
+    final serial = ++_serial;
+    final text = _query.text.trim();
+    _openingLink = text;
+    if (!_linkActive) {
+      // While the field holds a link there is no query to repeat; a search
+      // still running is dropped by the serial.
+      _linkActive = true;
+      _searchedBeforeLink = _searched;
+      _searched = null;
+    }
+    try {
+      await _lookUpAndOpen(link, serial);
+    } finally {
+      if (_openingLink == text) _openingLink = null;
+    }
+  }
+
+  Future<void> _lookUpAndOpen(OnlineLink link, int serial) async {
+    if (link case UnsupportedLink(:final message)) {
+      setState(() {
+        _loading = false;
+        _linkLoading = false;
+        _error = message;
+        _retryable = false;
+      });
+      return;
+    }
+    final id = link is YoutubeLink
+        ? OnlineSourceId.youtube
+        : OnlineSourceId.soundcloud;
+    setState(() {
+      _loading = true;
+      _linkLoading = true;
+      if (!_retryable) {
+        _error = null;
+        _retryable = true;
+      }
+    });
+    final OnlineResult result;
+    try {
+      result = await ref.read(onlineSourcesProvider)[id]!.lookup(link);
+    } on Object catch (e) {
+      if (!mounted || serial != _serial) return;
+      setState(() {
+        _error = '$e';
+        _retryable = false;
+        _loading = false;
+        _linkLoading = false;
+      });
+      return;
+    }
+    if (!mounted || serial != _serial) return;
+    setState(() {
+      _loading = false;
+      _linkLoading = false;
+    });
+    await showDownloadSheet(context, result);
+  }
+
   void _switchTo(OnlineSourceId source) {
     if (source == _source) return;
-    setState(() => _source = source);
+    setState(() {
+      _source = source;
+      // Results kept behind a link belong to the other tab.
+      if (_linkActive) {
+        _results = null;
+        _searchedBeforeLink = null;
+      }
+    });
     final notifier = ref.read(settingsProvider.notifier);
     notifier.set(ref.read(settingsProvider).copyWith(onlineSource: source));
     final searched = _searched;
@@ -202,12 +358,14 @@ class _SearchOnlineScreenState extends ConsumerState<SearchOnlineScreen> {
               textAlign: TextAlign.center,
               style: TextStyle(fontSize: 15, color: c.muted),
             ),
-            const SizedBox(height: 16),
-            PillButton(
-              label: 'Retry',
-              secondary: true,
-              onPressed: () => _search(_searched!),
-            ),
+            if (_retryable && _searched != null) ...[
+              const SizedBox(height: 16),
+              PillButton(
+                label: 'Retry',
+                secondary: true,
+                onPressed: () => _search(_searched!),
+              ),
+            ],
           ],
         ),
       );

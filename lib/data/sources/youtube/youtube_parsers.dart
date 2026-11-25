@@ -25,11 +25,7 @@ List<OnlineResult> parseVideoSearch(Map<String, Object?> json) {
 
 /// The M4A audio stream from a player response.
 RangedStream parsePlayer(Map<String, Object?> json) {
-  final status = _map(json['playabilityStatus']);
-  if (status?['status'] != 'OK') {
-    final reason = status?['reason'] ?? status?['status'] ?? 'no answer';
-    throw OnlineError('YouTube: $reason');
-  }
+  _requirePlayable(json);
   final formats = _list(_map(json['streamingData'])?['adaptiveFormats']);
   final format = formats
       .map(_map)
@@ -42,6 +38,42 @@ RangedStream parsePlayer(Map<String, Object?> json) {
     extension: 'm4a',
     bitrate: (format['bitrate'] as num?)?.toInt() ?? 0,
   );
+}
+
+/// A video result from a player response's `videoDetails`, for a pasted
+/// link.
+OnlineResult parseVideoDetails(Map<String, Object?> json) {
+  _requirePlayable(json);
+  final details = _map(json['videoDetails']);
+  final videoId = details?['videoId'];
+  if (details == null || videoId is! String) throw _changed;
+  final thumbnails = _thumbnails(details['thumbnail']);
+  if (thumbnails.isEmpty) throw _changed;
+  final bySize = [...thumbnails]..sort((a, b) => a.width.compareTo(b.width));
+  final author = '${details['author'] ?? ''}'.trim();
+  final seconds = int.tryParse('${details['lengthSeconds']}');
+  return OnlineResult(
+    sourceKey: 'youtube:$videoId',
+    id: videoId,
+    source: OnlineSourceId.youtube,
+    title: '${details['title'] ?? ''}'.trim(),
+    subtitle: author,
+    duration: seconds == null ? null : Duration(seconds: seconds),
+    thumbnail: bySize.last.url,
+    coverUrl: bySize.last.url,
+    squareCover: false,
+    channel: author.isEmpty ? null : author,
+    tags: const TrackTags(),
+  );
+}
+
+/// Throws `YouTube: <reason>` unless the player response says OK.
+void _requirePlayable(Map<String, Object?> json) {
+  final status = _map(json['playabilityStatus']);
+  if (status?['status'] != 'OK') {
+    final reason = status?['reason'] ?? status?['status'] ?? 'no answer';
+    throw OnlineError('YouTube: $reason');
+  }
 }
 
 OnlineResult? _musicRow(Map<String, Object?> row) {

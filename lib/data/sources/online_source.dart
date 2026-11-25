@@ -1,3 +1,4 @@
+import 'package:owntune/data/sources/online_link.dart';
 import 'package:owntune/edit/track_tags.dart';
 
 /// The searchable online sources; [name] is the value stored in the settings.
@@ -166,4 +167,8 @@ abstract interface class OnlineSource {
   Future<List<OnlineResult>> search(String query);
 
   Future<ResolvedStream> resolve(OnlineResult result);
+
+  /// The one song that [link] points to. Throws [ArgumentError] for a link
+  /// of the other site and [OnlineError] when it is not a downloadable song.
+  Future<OnlineResult> lookup(OnlineLink link);
 }

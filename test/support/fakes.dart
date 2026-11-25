@@ -27,6 +27,7 @@ import 'package:owntune/import/importer.dart';
 import 'package:owntune/library/navigation.dart';
 import 'package:owntune/player/audio_engine.dart';
 import 'package:owntune/data/sources/http_transport.dart';
+import 'package:owntune/data/sources/online_link.dart';
 import 'package:owntune/data/sources/online_source.dart';
 import 'package:owntune/data/sources/soundcloud/client_id_store.dart';
 import 'package:owntune/download/cover_image.dart';
@@ -667,12 +668,16 @@ typedef PostCall = ({
 /// Answers requests from handlers set by the test and records `postJson`
 /// calls.
 class FakeHttpTransport implements HttpTransport {
-  FakeHttpTransport({this.onPost, this.onGet});
+  FakeHttpTransport({this.onPost, this.onGet, this.onFinalUrl});
 
   Map<String, Object?> Function(Uri url, Map<String, Object?> body)? onPost;
   Future<HttpBody> Function(Uri url, Map<String, String> headers)? onGet;
+
+  /// Where a URL redirects to; the default is no redirect.
+  Future<Uri> Function(Uri url)? onFinalUrl;
   final posts = <PostCall>[];
   final gets = <Uri>[];
+  final finalUrls = <Uri>[];
 
   @override
   Future<Map<String, Object?>> postJson(
@@ -702,6 +707,12 @@ class FakeHttpTransport implements HttpTransport {
   Future<HttpBody> get(Uri url, {Map<String, String> headers = const {}}) {
     gets.add(url);
     return onGet!(url, headers);
+  }
+
+  @override
+  Future<Uri> finalUrl(Uri url) async {
+    finalUrls.add(url);
+    return onFinalUrl == null ? url : onFinalUrl!(url);
   }
 }
 
@@ -775,6 +786,36 @@ class FakeOnlineSource implements OnlineSource {
 
   /// When set, [search] waits for it (to see the loading state).
   Completer<void>? searchGate;
+
+  /// The links [lookup] was asked for.
+  final lookups = <OnlineLink>[];
+
+  /// Canned answers of [lookup], keyed by video id (YouTube) or by the link's
+  /// URL string (SoundCloud); any other link gets a default result.
+  final linkResults = <String, OnlineResult>{};
+  Object? lookupError;
+
+  /// When set, [lookup] waits for it.
+  Completer<void>? lookupGate;
+
+  @override
+  Future<OnlineResult> lookup(OnlineLink link) async {
+    lookups.add(link);
+    await lookupGate?.future;
+    if (lookupError case final e?) throw e;
+    return switch (link) {
+      YoutubeLink(:final videoId) =>
+        linkResults[videoId] ??
+            onlineResult(videoId, source: OnlineSourceId.youtube),
+      SoundcloudLink(:final url) =>
+        linkResults['$url'] ??
+            onlineResult(
+              url.pathSegments.last,
+              source: OnlineSourceId.soundcloud,
+            ),
+      UnsupportedLink(:final message) => throw OnlineError(message),
+    };
+  }
 
   @override
   Future<List<OnlineResult>> search(String query) async {

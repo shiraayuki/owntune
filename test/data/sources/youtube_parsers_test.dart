@@ -73,6 +73,52 @@ void main() {
     );
   });
 
+  test('parseVideoDetails on player_ok.json builds a video result', () {
+    final r = parseVideoDetails(fixture('player_ok'));
+    expect(r.sourceKey, 'youtube:5qZQEq_C3vc');
+    expect(r.id, '5qZQEq_C3vc');
+    expect(r.source, OnlineSourceId.youtube);
+    expect(r.title, 'Numb');
+    expect(r.channel, 'Linkin Park - Topic');
+    expect(r.subtitle, 'Linkin Park - Topic');
+    expect(r.duration, const Duration(seconds: 188));
+    expect(r.squareCover, isFalse);
+    expect(r.tags, const TrackTags());
+    expect(
+      r.thumbnail.toString(),
+      'https://i.ytimg.com/vi/5qZQEq_C3vc/hq720.jpg',
+    );
+    expect(r.coverUrl, r.thumbnail);
+  });
+
+  test('parseVideoDetails on player_login_required.json throws '
+      '"YouTube: ..."', () {
+    expect(
+      () => parseVideoDetails(fixture('player_login_required')),
+      throwsA(
+        isA<OnlineError>().having(
+          (e) => e.message,
+          'message',
+          allOf(startsWith('YouTube: '), contains('Sign in')),
+        ),
+      ),
+    );
+  });
+
+  test('parseVideoDetails without videoDetails is a changed error', () {
+    final player = {...fixture('player_ok')}..remove('videoDetails');
+    expect(
+      () => parseVideoDetails(player),
+      throwsA(
+        isA<OnlineError>().having(
+          (e) => e.message,
+          'message',
+          'YouTube changed something; owntune needs an update',
+        ),
+      ),
+    );
+  });
+
   test('player without itag 140 says so', () {
     final json = fixture('player_ok');
     final streaming = json['streamingData']! as Map<String, Object?>;

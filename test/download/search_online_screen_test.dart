@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:owntune/app/providers.dart';
+import 'package:owntune/data/sources/online_link.dart';
 import 'package:owntune/data/sources/online_source.dart';
 import 'package:owntune/download/download_job.dart';
 import 'package:owntune/download/download_sheet.dart';
@@ -426,5 +427,281 @@ void main() {
     await t.tap(find.text('Smoke Signals'));
     await t.pumpAndSettle();
     expect(find.byType(DownloadSheet), findsOneWidget);
+  });
+
+  group('pasting a link', () {
+    const ytLink = 'https://youtu.be/dQw4w9WgXcQ?si=abc&t=42';
+    const scLink = 'https://soundcloud.com/sry4u/smoke-signals?si=x';
+
+    Future<void> openOnSoundcloud(WidgetTester t) => open(
+      t,
+      initial: AppSettings.defaults.copyWith(
+        onlineSource: OnlineSourceId.soundcloud,
+      ),
+    );
+
+    testWidgets('submitting a YouTube link on the SoundCloud tab looks it up '
+        'on the youtube source and opens the Download sheet', (t) async {
+      video.linkResults['dQw4w9WgXcQ'] = onlineResult(
+        'dQw4w9WgXcQ',
+        source: OnlineSourceId.youtube,
+        title: 'Rick Astley - Never Gonna Give You Up',
+        artist: 'Rick Astley',
+        album: null,
+        channel: 'Rick Astley',
+      );
+      await openOnSoundcloud(t);
+      await search(t, ytLink);
+      expect(video.lookups, hasLength(1));
+      expect((video.lookups.single as YoutubeLink).videoId, 'dQw4w9WgXcQ');
+      expect(cloud.lookups, isEmpty);
+      expect(music.searches, isEmpty);
+      expect(cloud.searches, isEmpty);
+      final sheet = find.byType(DownloadSheet);
+      expect(sheet, findsOneWidget);
+      expect(
+        find.descendant(
+          of: sheet,
+          matching: find.text('Never Gonna Give You Up'),
+        ),
+        findsWidgets,
+      );
+      // The tab stays SoundCloud and the link is no recent search.
+      expect(find.text('Search SoundCloud'), findsOneWidget);
+      expect(settings.saved.where((s) => s.recentSearches.isNotEmpty), isEmpty);
+    });
+
+    testWidgets('pasting a SoundCloud link (text set at once) opens the sheet '
+        'without submit', (t) async {
+      await open(t);
+      await t.enterText(find.byKey(const Key('online-search-field')), scLink);
+      await t.pumpAndSettle();
+      expect(cloud.lookups, hasLength(1));
+      expect(
+        (cloud.lookups.single as SoundcloudLink).url,
+        Uri.parse('https://soundcloud.com/sry4u/smoke-signals'),
+      );
+      expect(find.byType(DownloadSheet), findsOneWidget);
+      expect(music.searches, isEmpty);
+    });
+
+    testWidgets('typing a link one character at a time does not look it up '
+        'before submit', (t) async {
+      await open(t);
+      for (var i = 1; i <= scLink.length; i++) {
+        await t.enterText(
+          find.byKey(const Key('online-search-field')),
+          scLink.substring(0, i),
+        );
+      }
+      await t.pumpAndSettle();
+      expect(cloud.lookups, isEmpty);
+      expect(find.byType(DownloadSheet), findsNothing);
+      await t.testTextInput.receiveAction(TextInputAction.search);
+      await t.pumpAndSettle();
+      expect(cloud.lookups, hasLength(1));
+      expect(find.byType(DownloadSheet), findsOneWidget);
+    });
+
+    testWidgets('a playlist link shows the playlist message, no Retry '
+        'button, no lookup', (t) async {
+      await open(t);
+      await t.enterText(
+        find.byKey(const Key('online-search-field')),
+        'https://www.youtube.com/playlist?list=PLabcdefghij',
+      );
+      await t.pumpAndSettle();
+      expect(find.text(playlistLinkMessage), findsOneWidget);
+      expect(find.text('Retry'), findsNothing);
+      expect(video.lookups, isEmpty);
+      expect(music.lookups, isEmpty);
+      expect(find.byType(DownloadSheet), findsNothing);
+    });
+
+    testWidgets('a lookup error shows its message', (t) async {
+      video.lookupError = const OnlineError('YouTube: Video unavailable');
+      await open(t);
+      await search(t, ytLink);
+      expect(find.text('YouTube: Video unavailable'), findsOneWidget);
+      expect(find.text('Retry'), findsNothing);
+      expect(find.byType(DownloadSheet), findsNothing);
+      expect(find.byKey(const Key('online-loading')), findsNothing);
+    });
+
+    testWidgets('a late lookup does not open a sheet after the field '
+        'changed', (t) async {
+      video.lookupGate = Completer();
+      await open(t);
+      await t.enterText(find.byKey(const Key('online-search-field')), ytLink);
+      await t.pump();
+      expect(find.byKey(const Key('online-loading')), findsOneWidget);
+      await t.enterText(find.byKey(const Key('online-search-field')), 'numb');
+      await t.pump();
+      video.lookupGate!.complete();
+      await t.pumpAndSettle();
+      expect(find.byType(DownloadSheet), findsNothing);
+      expect(find.byKey(const Key('online-loading')), findsNothing);
+    });
+
+    testWidgets('a lookup shows a spinner and then restores the previous '
+        'results', (t) async {
+      await open(t);
+      await search(t, 'numb');
+      expect(find.text('In the End'), findsOneWidget);
+      video.lookupGate = Completer();
+      await t.enterText(find.byKey(const Key('online-search-field')), ytLink);
+      await t.pump();
+      expect(find.byKey(const Key('online-loading')), findsOneWidget);
+      video.lookupGate!.complete();
+      await t.pumpAndSettle();
+      expect(find.byType(DownloadSheet), findsOneWidget);
+      await t.tapAt(const Offset(10, 10));
+      await t.pumpAndSettle();
+      expect(find.byType(DownloadSheet), findsNothing);
+      expect(find.text('In the End'), findsOneWidget);
+    });
+
+    final field = find.byKey(const Key('online-search-field'));
+    const playlist = 'https://www.youtube.com/playlist?list=PLabcdefghij';
+
+    testWidgets('clearing the field after a link error with no earlier '
+        'search brings back the recent searches', (t) async {
+      await open(
+        t,
+        initial: AppSettings.defaults.copyWith(recentSearches: ['numb']),
+      );
+      await t.enterText(field, playlist);
+      await t.pumpAndSettle();
+      expect(find.text(playlistLinkMessage), findsOneWidget);
+      await t.enterText(field, '');
+      await t.pumpAndSettle();
+      expect(find.text(playlistLinkMessage), findsNothing);
+      expect(find.text('Recent'), findsOneWidget);
+    });
+
+    testWidgets('editing the field after a link error shows the recent '
+        'searches again', (t) async {
+      await open(
+        t,
+        initial: AppSettings.defaults.copyWith(recentSearches: ['numb']),
+      );
+      await t.enterText(field, playlist);
+      await t.pumpAndSettle();
+      await t.enterText(field, '$playlist.');
+      await t.pumpAndSettle();
+      expect(find.text(playlistLinkMessage), findsNothing);
+      expect(find.text('Recent'), findsOneWidget);
+    });
+
+    testWidgets('editing the field after a link error shows the previous '
+        'results again', (t) async {
+      await open(t);
+      await search(t, 'numb');
+      await t.enterText(field, playlist);
+      await t.pumpAndSettle();
+      expect(find.text(playlistLinkMessage), findsOneWidget);
+      expect(find.text('In the End'), findsNothing);
+      await t.enterText(field, 'numb2');
+      await t.pumpAndSettle();
+      expect(find.text(playlistLinkMessage), findsNothing);
+      expect(find.text('In the End'), findsOneWidget);
+    });
+
+    testWidgets('pasting a link over a link of the same length opens the '
+        'new one', (t) async {
+      const other = 'https://youtu.be/aaaaaaaaaaa?si=abc&t=42';
+      expect(other.length, ytLink.length);
+      await open(t);
+      await t.enterText(field, ytLink);
+      await t.pumpAndSettle();
+      await t.tapAt(const Offset(10, 10));
+      await t.pumpAndSettle();
+      expect(find.byType(DownloadSheet), findsNothing);
+      await t.enterText(field, other);
+      await t.pumpAndSettle();
+      expect(video.lookups.map((l) => (l as YoutubeLink).videoId), [
+        'dQw4w9WgXcQ',
+        'aaaaaaaaaaa',
+      ]);
+      expect(find.byType(DownloadSheet), findsOneWidget);
+    });
+
+    testWidgets('pasting text around a link, which is no link as a whole, '
+        'does not look it up', (t) async {
+      await open(t);
+      await t.enterText(field, 'a $ytLink b');
+      await t.pumpAndSettle();
+      expect(video.lookups, isEmpty);
+    });
+
+    testWidgets('a paste while a search is running cancels it and shows the '
+        'recent searches afterwards', (t) async {
+      music.searchGate = Completer();
+      await open(
+        t,
+        initial: AppSettings.defaults.copyWith(recentSearches: ['older']),
+      );
+      await t.enterText(field, 'numb');
+      await t.testTextInput.receiveAction(TextInputAction.search);
+      await t.pump();
+      expect(find.byKey(const Key('online-loading')), findsOneWidget);
+      video.lookupGate = Completer();
+      await t.enterText(field, ytLink);
+      await t.pump();
+      expect(video.lookups, hasLength(1));
+      music.searchGate!.complete();
+      video.lookupGate!.complete();
+      await t.pumpAndSettle();
+      expect(find.byType(DownloadSheet), findsOneWidget);
+      await t.tapAt(const Offset(10, 10));
+      await t.pumpAndSettle();
+      expect(find.text('In the End'), findsNothing);
+      expect(find.byKey(const Key('online-loading')), findsNothing);
+      expect(find.text('Recent'), findsOneWidget);
+    });
+
+    testWidgets('switching the tab while the field holds a link does not '
+        'search the earlier query again', (t) async {
+      await open(t);
+      await search(t, 'numb');
+      expect(music.searches, ['numb']);
+      await t.enterText(field, playlist);
+      await t.pumpAndSettle();
+      await t.tap(find.text('Videos'));
+      await t.pumpAndSettle();
+      expect(video.searches, isEmpty);
+      expect(music.searches, ['numb']);
+    });
+
+    testWidgets('entering the same link again after editing during its '
+        'lookup, then submitting, looks it up again', (t) async {
+      video.lookupGate = Completer();
+      await open(t);
+      await t.enterText(field, ytLink);
+      await t.pump();
+      expect(video.lookups, hasLength(1));
+      await t.enterText(field, 'numb');
+      await t.pump();
+      // Entered by typing (one character at a time), so no paste fires.
+      for (var i = 1; i <= ytLink.length; i++) {
+        await t.enterText(field, ytLink.substring(0, i));
+      }
+      await t.testTextInput.receiveAction(TextInputAction.search);
+      await t.pump();
+      expect(video.lookups, hasLength(2));
+      video.lookupGate!.complete();
+      await t.pumpAndSettle();
+      expect(find.byType(DownloadSheet), findsOneWidget);
+    });
+
+    testWidgets('a normal query still searches', (t) async {
+      await open(t);
+      await search(t, 'AC/DC');
+      expect(music.searches, ['AC/DC']);
+      expect(music.lookups, isEmpty);
+      expect(video.lookups, isEmpty);
+      expect(cloud.lookups, isEmpty);
+      expect(settings.saved.last.recentSearches, ['AC/DC']);
+    });
   });
 }

@@ -38,6 +38,11 @@ abstract interface class HttpTransport {
   /// body stream. Fails with an [OnlineError] when the network is
   /// unreachable.
   Future<HttpBody> get(Uri url, {Map<String, String> headers});
+
+  /// The URL [url] ends at after following its redirects (at most five
+  /// hops; the response bodies are not read). [url] itself when it does not
+  /// redirect.
+  Future<Uri> finalUrl(Uri url);
 }
 
 /// [HttpTransport] on `dart:io`. Every wait (connect, response headers,
@@ -112,6 +117,26 @@ class IoHttpTransport implements HttpTransport {
           ),
         );
       });
+
+  @override
+  Future<Uri> finalUrl(Uri url) => _guard(() async {
+    var current = url;
+    for (var hop = 0; hop <= maxRedirects; hop++) {
+      final req = await _client.getUrl(current);
+      req.followRedirects = false;
+      final res = await req.close().timeout(timeout);
+      final location = res.headers.value(HttpHeaders.locationHeader);
+      final redirects = res.isRedirect && location != null;
+      // Cancelling the body closes the connection without reading it.
+      unawaited(res.listen((_) {}).cancel());
+      if (!redirects || hop == maxRedirects) return current;
+      current = current.resolve(location);
+    }
+    return current;
+  });
+
+  /// The most redirects [finalUrl] follows.
+  static const maxRedirects = 5;
 
   static Future<T> _guard<T>(Future<T> Function() call) async {
     try {

@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:owntune/data/sources/http_transport.dart';
+import 'package:owntune/data/sources/online_link.dart';
 import 'package:owntune/data/sources/online_source.dart';
 import 'package:owntune/data/sources/soundcloud/soundcloud_api.dart';
 import 'package:owntune/data/sources/soundcloud/soundcloud_client.dart';
@@ -378,6 +379,153 @@ void main() {
             'SoundCloud changed something; owntune needs an update',
           ),
         ),
+      );
+    });
+  });
+
+  group('lookup', () {
+    final link = SoundcloudLink(
+      Uri.parse('https://soundcloud.com/sry4u/the-flip'),
+    );
+
+    setUp(() {
+      store.id = fixtureId;
+    });
+
+    Matcher onlineError(String message) => throwsA(
+      isA<OnlineError>().having((e) => e.message, 'message', message),
+    );
+
+    test('a resolve answer becomes a result with sourceKey '
+        'soundcloud:<id>', () async {
+      serve(onApi: (url) => body(text('soundcloud_track.json')));
+
+      final result = await source.lookup(link);
+
+      expect(result.sourceKey, 'soundcloud:$flipId');
+      expect(result.source, OnlineSourceId.soundcloud);
+      expect(result.availability, OnlineAvailability.available);
+    });
+
+    test('the request carries url and client_id', () async {
+      serve(onApi: (url) => body(text('soundcloud_track.json')));
+
+      await source.lookup(link);
+
+      final request = http.gets.single;
+      expect(request.host, 'api-v2.soundcloud.com');
+      expect(request.path, '/resolve');
+      expect(request.queryParameters, {
+        'url': 'https://soundcloud.com/sry4u/the-flip',
+        'client_id': fixtureId,
+        'app_locale': 'en',
+      });
+    });
+
+    test('kind playlist says playlists are not supported', () async {
+      final answer = json('soundcloud_track')..['kind'] = 'playlist';
+      serve(onApi: (url) => body(jsonEncode(answer)));
+
+      await expectLater(source.lookup(link), onlineError(playlistLinkMessage));
+    });
+
+    test('kind user says it is not a song', () async {
+      final answer = json('soundcloud_track')..['kind'] = 'user';
+      serve(onApi: (url) => body(jsonEncode(answer)));
+
+      await expectLater(source.lookup(link), onlineError(notASongLinkMessage));
+    });
+
+    test('a 404 says it is not a song', () async {
+      serve(onApi: (url) => body('{}', 404));
+
+      await expectLater(source.lookup(link), onlineError(notASongLinkMessage));
+    });
+
+    test('another HTTP error is shown as it is', () async {
+      serve(onApi: (url) => body('{}', 500));
+
+      await expectLater(
+        source.lookup(link),
+        onlineError("SoundCloud didn't answer: HTTP 500"),
+      );
+    });
+
+    test('a protected track fails with its resolve message', () async {
+      // The label track of the search fixture is encrypted.
+      final answer = (json('soundcloud_search')['collection']! as List)
+          .cast<Map<String, Object?>>()
+          .firstWhere((t) => t['id'] == 255824765);
+      serve(onApi: (url) => body(jsonEncode(answer)));
+
+      await expectLater(
+        source.lookup(link),
+        onlineError("Protected: this track can't be downloaded"),
+      );
+    });
+
+    group('short links (on.soundcloud.com)', () {
+      final short = SoundcloudLink(
+        Uri.parse('https://on.soundcloud.com/AbC12'),
+      );
+
+      test('the redirect target is what gets resolved', () async {
+        serve(onApi: (url) => body(text('soundcloud_track.json')));
+        http.onFinalUrl = (url) async =>
+            Uri.parse('https://soundcloud.com/sry4u/the-flip?si=abc&utm=x');
+
+        final result = await source.lookup(short);
+
+        expect(http.finalUrls, [Uri.parse('https://on.soundcloud.com/AbC12')]);
+        expect(result.sourceKey, 'soundcloud:$flipId');
+        expect(
+          http.gets.single.queryParameters['url'],
+          'https://soundcloud.com/sry4u/the-flip',
+        );
+      });
+
+      test('a playlist behind the short link says playlists are not '
+          'supported, without calling resolve', () async {
+        serve(onApi: (url) => throw StateError('resolve called'));
+        store.id = fixtureId;
+        http.onFinalUrl = (url) async =>
+            Uri.parse('https://soundcloud.com/linkinpark/sets/meteora');
+
+        await expectLater(
+          source.lookup(short),
+          onlineError(playlistLinkMessage),
+        );
+      });
+
+      for (final target in [
+        'https://soundcloud.com/linkinpark',
+        'https://example.com/x',
+        'https://on.soundcloud.com/AbC12',
+      ]) {
+        test('$target is not a song', () async {
+          serve(onApi: (url) => throw StateError('resolve called'));
+          http.onFinalUrl = (url) async => Uri.parse(target);
+
+          await expectLater(
+            source.lookup(short),
+            onlineError(notASongLinkMessage),
+          );
+        });
+      }
+
+      test('a normal link is not followed', () async {
+        serve(onApi: (url) => body(text('soundcloud_track.json')));
+
+        await source.lookup(link);
+
+        expect(http.finalUrls, isEmpty);
+      });
+    });
+
+    test('a YouTube link is an ArgumentError', () {
+      expect(
+        source.lookup(const YoutubeLink('5qZQEq_C3vc')),
+        throwsArgumentError,
       );
     });
   });

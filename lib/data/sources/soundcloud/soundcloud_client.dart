@@ -25,6 +25,13 @@ class SoundcloudClient {
 
   Future<Map<String, Object?>> track(String id) => _api(trackPath(id), {});
 
+  /// What a pasted SoundCloud link points to: a track, a playlist, a user.
+  Future<Map<String, Object?>> resolveUrl(Uri url) =>
+      _api(resolvePath, {urlParam: url.toString()});
+
+  /// Where the short link [url] redirects to.
+  Future<Uri> finalUrl(Uri url) => _http.finalUrl(url);
+
   /// The media playlist URL that [transcodingUrl] points to.
   Future<Uri> streamUrl(Uri transcodingUrl, String trackAuthorization) =>
       _withClientId((id) async {
