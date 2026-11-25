@@ -68,6 +68,7 @@ class AudioServiceControls implements SystemControls {
       config: const AudioServiceConfig(
         androidNotificationChannelId: 'dev.owntune.playback',
         androidNotificationChannelName: 'Playback',
+        androidNotificationIcon: 'drawable/ic_stat_owntune',
       ),
     );
     return AudioServiceControls._(handler);

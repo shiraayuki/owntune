@@ -50,6 +50,7 @@ flutter test integration_test -d linux              # integration tests with the
 flutter_rust_bridge_codegen generate                # after EVERY change in rust/src/api/
 dart run build_runner build --delete-conflicting-outputs   # after changing the drift schema (lib/data/db/)
 tool/make_fixtures.sh                               # regenerate test/fixtures/audio (needs ffmpeg)
+tool/make_icons.sh                                  # regenerate the app icon (iOS default/dark/tinted, Android adaptive + themed, notification icon; needs ImageMagick with librsvg)
 dart run tool/embed_fixtures.dart                   # after changing fixtures: embed them for on-device integration tests
 tool/record_online_fixtures.sh                      # re-record test/fixtures/online (4 YouTube + 5 or more SoundCloud requests, scrubbed; --soundcloud-only, --scrub-only)
 flutter test integration_test/online_live_test.dart -d linux --dart-define=OWNTUNE_LIVE=true   # live YouTube and SoundCloud check, before each release
