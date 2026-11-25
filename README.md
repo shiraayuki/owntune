@@ -4,14 +4,14 @@
 
 **Your music. Your files. Your player.**
 
-A music player for iPhone that plays the songs you own: no account, no subscription, no streaming.
+A music player for iPhone and Android that plays the songs you own: no account, no subscription, no streaming.
 
 [![Latest release](https://img.shields.io/github/v/release/shiraayuki/owntune?label=latest&color=ff7a59)](https://github.com/shiraayuki/owntune/releases/latest)
 [![CI](https://github.com/shiraayuki/owntune/actions/workflows/ci.yml/badge.svg)](https://github.com/shiraayuki/owntune/actions/workflows/ci.yml)
-![Platform](https://img.shields.io/badge/platform-iOS-lightgrey)
+![Platform](https://img.shields.io/badge/platform-iOS%20%7C%20Android-lightgrey)
 ![Built with Flutter](https://img.shields.io/badge/built%20with-Flutter-02569B?logo=flutter)
 
-[Install](#-install-on-your-iphone) · [Features](#-what-it-can-do) · [FAQ](#-questions--answers) · [Releases](https://github.com/shiraayuki/owntune/releases)
+[Install on iPhone](#-install-on-your-iphone) · [Android](#-install-on-android) · [Features](#-what-it-can-do) · [FAQ](#-questions--answers) · [Releases](https://github.com/shiraayuki/owntune/releases)
 
 <br>
 
@@ -32,7 +32,7 @@ owntune is a music app for people who still keep **their own music files**, such
 - **No streaming.** The music lives on your phone, so it also plays in airplane mode or in the subway.
 - **No tracking.** The app sends nothing anywhere. The internet is only used when *you* search for a song to download.
 
-> owntune is a hobby project and is not in the App Store. You install it with a free tool called **SideStore**. The guide below explains every step.
+> owntune is a hobby project and is not in the App Store or on Google Play. On the iPhone you install it with a free tool called **SideStore**, on Android straight from the download. The guides below explain every step.
 
 ---
 
@@ -116,6 +116,18 @@ When a new version comes out, SideStore shows an **Update** button next to owntu
 
 ---
 
+## 🤖 Install on Android
+
+You need an **Android phone** with Android 8 or newer. It takes about two minutes, no computer needed.
+
+1. On the phone, download **[owntune.apk](https://github.com/shiraayuki/owntune/releases/latest/download/owntune.apk)**.
+2. Open the downloaded file. Android asks whether your browser may install apps: tap **Settings**, turn on **Allow from this source** and go back.
+3. Tap **Install**. owntune appears in your apps.
+
+**Updating:** download the new `owntune.apk` the same way and install it over the old one. Your library stays as it is.
+
+---
+
 ## ❓ Questions & answers
 
 **Is it free?**
@@ -131,7 +143,7 @@ owntune will not open until you refresh it in SideStore. Nothing is deleted, and
 This usually comes from SideStore's sign-in servers or from Apple, not from your phone or from owntune. Try another *Anisette Server* in SideStore's settings, or wait a few hours. Apps that are already installed keep working until their 7 days are up.
 
 **Is there an Android version?**
-The app is built for Android too, but there is no ready-to-install download yet. It is planned.
+Yes. Every release has an `owntune.apk`; see [Install on Android](#-install-on-android).
 
 **Is downloading from YouTube and SoundCloud allowed?**
 The download feature is meant for personal use, for songs you have the right to keep. Please respect the rights of artists and your local laws.
@@ -152,7 +164,7 @@ flutter test                # unit and widget tests
 flutter test integration_test -d linux   # tests with the real Rust core
 ```
 
-iOS builds are made only by GitHub Actions. A version tag (`git tag vX.Y.Z && git push --tags`) builds the `.ipa` and publishes a release together with the SideStore source.
+Releases are made only by GitHub Actions. A version tag (`git tag vX.Y.Z && git push --tags`) builds the iPhone `.ipa` and a signed Android `.apk` and publishes both in one release together with the SideStore source.
 
 [`CLAUDE.md`](CLAUDE.md) covers the architecture, conventions and every command in detail. The designs live in [`docs/mockups/`](docs/mockups/), and specs and plans in [`docs/superpowers/`](docs/superpowers/).
 
