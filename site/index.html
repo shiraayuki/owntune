@@ -189,7 +189,7 @@ h1 { margin: 0 auto 20px; font: 700 clamp(44px, 7.4vw, 116px)/0.95 var(--font); 
 .steps::before, .steps .fill {
   content: ""; position: absolute; left: 21px; top: 8px; bottom: var(--end, 8px); width: 3px; border-radius: 2px; background: var(--surface-2);
 }
-.steps .fill { background: var(--accent); transform-origin: top; transform: scaleY(var(--p, 0)); transition: background 0.4s; }
+.steps .fill { background: var(--accent); transform-origin: top; transform: scaleY(var(--p, 0)); transition: background 0.4s, transform 0.45s var(--ease); }
 .step { position: relative; }
 .step .num {
   position: absolute; left: -72px; top: -4px; width: 46px; height: 46px; border-radius: 50%;
@@ -609,16 +609,23 @@ footer a { color: var(--muted); }
     const lit = Math.round(clamp((vh * 0.85 - pr.top) / (pr.height + vh * 0.35)) * words.length);
     words.forEach((w, i) => w.classList.toggle('lit', i < lit));
 
-    // Install steps: the line fills like a scrubber, numbers turn on.
+    // Install steps: numbers turn on as they pass 60% of the screen, and the
+    // line runs from circle to circle (it always ends in the last one reached).
     for (const list of stepLists) {
       if (list.offsetParent === null) continue;
       const r = list.getBoundingClientRect();
-      const end = list.querySelector('.step:last-child .num').getBoundingClientRect();
-      list.style.setProperty('--end', `${r.bottom - (end.top + end.height / 2)}px`);
-      list.querySelector('.fill').style.setProperty('--p', clamp((vh * 0.6 - r.top) / (end.top + end.height / 2 - r.top)));
-      for (const step of list.querySelectorAll('.step')) {
-        step.classList.toggle('done', step.getBoundingClientRect().top < vh * 0.6);
+      const lineTop = r.top + 8;
+      const centre = (num) => { const n = num.getBoundingClientRect(); return n.top + n.height / 2; };
+      const nums = [...list.querySelectorAll('.step .num')];
+      const last = centre(nums[nums.length - 1]);
+      list.style.setProperty('--end', `${r.bottom - last}px`);
+      let reached = lineTop;
+      for (const num of nums) {
+        const done = num.parentElement.getBoundingClientRect().top < vh * 0.6;
+        num.parentElement.classList.toggle('done', done);
+        if (done) reached = centre(num);
       }
+      list.querySelector('.fill').style.setProperty('--p', clamp((reached - lineTop) / (last - lineTop)));
     }
   }
   let queued = false;
