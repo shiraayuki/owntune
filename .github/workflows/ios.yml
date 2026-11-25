@@ -54,7 +54,8 @@ jobs:
         run: |
           ARGS=()
           if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
-            read -r name number < <(tool/release_version.sh "$GITHUB_REF_NAME")
+            version=$(tool/release_version.sh "$GITHUB_REF_NAME")
+            read -r name number <<< "$version"
             ARGS=(--build-name="$name" --build-number="$number")
           fi
           flutter build ios --release --no-codesign "${ARGS[@]}"
