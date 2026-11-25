@@ -1,12 +1,16 @@
 name: iOS
 
-# Releases only: macOS runners often have long queue times.
-# Version tag (git tag v0.1.0 && git push --tags) → .ipa + GitHub release with
-# SideStore source (releases/latest/download/source.json).
-# Manual (gh workflow run iOS) → .ipa as artifact only, no release.
+# Unsigned owntune.ipa for SideStore.
+# Called by the Release workflow on version tags; by hand (gh workflow run iOS)
+# it builds an artifact only, no release. Runs only then: macOS runners often
+# have long queue times.
 on:
-  push:
-    tags: ["v*"]
+  workflow_call:
+    inputs:
+      runner:
+        description: "macOS runner"
+        type: string
+        default: macos-15-intel
   workflow_dispatch:
     inputs:
       runner:
@@ -26,7 +30,7 @@ jobs:
   ios:
     runs-on: ${{ inputs.runner || 'macos-15-intel' }}
     permissions:
-      contents: write
+      contents: read
     steps:
       - uses: actions/checkout@v7
 
@@ -50,7 +54,8 @@ jobs:
         run: |
           ARGS=()
           if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
-            ARGS=(--build-name="${GITHUB_REF_NAME#v}" --build-number="$GITHUB_RUN_NUMBER")
+            read -r name number < <(tool/release_version.sh "$GITHUB_REF_NAME")
+            ARGS=(--build-name="$name" --build-number="$number")
           fi
           flutter build ios --release --no-codesign "${ARGS[@]}"
 
@@ -65,12 +70,3 @@ jobs:
           name: owntune-ipa
           path: owntune.ipa
           if-no-files-found: error
-
-      - name: GitHub release with SideStore source
-        if: startsWith(github.ref, 'refs/tags/v')
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          dart run tool/sidestore_source.dart "$GITHUB_REPOSITORY" "$GITHUB_REF_NAME" "$GITHUB_RUN_NUMBER" owntune.ipa > source.json
-          gh release create "$GITHUB_REF_NAME" owntune.ipa source.json \
-            --title "owntune $GITHUB_REF_NAME" --generate-notes

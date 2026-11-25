@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
 
 import '../../tool/sidestore_source.dart';
@@ -26,8 +28,13 @@ void main() {
     expect(app['developerName'], 'owntune');
     expect(
       app['iconURL'],
-      startsWith('https://raw.githubusercontent.com/shiraayuki/owntune/'),
+      'https://raw.githubusercontent.com/shiraayuki/owntune/main/'
+      '$sidestoreIconPath',
     );
+  });
+
+  test('the icon file exists in the repo', () {
+    expect(File(sidestoreIconPath).existsSync(), isTrue);
   });
 
   test('version without v prefix, download link to exactly this release', () {

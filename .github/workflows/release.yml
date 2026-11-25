@@ -1,0 +1,68 @@
+name: Release
+
+# Version tag (git tag v0.8.2 && git push --tags) → builds the iPhone and the
+# Android app in parallel, then creates ONE GitHub release with owntune.ipa,
+# owntune.apk and the SideStore source.json. If either build fails, no release
+# is created, so releases/latest/download/* never points into a half-filled
+# release.
+on:
+  push:
+    tags: ["v*"]
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  FLUTTER_VERSION: "3.50.0"
+
+jobs:
+  ios:
+    uses: ./.github/workflows/ios.yml
+
+  android:
+    uses: ./.github/workflows/android.yml
+    secrets: inherit
+
+  publish:
+    needs: [ios, android]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          cache: true
+
+      - uses: actions/download-artifact@v7
+        with:
+          pattern: owntune-*
+          path: dist
+          merge-multiple: true
+
+      - name: SideStore source
+        run: |
+          read -r _ number < <(tool/release_version.sh "$GITHUB_REF_NAME")
+          dart run tool/sidestore_source.dart "$GITHUB_REPOSITORY" "$GITHUB_REF_NAME" "$number" dist/owntune.ipa > dist/source.json
+
+      # Re-running this job after a failed upload replaces the files instead
+      # of failing on the existing release.
+      - name: GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          files=(dist/owntune.ipa dist/owntune.apk dist/source.json)
+          ls -l "${files[@]}"
+          if gh release view "$GITHUB_REF_NAME" > /dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" "${files[@]}" --clobber
+          else
+            gh release create "$GITHUB_REF_NAME" "${files[@]}" \
+              --title "owntune $GITHUB_REF_NAME" --generate-notes
+          fi

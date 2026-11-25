@@ -1,14 +1,16 @@
 // Generates the SideStore/AltStore source (source.json) for a release.
 //
-// Usage (in the iOS workflow):
+// Usage (in the Release workflow):
 //   dart run tool/sidestore_source.dart <owner/repo> <tag> <build-number> <path/to.ipa>
 import 'dart:convert';
 import 'dart:io';
 
 const _bundleId = 'dev.owntune.app';
 const _minOS = '15.0';
-const _iconPath =
-    'ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-1024x1024@1x.png';
+
+/// The 1024 px app icon in the repo, shown by SideStore.
+const sidestoreIconPath =
+    'ios/Runner/Assets.xcassets/AppIcon.appiconset/AppIcon.png';
 
 Map<String, dynamic> buildSidestoreSource({
   required String repo,
@@ -34,7 +36,8 @@ Map<String, dynamic> buildSidestoreSource({
         'subtitle': 'Local music player',
         'localizedDescription':
             'Music player for local files – offline, no account.',
-        'iconURL': 'https://raw.githubusercontent.com/$repo/main/$_iconPath',
+        'iconURL':
+            'https://raw.githubusercontent.com/$repo/main/$sidestoreIconPath',
         'versions': [
           {
             'version': match.group(1),

@@ -1,0 +1,100 @@
+name: Android
+
+# Signed owntune.apk (arm, arm64 and x86_64 in one APK).
+# Called by the Release workflow on version tags; by hand (gh workflow run
+# Android) it builds an artifact only, no release.
+# Needs the secrets ANDROID_KEYSTORE_BASE64, ANDROID_KEYSTORE_PASSWORD,
+# ANDROID_KEY_ALIAS and ANDROID_KEY_PASSWORD (the owntune release key); without
+# them it fails instead of shipping an APK signed with a debug key.
+on:
+  workflow_call:
+  workflow_dispatch:
+
+concurrency:
+  group: android-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  FLUTTER_VERSION: "3.50.0"
+
+jobs:
+  android:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          cache: true
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android, armv7-linux-androideabi, x86_64-linux-android
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: rust
+
+      - name: Version from the tag
+        id: version
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            read -r name number < <(tool/release_version.sh "$GITHUB_REF_NAME")
+            echo "args=--build-name=$name --build-number=$number" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Release keystore
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          for name in KEYSTORE_BASE64 KEYSTORE_PASSWORD KEY_ALIAS KEY_PASSWORD; do
+            if [[ -z "${!name}" ]]; then
+              echo "::error::Secret ANDROID_$name is not set"
+              exit 1
+            fi
+          done
+          echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/owntune.jks"
+          echo "OWNTUNE_KEYSTORE=$RUNNER_TEMP/owntune.jks" >> "$GITHUB_ENV"
+
+      - run: flutter pub get
+
+      - name: Build APK
+        env:
+          OWNTUNE_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          OWNTUNE_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          OWNTUNE_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          flutter build apk --release ${{ steps.version.outputs.args }}
+          mv build/app/outputs/flutter-apk/app-release.apk owntune.apk
+
+      - name: APK is signed with the owntune key
+        env:
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+        run: |
+          apksigner=$(ls -d "$ANDROID_HOME"/build-tools/*/ | sort -V | tail -1)apksigner
+          expected=$("${JAVA_HOME:+$JAVA_HOME/bin/}keytool" -list -keystore "$OWNTUNE_KEYSTORE" -storepass "$KEYSTORE_PASSWORD" -alias "$KEY_ALIAS" \
+            | sed -n 's/.*(SHA-256): //p' | tr -d ':' | tr 'A-F' 'a-f')
+          actual=$("$apksigner" verify --print-certs owntune.apk \
+            | sed -n 's/^Signer #1 certificate SHA-256 digest: //p')
+          echo "expected $expected"
+          echo "actual   $actual"
+          [[ -n "$expected" && "$expected" == "$actual" ]]
+
+      - name: Remove the keystore
+        if: always()
+        run: rm -f "$RUNNER_TEMP/owntune.jks"
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: owntune-apk
+          path: owntune.apk
+          if-no-files-found: error
