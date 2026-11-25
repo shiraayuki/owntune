@@ -34,37 +34,6 @@ Future<void> showPlayer(BuildContext context) => showModalBottomSheet<void>(
 /// How long the cover tint takes to change with the song.
 const _tintFade = Duration(milliseconds: 400);
 
-/// The veil in the cover's background colour over the blurred cover
-/// (mockup 19): strong at the top, gone at three quarters of the height.
-/// Fades with the song; nothing without a [color].
-class _TintVeil extends StatelessWidget {
-  const _TintVeil({required this.color});
-
-  final Color? color;
-
-  @override
-  Widget build(BuildContext context) => TweenAnimationBuilder<Color?>(
-    tween: ColorTween(end: color ?? const Color(0x00000000)),
-    duration: _tintFade,
-    builder: (context, c, _) {
-      if (c == null || c.a == 0) return const SizedBox.shrink();
-      return DecoratedBox(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              c.withValues(alpha: 0.85 * c.a),
-              c.withValues(alpha: 0),
-            ],
-            stops: const [0, 0.75],
-          ),
-        ),
-      );
-    },
-  );
-}
-
 /// Now Playing (mockup 09): blurred cover backdrop, cover, title, scrubber,
 /// controls and the Up Next pill.
 class PlayerSheet extends ConsumerStatefulWidget {
@@ -99,8 +68,9 @@ class _PlayerSheetState extends ConsumerState<PlayerSheet> {
     final storage = ref.watch(storageProvider);
     final cover = track?.coverFile;
     final coverFile = cover == null ? null : storage.coverFile(cover);
-    // Dark mode takes the accent from the cover (light mode stays
-    // monochrome); the next song's colours are computed ahead.
+    // Dark mode with a cover: a flat cover colour and white controls, as in
+    // Spotify (light mode stays monochrome); the next song's colour is
+    // computed ahead.
     final tint = dark && cover != null
         ? ref.watch(coverColorsProvider(cover)).value
         : null;
@@ -121,15 +91,18 @@ class _PlayerSheetState extends ConsumerState<PlayerSheet> {
             ? theme
             : theme.copyWith(
                 extensions: [
-                  c.copyWith(accent: tint.button, accentText: tint.onButton),
+                  c.copyWith(accent: tintAccent, accentText: tintOnAccent),
                 ],
               ),
         child: ClipRect(
-          child: ColoredBox(
-            color: c.bg,
+          child: TweenAnimationBuilder<Color?>(
+            tween: ColorTween(end: tint?.background ?? c.bg),
+            duration: _tintFade,
+            builder: (context, bg, child) =>
+                ColoredBox(color: bg ?? c.bg, child: child),
             child: Stack(
               children: [
-                if (coverFile != null)
+                if (coverFile != null && tint == null)
                   Positioned.fill(
                     child: Opacity(
                       opacity: dark ? 0.55 : 0.28,
@@ -144,22 +117,22 @@ class _PlayerSheetState extends ConsumerState<PlayerSheet> {
                       ),
                     ),
                   ),
-                Positioned.fill(child: _TintVeil(color: tint?.background)),
-                Positioned.fill(
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [
-                          c.bg.withValues(alpha: 0),
-                          c.bg.withValues(alpha: 0.7),
-                        ],
-                        stops: const [0, 0.92],
+                if (tint == null)
+                  Positioned.fill(
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [
+                            c.bg.withValues(alpha: 0),
+                            c.bg.withValues(alpha: 0.7),
+                          ],
+                          stops: const [0, 0.92],
+                        ),
                       ),
                     ),
                   ),
-                ),
                 Padding(
                   padding: EdgeInsets.only(
                     top: topInset,
@@ -422,24 +395,45 @@ class PlayerControls extends ConsumerWidget {
     final shuffled = ref.watch(playerProvider.select((s) => s.queue.shuffled));
     final player = ref.read(playerProvider.notifier);
 
+    // Dark mode: an active toggle is the accent with a small dot below (as
+    // in Spotify); light mode: a filled circle.
     Widget toggle({
-      required Key key,
+      required String name,
       required IconData icon,
       required String tooltip,
       required bool on,
       VoidCallback? onPressed,
-    }) => IconButton(
-      key: key,
-      onPressed: onPressed,
-      tooltip: tooltip,
-      icon: Icon(icon, size: 22),
-      color: on ? (dark ? c.accent : c.bg) : c.muted,
-      disabledColor: c.faint,
-      style: IconButton.styleFrom(
-        fixedSize: const Size.square(44),
-        backgroundColor: on
-            ? (dark ? c.accent.withValues(alpha: 0.16) : c.text)
-            : Colors.transparent,
+    }) => SizedBox.square(
+      dimension: 44,
+      child: Stack(
+        clipBehavior: Clip.none,
+        alignment: Alignment.center,
+        children: [
+          IconButton(
+            key: Key(name),
+            onPressed: onPressed,
+            tooltip: tooltip,
+            icon: Icon(icon, size: 22),
+            color: on ? (dark ? c.accent : c.bg) : c.muted,
+            disabledColor: c.faint,
+            style: IconButton.styleFrom(
+              fixedSize: const Size.square(44),
+              backgroundColor: on && !dark ? c.text : Colors.transparent,
+            ),
+          ),
+          if (on && dark)
+            Positioned(
+              bottom: 2,
+              child: DecoratedBox(
+                key: Key('$name-dot'),
+                decoration: BoxDecoration(
+                  color: c.accent,
+                  shape: BoxShape.circle,
+                ),
+                child: const SizedBox.square(dimension: 4),
+              ),
+            ),
+        ],
       ),
     );
 
@@ -458,7 +452,7 @@ class PlayerControls extends ConsumerWidget {
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         toggle(
-          key: const Key('player-shuffle'),
+          name: 'player-shuffle',
           icon: CupertinoIcons.shuffle,
           tooltip: 'Shuffle',
           on: shuffled,
@@ -503,7 +497,7 @@ class PlayerControls extends ConsumerWidget {
           hasNext ? player.next : null,
         ),
         toggle(
-          key: const Key('player-repeat'),
+          name: 'player-repeat',
           icon: repeat == QueueRepeat.one
               ? CupertinoIcons.repeat_1
               : CupertinoIcons.repeat,

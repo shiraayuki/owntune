@@ -23,22 +23,13 @@ double hue(Color c) => HSLColor.fromColor(c).hue;
 
 void expectReadable(CoverColors colors) {
   expect(contrastRatio(_white, colors.background), greaterThanOrEqualTo(4.5));
-  expect(
-    contrastRatio(colors.onButton, colors.button),
-    greaterThanOrEqualTo(4.5),
-  );
 }
 
 void main() {
   test('orange cover', () {
     final colors = coverColorsFromPixels(solid(255, 122, 0), 64, 64)!;
     expect(hue(colors.background), inInclusiveRange(15, 45));
-    expect(hue(colors.button), inInclusiveRange(15, 45));
     expectReadable(colors);
-    expect(
-      HSLColor.fromColor(colors.button).lightness,
-      greaterThan(HSLColor.fromColor(colors.background).lightness),
-    );
   });
 
   test('near-white and near-black covers keep the contrast', () {

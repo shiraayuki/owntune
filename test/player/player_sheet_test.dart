@@ -576,16 +576,8 @@ class _FailingLikeRepository extends FakeTrackRepository {
       throw StateError('disk full');
 }
 
-const _tint = CoverColors(
-  background: Color(0xff5a1e00),
-  button: Color(0xffffd9b8),
-  onButton: Color(0xff16120f),
-);
-const _tint2 = CoverColors(
-  background: Color(0xff0a2a5a),
-  button: Color(0xffb8d4ff),
-  onButton: Color(0xff16120f),
-);
+const _tint = CoverColors(background: Color(0xff5a1e00));
+const _tint2 = CoverColors(background: Color(0xff0a2a5a));
 
 /// Settings with [mode]; the accent is Sky, to tell it from the tint.
 Override _appearance(AppearanceMode mode) =>
@@ -619,6 +611,13 @@ Color? _iconColor(WidgetTester t, Key key) {
   return widget.color ?? IconTheme.of(t.element(icon)).color;
 }
 
+/// The flat background colour of the player sheet.
+Color? _sheetColor(WidgetTester t) => t
+    .widget<ColoredBox>(
+      find.descendant(of: _sheet, matching: find.byType(ColoredBox)).first,
+    )
+    .color;
+
 const _sky = Color(0xff5ab4ff);
 
 void _tintTests() {
@@ -647,24 +646,32 @@ void _tintTests() {
       await t.pump(const Duration(milliseconds: 500));
     }
 
-    testWidgets('dark mode with a cover tints play button and liked heart', (
+    testWidgets('dark mode with a cover: flat cover colour, white controls', (
       t,
     ) async {
       await openTinted(t, 'After the Rain');
-      expect(_playBackground(t), _tint.button);
-      expect(_iconColor(t, const Key('player-play')), _tint.onButton);
-      expect(_iconColor(t, const Key('player-like')), _tint.button);
+      expect(_sheetColor(t), _tint.background);
+      expect(
+        find.descendant(of: _sheet, matching: find.byType(ImageFiltered)),
+        findsNothing,
+        reason: 'no blurred cover, no gradient: a flat colour',
+      );
+      expect(_playBackground(t), tintAccent);
+      expect(_iconColor(t, const Key('player-play')), tintOnAccent);
+      expect(_iconColor(t, const Key('player-like')), tintAccent);
     });
 
-    testWidgets('active repeat uses the tint', (t) async {
+    testWidgets('active repeat is white with a dot', (t) async {
       await openTinted(t, 'After the Rain');
+      expect(find.byKey(const Key('player-repeat-dot')), findsNothing);
       await t.tap(find.byKey(const Key('player-repeat')));
       await t.pump(const Duration(milliseconds: 500));
       expect(_state(t).queue.repeat, QueueRepeat.all);
       final repeat = t.widget<IconButton>(
         find.byKey(const Key('player-repeat')),
       );
-      expect(repeat.color, _tint.button);
+      expect(repeat.color, tintAccent);
+      expect(find.byKey(const Key('player-repeat-dot')), findsOneWidget);
     });
 
     testWidgets('light mode keeps the accent', (t) async {
@@ -672,7 +679,7 @@ void _tintTests() {
       final c = Theme.of(t.element(find.byKey(const Key('player-play'))))
           .extension<OwntuneColors>()!;
       expect(_playBackground(t), c.accent);
-      expect(_playBackground(t), isNot(_tint.button));
+      expect(_sheetColor(t), isNot(_tint.background));
     });
 
     testWidgets('a song without a cover keeps the accent', (t) async {
@@ -683,15 +690,33 @@ void _tintTests() {
     testWidgets('colours not ready keep the accent', (t) async {
       await openTinted(t, 'After the Rain', never: true);
       expect(_playBackground(t), _sky);
+      expect(_sheetColor(t), isNot(_tint.background));
     });
 
     testWidgets('the tint follows a song change', (t) async {
       await openTinted(t, 'After the Rain');
-      expect(_playBackground(t), _tint.button);
+      expect(_sheetColor(t), _tint.background);
       await t.tap(find.byKey(const Key('player-next')));
       await t.pump();
       await t.pump(const Duration(milliseconds: 500));
-      expect(_playBackground(t), _tint2.button);
+      expect(_sheetColor(t), _tint2.background);
+      expect(_playBackground(t), tintAccent);
     });
+  });
+
+  testWidgets('the scrubber shows a dot at the current position', (t) async {
+    final engine = FakeAudioEngine();
+    await pumpApp(t, songs: _songs, engine: engine);
+    await openLibraryTab(t);
+    await _open(t, 'After the Rain'); // 200 s long
+    engine.emitPosition(const Duration(seconds: 50));
+    await t.pumpAndSettle();
+    final track = t.getRect(find.byKey(const Key('scrubber-track')));
+    final dot = t.getRect(find.byKey(const Key('scrubber-thumb')));
+    expect(
+      dot.center.dx,
+      moreOrLessEquals(track.left + track.width / 4, epsilon: 1),
+    );
+    expect(dot.center.dy, moreOrLessEquals(track.center.dy, epsilon: 1));
   });
 }

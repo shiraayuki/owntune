@@ -14,6 +14,9 @@ void main() {
       overrides: [storageProvider.overrideWithValue(LibraryStorage(dir))],
     );
     addTearDown(container.dispose);
-    expect(await container.read(coverColorsProvider('gone.jpg').future), isNull);
+    expect(
+      await container.read(coverColorsProvider('gone.jpg').future),
+      isNull,
+    );
   });
 }

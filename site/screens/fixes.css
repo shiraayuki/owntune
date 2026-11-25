@@ -22,12 +22,19 @@
 .orow .tag.busy { color: var(--accent); }
 .search-row { padding-right: 0; }
 .search-row .search { margin-right: 16px; }
-/* v0.9.0: in dark mode Now Playing takes its colours from the cover. These
-   are the app's own values for the c2 cover (coverColorsFromImage):
-   background #9e4d14, button #eec0a0, icon #16120f; the page's accent does
-   not reach them. Light mode stays monochrome. */
-.player.cover-tint > .tint { position: absolute; inset: 0; display: none; background: linear-gradient(180deg, rgba(158, 77, 20, .85) 0%, rgba(158, 77, 20, 0) 75%); }
-html:not([data-mode="light"]) .player.cover-tint > .tint { display: block; }
-html:not([data-mode="light"]) .player.cover-tint .p-ctrls .main { background: #eec0a0; color: #16120f; }
-html:not([data-mode="light"]) .player.cover-tint .p-meta .heart { color: #eec0a0; }
-html:not([data-mode="light"]) .player.cover-tint .p-ctrls .tg.on { color: #eec0a0; background: rgba(238, 192, 160, .16); }
+/* v0.9.0: the scrubber has a dot at the current position (as in Spotify). */
+.scrub .track { position: relative; overflow: visible; }
+.scrub .track > .knob { position: absolute; top: 50%; width: 12px; height: 12px; margin: -6px 0 0 -6px; border-radius: 50%; background: var(--text); }
+/* v0.9.0: in dark mode Now Playing is a flat colour from the cover with white
+   controls, as in Spotify: the app's own value for the c2 cover
+   (coverColorsFromImage) is #9e4d14; the page's accent does not reach it.
+   Light mode stays monochrome. */
+.player.cover-tint > .tint { display: none; }
+html:not([data-mode="light"]) .player.cover-tint { background: #9e4d14; }
+html:not([data-mode="light"]) .player.cover-tint > .backdrop,
+html:not([data-mode="light"]) .player.cover-tint > .veil { display: none; }
+html:not([data-mode="light"]) .player.cover-tint .p-ctrls .main { background: #fff; color: #121212; }
+html:not([data-mode="light"]) .player.cover-tint .p-meta .heart { color: #fff; }
+html:not([data-mode="light"]) .player.cover-tint .p-ctrls .tg.on { color: #fff; background: none; position: relative; }
+html:not([data-mode="light"]) .player.cover-tint .p-ctrls .tg.on::after { content: ""; position: absolute; bottom: 2px; left: 50%; width: 4px; height: 4px; margin-left: -2px; border-radius: 50%; background: #fff; }
+html:not([data-mode="light"]) .player.cover-tint .scrub .track { background: rgba(255, 255, 255, .25); }

@@ -8,6 +8,9 @@ import 'package:owntune/player/player_controller.dart';
 /// The player's scrubber (`.scrub`): a 5pt track with elapsed and
 /// `-remaining` time. While dragging, the labels follow the finger; the
 /// player seeks only on release.
+/// Diameter of the dot at the current position.
+const _thumb = 12.0;
+
 class Scrubber extends ConsumerStatefulWidget {
   const Scrubber({super.key, required this.durationMs});
 
@@ -69,25 +72,48 @@ class _ScrubberState extends ConsumerState<Scrubber> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Container(
-                  height: 5,
-                  decoration: BoxDecoration(
-                    color: c.fill,
-                    borderRadius: BorderRadius.circular(3),
-                  ),
-                  alignment: Alignment.centerLeft,
-                  child: FractionallySizedBox(
-                    widthFactor: fraction,
-                    heightFactor: 1,
-                    child: DecoratedBox(
-                      decoration: BoxDecoration(
-                        color: c.text.withValues(alpha: 0.85),
-                        borderRadius: BorderRadius.circular(3),
+                // The track with a dot at the current position (as in
+                // Spotify).
+                SizedBox(
+                  height: _thumb,
+                  child: Stack(
+                    clipBehavior: Clip.none,
+                    alignment: Alignment.centerLeft,
+                    children: [
+                      Container(
+                        key: const Key('scrubber-track'),
+                        height: 5,
+                        decoration: BoxDecoration(
+                          color: c.fill,
+                          borderRadius: BorderRadius.circular(3),
+                        ),
+                        alignment: Alignment.centerLeft,
+                        child: FractionallySizedBox(
+                          widthFactor: fraction,
+                          heightFactor: 1,
+                          child: DecoratedBox(
+                            decoration: BoxDecoration(
+                              color: c.text.withValues(alpha: 0.85),
+                              borderRadius: BorderRadius.circular(3),
+                            ),
+                          ),
+                        ),
                       ),
-                    ),
+                      Positioned(
+                        left: fraction * width - _thumb / 2,
+                        child: DecoratedBox(
+                          key: const Key('scrubber-thumb'),
+                          decoration: BoxDecoration(
+                            color: c.text,
+                            shape: BoxShape.circle,
+                          ),
+                          child: const SizedBox.square(dimension: _thumb),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 5),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [

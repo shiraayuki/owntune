@@ -4,38 +4,25 @@ import 'dart:typed_data';
 import 'package:image/image.dart' as img;
 import 'package:material_ui/material_ui.dart';
 
-/// The colours Now Playing takes from a cover (dark mode): a dark
-/// [background] for the veil, on which white text stays readable, and a
-/// light [button] (play button, liked heart, active toggles) with its icon
-/// colour [onButton].
+/// The colour Now Playing takes from a cover (dark mode): a flat
+/// [background] on which white text and white controls stay readable.
 @immutable
 class CoverColors {
-  const CoverColors({
-    required this.background,
-    required this.button,
-    required this.onButton,
-  });
+  const CoverColors({required this.background});
 
   final Color background;
-  final Color button;
-  final Color onButton;
 
   @override
   bool operator ==(Object other) =>
-      other is CoverColors &&
-      other.background == background &&
-      other.button == button &&
-      other.onButton == onButton;
+      other is CoverColors && other.background == background;
 
   @override
-  int get hashCode => Object.hash(background, button, onButton);
+  int get hashCode => background.hashCode;
 
   @override
-  String toString() => 'CoverColors($background, $button, $onButton)';
+  String toString() => 'CoverColors($background)';
 }
 
-/// The icon colour on [CoverColors.button].
-const _onButton = Color(0xff16120f);
 const _white = Color(0xffffffff);
 
 /// Minimum contrast (WCAG AA for normal text).
@@ -135,19 +122,7 @@ CoverColors? coverColorsFromPixels(Uint8List rgba, int width, int height) {
     );
   }
 
-  var button = base
-      .withSaturation(math.min(base.saturation, 0.7))
-      .withLightness(0.78);
-  while (contrastRatio(_onButton, button.toColor()) < _minContrast &&
-      button.lightness < 1) {
-    button = button.withLightness(math.min(1, button.lightness + 0.02));
-  }
-
-  return CoverColors(
-    background: background.toColor(),
-    button: button.toColor(),
-    onButton: _onButton,
-  );
+  return CoverColors(background: background.toColor());
 }
 
 /// The WCAG 2 contrast ratio of two opaque colours (1 to 21).
