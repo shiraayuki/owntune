@@ -138,15 +138,25 @@ h1 { margin: 0 auto 20px; font: 700 clamp(44px, 7.4vw, 116px)/0.95 var(--font); 
 .chapter p { color: var(--muted); margin: 0; max-width: 42ch; font-size: 19px; transition: color 0.4s; }
 .chapter.active h3 { color: var(--text); }
 .chapter.active p { color: #cfcdd6; }
-.chapter .inline { display: none; }
+.dots { display: none; }
+/* Phones: the one phone shrinks and stays pinned at the top while the
+   chapters cross-fade below it, one per stretch of scrolling (a slideshow
+   driven by the thumb); dots show where you are. */
 @media (max-width: 900px) {
-  .features { grid-template-columns: 1fr; }
+  .features { display: block; height: calc(100svh + 7 * 70svh); padding: 0; }
   .slot { display: none; }
-  .chapters { padding-block: 10vh; gap: 12vh; }
-  .chapter h3, .chapter p { color: inherit; }
-  .chapter p { color: #cfcdd6; }
-  .chapter .inline { display: block; margin-top: 28px; }
-  .chapter .inline .phone { width: min(260px, 66vw); }
+  .chapters { position: sticky; top: 0; height: 100svh; padding: 0; display: block; }
+  .chapter {
+    position: absolute; left: 0; right: 0; top: var(--caption-top, 60svh);
+    opacity: 0; translate: 0 14px; pointer-events: none;
+    transition: opacity 0.45s var(--ease), translate 0.45s var(--ease);
+  }
+  .chapter.active { opacity: 1; translate: 0 0; pointer-events: auto; }
+  .chapter h3 { font-size: clamp(26px, 7.6vw, 34px); margin-bottom: 10px; max-width: none; color: var(--text); }
+  .chapter p { font-size: 16px; line-height: 1.5; color: #cfcdd6; }
+  .dots { display: flex; justify-content: center; gap: 7px; position: absolute; left: 0; right: 0; top: var(--dots-top, 56svh); }
+  .dots i { width: 6px; height: 6px; border-radius: 3px; background: var(--faint); transition: width 0.3s var(--ease), background 0.3s; }
+  .dots i.on { width: 18px; background: var(--accent); }
 }
 
 /* ---------- Promises: scroll-lit words ---------- */
@@ -311,13 +321,14 @@ footer a { color: var(--muted); }
 
   <section class="features wrap" id="features" data-track="Features">
     <div class="chapters">
-      <article class="chapter" data-screen="home"><h3>Start where you left off</h3><p>Home shows what you played lately, picks up the queue you paused and keeps rows for On Repeat, Recently Added, Rediscover and the songs you never played.</p><div class="inline"></div></article>
-      <article class="chapter" data-screen="library"><h3>A library that sorts itself</h3><p>Import MP3, M4A, FLAC and WAV files from the Files app, many at once. Songs, albums and artists are grouped from the song details, with covers, and duplicates are skipped.</p><div class="inline"></div></article>
-      <article class="chapter" data-screen="player"><h3>Keeps playing with the screen locked</h3><p>A full-screen player, a mini player on every screen, Up Next, repeat and a shuffle that spreads out the same artist. Swipe the cover to skip. The lock screen and Control Center show the song too.</p><div class="inline"></div></article>
-      <article class="chapter" data-screen="playlist"><h3>Playlists with your own cover</h3><p>Like a song with the heart, collect songs in playlists, give them a cover and drag them into the order you want.</p><div class="inline"></div></article>
-      <article class="chapter" data-screen="download"><h3>Find a song you don't have yet</h3><p>Search YouTube Music, YouTube or SoundCloud, or paste a link, and download the song into your library with title, artist and cover. Long DJ mixes too.</p><div class="inline"></div></article>
-      <article class="chapter" data-screen="edit"><h3>Fix what the files got wrong</h3><p>Change titles, artists, albums and covers, for one song or a whole album at once. The changes are written back into the files.</p><div class="inline"></div></article>
-      <article class="chapter" data-screen="stats"><h3>See what you actually listen to</h3><p>Listening time per week, month or year, your streak, top artists, songs and albums, your favourite hour and your genre mix. All of it stays on your phone.</p><div class="inline"></div></article>
+      <article class="chapter" data-screen="home"><h3>Start where you left off</h3><p>Home shows what you played lately, picks up the queue you paused and keeps rows for On Repeat, Recently Added, Rediscover and the songs you never played.</p></article>
+      <article class="chapter" data-screen="library"><h3>A library that sorts itself</h3><p>Import MP3, M4A, FLAC and WAV files from the Files app, many at once. Songs, albums and artists are grouped from the song details, with covers, and duplicates are skipped.</p></article>
+      <article class="chapter" data-screen="player"><h3>Keeps playing with the screen locked</h3><p>A full-screen player, a mini player on every screen, Up Next, repeat and a shuffle that spreads out the same artist. Swipe the cover to skip. The lock screen and Control Center show the song too.</p></article>
+      <article class="chapter" data-screen="playlist"><h3>Playlists with your own cover</h3><p>Like a song with the heart, collect songs in playlists, give them a cover and drag them into the order you want.</p></article>
+      <article class="chapter" data-screen="download"><h3>Find a song you don't have yet</h3><p>Search YouTube Music, YouTube or SoundCloud, or paste a link, and download the song into your library with title, artist and cover. Long DJ mixes too.</p></article>
+      <article class="chapter" data-screen="edit"><h3>Fix what the files got wrong</h3><p>Change titles, artists, albums and covers, for one song or a whole album at once. The changes are written back into the files.</p></article>
+      <article class="chapter" data-screen="stats"><h3>See what you actually listen to</h3><p>Listening time per week, month or year, your streak, top artists, songs and albums, your favourite hour and your genre mix. All of it stays on your phone.</p></article>
+      <div class="dots" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
     </div>
     <div class="slot" aria-hidden="true"></div>
   </section>
@@ -508,11 +519,8 @@ footer a { color: var(--muted); }
   const tracks = [...document.querySelectorAll('[data-track]')];
   const stepLists = [...document.querySelectorAll('[data-steps]')];
 
-  // Narrow screens: each chapter gets its own small phone.
-  for (const c of chapters) {
-    c.querySelector('.inline').innerHTML =
-      `<div class="phone"><div class="screen"><iframe src="screens/${c.dataset.screen}.html" title="" tabindex="-1" loading="lazy"></iframe></div></div>`;
-  }
+  const chaptersBox = features.querySelector('.chapters');
+  const dots = [...features.querySelectorAll('.dots i')];
 
   // Split the promise sentence into words for scroll-linked lighting.
   const promise = document.querySelector('[data-words]');
@@ -567,9 +575,18 @@ footer a { color: var(--muted); }
     let py = lerp(startY, centreY, p);
     const fr = features.getBoundingClientRect();
     const t = clamp((vh - fr.top) / (vh * 0.7));
+    let scale = 1.35 - p * 0.35;
     if (p >= 1) {
       if (narrow.matches) {
-        py = centreY - (y - heroRange);
+        // Shrink to about half the screen and pin below the top bar; leave
+        // with the end of the features.
+        const e = t * t * (3 - 2 * t);
+        const pinned = clamp((vh * 0.5) / H, 0.4, 1);
+        scale = lerp(1, pinned, e);
+        py = lerp(centreY, 72, e) + Math.min(0, fr.bottom - vh);
+        const below = 72 + H * pinned;
+        chaptersBox.style.setProperty('--dots-top', `${below + 14}px`);
+        chaptersBox.style.setProperty('--caption-top', `${below + 40}px`);
       } else {
         const s = slot.getBoundingClientRect();
         x = lerp((vw - W) / 2, s.left, t * t * (3 - 2 * t));
@@ -577,16 +594,23 @@ footer a { color: var(--muted); }
       }
     }
     device.style.transform = `translate(${x.toFixed(1)}px, ${py.toFixed(1)}px)`;
-    phone.style.transform = `rotateX(${((1 - p) * 38).toFixed(2)}deg) scale(${(1.35 - p * 0.35).toFixed(4)})`;
+    phone.style.transform = `rotateX(${((1 - p) * 38).toFixed(2)}deg) scale(${scale.toFixed(4)})`;
 
-    // The chapter nearest the middle is lit and drives the phone's screen.
+    // Wide: the chapter nearest the middle is lit and drives the phone's
+    // screen. Narrow: the scroll position through the features picks it.
     let active = chapters[0], best = Infinity;
-    for (const c of chapters) {
-      const r = c.getBoundingClientRect();
-      const d = Math.abs(r.top + r.height / 2 - vh / 2);
-      if (d < best) { best = d; active = c; }
+    if (narrow.matches) {
+      const q = clamp(-fr.top / (fr.height - vh));
+      active = chapters[Math.min(chapters.length - 1, Math.floor(q * chapters.length))];
+      dots.forEach((d, i) => d.classList.toggle('on', chapters[i] === active));
+    } else {
+      for (const c of chapters) {
+        const r = c.getBoundingClientRect();
+        const d = Math.abs(r.top + r.height / 2 - vh / 2);
+        if (d < best) { best = d; active = c; }
+      }
     }
-    const inFeatures = t > 0.6 && !narrow.matches;
+    const inFeatures = t > 0.6;
     chapters.forEach((c) => c.classList.toggle('active', inFeatures && c === active));
     const want = inFeatures ? active.dataset.screen : 'home';
     deviceScreens.forEach((s) => s.classList.toggle('on', s.dataset.screen === want));
