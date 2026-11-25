@@ -7,191 +7,180 @@
 <meta name="description" content="A music player for iPhone and Android that plays the songs you own. No account, no subscription, no streaming.">
 <meta property="og:title" content="owntune">
 <meta property="og:description" content="A music player for iPhone and Android that plays the songs you own. No account, no subscription, no streaming.">
-<meta name="theme-color" content="#0e0e12">
+<meta name="theme-color" content="#0b0b0f">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='9' fill='%23ff7a59'/%3E%3Crect x='10' y='14' width='3' height='8' rx='1.5' fill='%23170b06'/%3E%3Crect x='14.5' y='9' width='3' height='13' rx='1.5' fill='%23170b06'/%3E%3Crect x='19' y='12' width='3' height='10' rx='1.5' fill='%23170b06'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700;800&family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
 /* The owntune download page (Distribution milestone), deployed from site/
-   by .github/workflows/pages.yml. Colours are the app's Midnight theme; the
-   accent is the app's own accent picker (Coral by default). The phone
-   screens are live HTML in iframes (screens/*.html) and follow the accent. */
+   by .github/workflows/pages.yml. Design: docs/mockups/site-v2 and
+   docs/superpowers/specs/2026-11-25-site-redesign-design.md.
+   One phone carries the page: it rises tilted in the hero, settles, then
+   glides to a sticky slot beside the feature chapters and switches screens.
+   The aurora is fixed behind everything and dims instead of ending. Colours
+   are the app's Midnight theme; every accent use reads --accent, which the
+   accent picker changes (the phone screens follow via postMessage). */
 :root {
-  --ink: #0e0e12;
-  --surface: #1a1a21;
-  --surface-2: #24242d;
+  --ink: #0b0b0f;
+  --surface: #16161c;
+  --surface-2: #202029;
+  --glass: rgba(22, 22, 28, 0.72);
   --text: #f4f2ef;
-  --muted: #a3a1ad;
+  --muted: #9d9ba8;
   --faint: #5d5b68;
-  --line: rgba(244, 242, 239, 0.09);
+  --line: rgba(244, 242, 239, 0.08);
   --accent: #ff7a59;
   --on-accent: #170b06;
-  --display: "Unbounded", system-ui, sans-serif;
-  --body: "Hanken Grotesk", system-ui, sans-serif;
+  --font: "Geist", system-ui, sans-serif;
   --gutter: clamp(16px, 4vw, 56px);
   --max: 1180px;
   --ease: cubic-bezier(0.2, 0.7, 0.1, 1);
+  /* the phone also fits short windows */
+  --phone-w: min(330px, 74vw, (100svh - 180px) * 780 / 1688);
   color-scheme: dark;
 }
 
 * { box-sizing: border-box; }
 html { scroll-behavior: smooth; }
 body {
-  margin: 0;
-  background: var(--ink);
-  color: var(--text);
-  font: 400 18px/1.55 var(--body);
-  -webkit-font-smoothing: antialiased;
-  overflow-x: clip;
+  margin: 0; background: var(--ink); color: var(--text);
+  font: 400 18px/1.55 var(--font); -webkit-font-smoothing: antialiased; overflow-x: clip;
 }
-img { display: block; max-width: 100%; }
 a { color: inherit; }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 6px; }
 .wrap { width: min(var(--max), 100% - 2 * var(--gutter)); margin-inline: auto; }
+h2 { font: 700 clamp(38px, 6vw, 80px)/1 var(--font); letter-spacing: -0.055em; margin: 0 0 16px; }
+
+/* ---------- Aurora: fixed, dims as you scroll ---------- */
+.aurora {
+  position: fixed; inset: -20%; z-index: -1; pointer-events: none;
+  filter: blur(80px) saturate(1.2); opacity: var(--glow, 0.72);
+}
+.aurora i { position: absolute; border-radius: 50%; mix-blend-mode: screen; animation: float 18s ease-in-out infinite alternate; transition: background 0.6s; }
+.aurora i:nth-child(1) { width: 50vw; height: 50vw; left: 15%; top: 30%; background: var(--accent); }
+.aurora i:nth-child(2) { width: 40vw; height: 40vw; left: 50%; top: 20%; background: color-mix(in oklch, var(--accent), #5a3cff 60%); animation-duration: 22s; }
+.aurora i:nth-child(3) { width: 35vw; height: 35vw; left: 35%; top: 55%; background: color-mix(in oklch, var(--accent), #ffd84d 45%); animation-duration: 26s; }
+@keyframes float { to { translate: 8vw -6vh; scale: 1.15; } }
 
 /* ---------- Top bar ---------- */
 .top {
   position: fixed; inset: 0 0 auto; z-index: 20;
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 14px var(--gutter);
-  transition: background 0.3s, backdrop-filter 0.3s;
+  display: flex; align-items: center; justify-content: space-between; padding: 16px var(--gutter);
+  background: linear-gradient(rgba(11, 11, 15, 0.85) 20%, transparent);
+  border-bottom: 1px solid transparent; transition: background 0.3s, border-color 0.3s;
 }
-.top.scrolled { background: rgba(14, 14, 18, 0.72); backdrop-filter: blur(16px); border-bottom: 1px solid var(--line); }
-.brand { display: flex; align-items: center; gap: 10px; text-decoration: none; font: 700 19px/1 var(--display); letter-spacing: -0.02em; }
-.mark {
-  width: 30px; height: 30px; border-radius: 9px; background: var(--accent);
-  display: grid; place-items: center; transition: background 0.4s;
-}
-.mark span { display: flex; gap: 2px; align-items: end; height: 14px; }
+.top.scrolled { background: rgba(11, 11, 15, 0.7); backdrop-filter: blur(16px); border-bottom-color: var(--line); }
+.brand { display: flex; align-items: center; gap: 10px; text-decoration: none; font: 700 20px/1 var(--font); letter-spacing: -0.03em; }
+.mark { width: 28px; height: 28px; border-radius: 8px; background: var(--accent); display: grid; place-items: center; transition: background 0.4s; }
+.mark span { display: flex; gap: 2px; align-items: end; height: 13px; }
 .mark i { width: 3px; background: var(--on-accent); border-radius: 2px; }
 .mark i:nth-child(1) { height: 55%; } .mark i:nth-child(2) { height: 100%; } .mark i:nth-child(3) { height: 70%; }
-.top nav { display: flex; gap: 26px; font-weight: 500; font-size: 16px; }
+.top nav { display: flex; gap: 24px; font-weight: 500; font-size: 15px; }
 .top nav a { text-decoration: none; color: var(--muted); transition: color 0.2s; }
 .top nav a:hover { color: var(--text); }
-@media (max-width: 640px) { .top nav a:not(.go) { display: none; } }
-.top nav a.go { color: var(--text); }
 
 /* ---------- Hero ---------- */
-.hero { position: relative; overflow-x: clip; min-height: 100svh; padding-top: 110px; display: grid; align-items: center; }
-.hero-grid { display: grid; grid-template-columns: 1.15fr 0.85fr; gap: 40px; align-items: center; }
-@media (max-width: 900px) { .hero-grid { grid-template-columns: 1fr; } }
-.word {
-  font: 800 clamp(60px, 8.4vw, 140px)/0.9 var(--display);
-  letter-spacing: -0.055em; margin: 0 0 28px;
-  display: flex; white-space: nowrap;
+.hero { position: relative; height: 210vh; }
+.stage { position: sticky; top: 0; height: 100svh; }
+.head {
+  position: absolute; top: clamp(90px, 14vh, 140px); left: 0; right: 0; text-align: center; padding: 0 var(--gutter);
+  opacity: calc(1 - var(--p, 0) * 2.2); translate: 0 calc(var(--p, 0) * -8vh);
 }
-.word span { display: inline-block; transform: translateY(105%); opacity: 0; }
-.loaded .word span { animation: rise 0.9s var(--ease) forwards; animation-delay: calc(var(--i) * 55ms); }
-@keyframes rise { to { transform: none; opacity: 1; } }
-.word .own { color: var(--accent); transition: color 0.4s; }
-.claim { font: 500 clamp(22px, 2.6vw, 30px)/1.25 var(--body); margin: 0 0 14px; max-width: 26ch; }
-.sub { color: var(--muted); max-width: 46ch; margin: 0 0 34px; }
-.fade-in { opacity: 0; transform: translateY(14px); }
-.loaded .fade-in { animation: rise 0.8s var(--ease) forwards; animation-delay: 0.55s; }
-.cta { display: flex; flex-wrap: wrap; gap: 12px; }
+.pill {
+  display: inline-flex; align-items: center; gap: 10px; margin-bottom: 26px; padding: 8px 16px 8px 12px; border-radius: 999px;
+  background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.14);
+  font: 500 15px/1.2 var(--font); text-decoration: none; transition: background 0.2s;
+}
+.pill:hover { background: rgba(255, 255, 255, 0.16); }
+.pill .dot { flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 4px color-mix(in oklch, var(--accent) 30%, transparent); transition: background 0.4s; }
+.pill b { font-weight: 650; }
+h1 { margin: 0 auto 20px; font: 700 clamp(44px, 7.4vw, 116px)/0.95 var(--font); letter-spacing: -0.055em; max-width: 12ch; }
+.sub { color: #d6d4dd; margin: 0 auto 30px; max-width: 40ch; font-size: 20px; }
+.cta { display: flex; justify-content: center; gap: 10px; flex-wrap: wrap; }
 .btn {
-  display: inline-flex; align-items: center; gap: 10px; height: 54px; padding: 0 24px;
-  border-radius: 27px; font: 600 17px/1 var(--body); text-decoration: none; border: 0; cursor: pointer;
-  transition: transform 0.2s var(--ease), background 0.4s, box-shadow 0.3s;
+  display: inline-flex; align-items: center; gap: 10px; height: 50px; padding: 0 22px; border-radius: 999px; border: 0; cursor: pointer;
+  font: 600 16px/1 var(--font); text-decoration: none; transition: transform 0.2s var(--ease), background 0.4s;
 }
-.btn svg { width: 20px; height: 20px; }
-.btn.primary { background: var(--accent); color: var(--on-accent); box-shadow: 0 10px 40px -12px var(--accent); }
-.btn.secondary { background: var(--surface-2); color: var(--text); }
+.btn svg { width: 19px; height: 19px; }
 .btn:hover { transform: translateY(-2px); }
 .btn:active { transform: scale(0.97); }
-.fine { margin-top: 18px; color: var(--faint); font-size: 15px; }
-.fine a { color: var(--muted); }
+.btn.light { background: var(--text); color: #000; }
+.btn.glass { background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(10px); color: var(--text); }
+.btn.primary { background: var(--accent); color: var(--on-accent); }
 
-/* the glow behind the hero phone, in the accent colour */
-.glow {
-  position: absolute; inset: auto 0 0 auto; width: 70vw; height: 70vw; max-width: 900px; max-height: 900px;
-  right: -20vw; top: 5vh; pointer-events: none; z-index: -1;
-  background: radial-gradient(closest-side, color-mix(in oklab, var(--accent) 35%, transparent), transparent 70%);
-  filter: blur(20px); transition: background 0.6s;
-}
-
-/* ---------- Phone ---------- */
+/* ---------- The one phone ---------- */
+.device { position: fixed; left: 0; top: 0; z-index: 5; perspective: 1600px; pointer-events: none; will-change: transform; }
+.device .phone { transform-origin: 50% 0; }
 .phone {
-  position: relative; width: min(340px, 78vw); aspect-ratio: 780 / 1688;
-  border-radius: 54px; padding: 12px; background: #050507;
-  box-shadow: 0 0 0 1.5px #2c2c36, 0 40px 120px -30px rgba(0, 0, 0, 0.9), 0 30px 90px -50px var(--accent);
-  margin-inline: auto;
+  position: relative; width: var(--phone-w); aspect-ratio: 780 / 1688; border-radius: 52px; padding: 12px; background: #050507;
+  box-shadow: 0 0 0 1.5px #34343f, 0 60px 160px -30px rgba(0, 0, 0, 0.95);
 }
-.phone .screen { position: relative; width: 100%; height: 100%; border-radius: 42px; overflow: hidden; background: var(--ink); }
+.phone .screen { position: relative; width: 100%; height: 100%; border-radius: 40px; overflow: hidden; background: var(--ink); }
 .phone .screen iframe {
-  position: absolute; top: 0; left: 0; width: 390px; height: 844px; border: 0;
-  transform-origin: 0 0; transform: translateX(var(--x, 0px)) scale(var(--s, 0.8)); pointer-events: none; background: var(--ink);
+  position: absolute; top: 0; left: 0; width: 390px; height: 844px; border: 0; background: var(--ink);
+  transform-origin: 0 0; transform: translateX(var(--x, 0px)) scale(var(--s, 0.8)); pointer-events: none;
 }
-.hero .phone { transform: translateY(40px) rotate(4deg); opacity: 0; }
-.loaded .hero .phone { animation: phone-in 1.2s var(--ease) 0.25s forwards; }
-@keyframes phone-in { to { transform: rotate(-3deg); opacity: 1; } }
+.device iframe { opacity: 0; transition: opacity 0.5s var(--ease); }
+.device iframe.on { opacity: 1; }
 
-/* ---------- Promises: scroll-linked word lighting ---------- */
-.promises { padding: 18vh 0 14vh; }
-.promises em { font-style: normal; }
-.promises p {
-  font: 700 clamp(30px, 5.2vw, 68px)/1.08 var(--display); letter-spacing: -0.035em;
-  margin: 0; max-width: 18ch;
+/* ---------- Feature chapters ---------- */
+.features { position: relative; display: grid; grid-template-columns: 1fr var(--phone-w); gap: 6vw; padding-bottom: 6vh; }
+.slot { position: sticky; width: var(--phone-w); aspect-ratio: 780 / 1688; align-self: start; }
+.chapters { padding-block: 18vh 22vh; display: grid; gap: 22vh; }
+.chapter { max-width: 640px; }
+.chapter h3 { font: 700 clamp(32px, 4.6vw, 68px)/0.98 var(--font); letter-spacing: -0.055em; margin: 0 0 18px; max-width: 14ch; color: var(--faint); transition: color 0.4s; }
+.chapter p { color: var(--muted); margin: 0; max-width: 42ch; font-size: 19px; transition: color 0.4s; }
+.chapter.active h3 { color: var(--text); }
+.chapter.active p { color: #cfcdd6; }
+.chapter .inline { display: none; }
+@media (max-width: 900px) {
+  .features { grid-template-columns: 1fr; }
+  .slot { display: none; }
+  .chapters { padding-block: 10vh; gap: 12vh; }
+  .chapter h3, .chapter p { color: inherit; }
+  .chapter p { color: #cfcdd6; }
+  .chapter .inline { display: block; margin-top: 28px; }
+  .chapter .inline .phone { width: min(260px, 66vw); }
 }
+
+/* ---------- Promises: scroll-lit words ---------- */
+.promises { padding: 12vh 0 16vh; }
+.promises em { font-style: normal; }
+.promises p { font: 700 clamp(32px, 5.4vw, 72px)/1.04 var(--font); letter-spacing: -0.05em; margin: 0; max-width: 18ch; }
 .promises .w { color: var(--faint); transition: color 0.25s; }
 .promises .w.lit { color: var(--text); }
 .promises .w.lit.hot { color: var(--accent); }
 .promises small { display: block; margin-top: 40px; max-width: 52ch; color: var(--muted); font-size: 19px; }
 
-/* ---------- Feature story: sticky phone, screens swap ---------- */
-.story { display: grid; grid-template-columns: 1fr 1fr; gap: 6vw; padding-bottom: 10vh; }
-.story .pin { position: sticky; top: calc(50svh - min(340px, 78vw) * 1.082 - 0px); height: fit-content; align-self: start; }
-.story .pin .screen iframe { opacity: 0; transition: opacity 0.55s var(--ease); }
-.story .pin .screen iframe.on { opacity: 1; }
-.chapters { padding-block: 22vh 30vh; }
-.chapter { min-height: 72svh; display: flex; flex-direction: column; justify-content: center; }
-.chapter h3 { font: 700 clamp(28px, 3.4vw, 44px)/1.1 var(--display); letter-spacing: -0.03em; margin: 0 0 18px; transition: color 0.4s; color: var(--faint); }
-.chapter p { color: var(--muted); max-width: 40ch; margin: 0; transition: color 0.4s; }
-.chapter.active h3 { color: var(--text); }
-.chapter.active p { color: #cfcdd6; }
-.chapter .inline { display: none; }
-@media (max-width: 900px) {
-  .story { grid-template-columns: 1fr; }
-  .story .pin { display: none; }
-  .chapters { padding-block: 4vh; }
-  .chapter { min-height: auto; padding-block: 8vh; }
-  .chapter h3, .chapter p { color: inherit; }
-  .chapter .inline { display: block; margin-top: 32px; }
-  .chapter .inline .phone { width: min(280px, 70vw); }
-}
-
-/* ---------- Accent interlude ---------- */
-.accent { padding: 16vh 0; text-align: center; border-block: 1px solid var(--line); background:
-  radial-gradient(60% 80% at 50% 120%, color-mix(in oklab, var(--accent) 22%, transparent), transparent 70%); transition: background 0.6s; }
-.accent h2 { font: 800 clamp(34px, 6vw, 84px)/1 var(--display); letter-spacing: -0.045em; margin: 0 auto 18px; max-width: 14ch; }
-.accent p { color: var(--muted); margin: 0 auto 40px; max-width: 46ch; }
+/* ---------- Accent picker ---------- */
+.accent { padding: 16vh 0; text-align: center; }
+.accent h2 { font-size: clamp(38px, 6.4vw, 88px); max-width: 14ch; margin: 0 auto 18px; }
+.accent p { color: #cfcdd6; margin: 0 auto 40px; max-width: 46ch; }
 .swatches { display: flex; justify-content: center; flex-wrap: wrap; gap: 14px; }
 .swatches button {
   width: 46px; height: 46px; border-radius: 50%; border: 0; cursor: pointer; background: var(--c);
-  box-shadow: 0 0 0 0 var(--c); transition: transform 0.25s var(--ease), box-shadow 0.25s;
+  transition: transform 0.25s var(--ease), box-shadow 0.25s;
 }
 .swatches button:hover { transform: scale(1.12); }
 .swatches button[aria-pressed="true"] { box-shadow: 0 0 0 4px var(--ink), 0 0 0 6px var(--c); }
 .swatch-name { margin-top: 20px; font-weight: 600; min-height: 1.5em; }
+@media (max-width: 480px) { .swatches { gap: 10px; } .swatches button { width: 38px; height: 38px; } }
 
 /* ---------- Install ---------- */
-.install { padding: 16vh 0 10vh; }
-.install h2 { font: 800 clamp(38px, 6vw, 80px)/1 var(--display); letter-spacing: -0.045em; margin: 0 0 16px; }
-.install .lead { color: var(--muted); max-width: 52ch; margin: 0 0 40px; }
-.tabs { display: inline-flex; gap: 4px; padding: 5px; background: var(--surface); border-radius: 30px; margin-bottom: 56px; }
+.install { padding: 14vh 0 10vh; }
+.install .lead { color: #cfcdd6; max-width: 52ch; margin: 0 0 40px; }
+.tabs { display: inline-flex; gap: 4px; padding: 5px; background: var(--glass); backdrop-filter: blur(14px); border: 1px solid var(--line); border-radius: 30px; margin-bottom: 56px; }
 .tabs button {
   height: 46px; padding: 0 22px; border-radius: 23px; border: 0; background: transparent; color: var(--muted);
-  font: 600 16px/1 var(--body); cursor: pointer; display: inline-flex; align-items: center; gap: 8px; transition: background 0.3s, color 0.3s;
+  font: 600 16px/1 var(--font); cursor: pointer; display: inline-flex; align-items: center; gap: 8px; transition: background 0.3s, color 0.3s;
 }
 .tabs button[aria-selected="true"] { background: var(--surface-2); color: var(--text); }
 .tabs svg { width: 18px; height: 18px; }
 .panel[hidden] { display: none; }
 .needs { display: flex; flex-wrap: wrap; gap: 10px; margin: 0 0 56px; padding: 0; list-style: none; }
-.needs li { background: var(--surface); border-radius: 14px; padding: 12px 16px; font-size: 16px; color: #d9d7df; }
+.needs li { background: var(--glass); backdrop-filter: blur(14px); border: 1px solid var(--line); border-radius: 14px; padding: 12px 16px; font-size: 16px; color: #d9d7df; }
 .needs b { color: var(--text); }
-
-/* steps with a scrubber that fills as you scroll */
 .steps { position: relative; display: grid; gap: 64px; padding-left: 72px; max-width: 760px; }
 .steps::before, .steps .fill {
   content: ""; position: absolute; left: 21px; top: 8px; bottom: 8px; width: 3px; border-radius: 2px; background: var(--surface-2);
@@ -201,34 +190,32 @@ a { color: inherit; }
 .step .num {
   position: absolute; left: -72px; top: -4px; width: 46px; height: 46px; border-radius: 50%;
   background: var(--surface-2); color: var(--muted); display: grid; place-items: center;
-  font: 700 18px/1 var(--display); transition: background 0.35s, color 0.35s, transform 0.35s var(--ease);
+  font: 700 18px/1 var(--font); transition: background 0.35s, color 0.35s, transform 0.35s var(--ease);
 }
 .step.done .num { background: var(--accent); color: var(--on-accent); transform: scale(1.06); }
-.step h3 { font: 700 26px/1.2 var(--display); letter-spacing: -0.02em; margin: 0 0 6px; }
+.step h3 { font: 700 28px/1.15 var(--font); letter-spacing: -0.035em; margin: 0 0 6px; }
 .step .when { color: var(--accent); font-weight: 600; font-size: 15px; margin: 0 0 14px; transition: color 0.4s; }
 .step ol { margin: 0; padding-left: 22px; color: #d9d7df; }
 .step ol li + li { margin-top: 8px; }
-.step .note { margin-top: 18px; background: var(--surface); border-radius: 16px; padding: 14px 18px; color: var(--muted); font-size: 16px; }
+.step .note { margin-top: 18px; background: var(--glass); backdrop-filter: blur(14px); border: 1px solid var(--line); border-radius: 16px; padding: 14px 18px; color: var(--muted); font-size: 16px; }
 .copy {
   display: flex; align-items: center; gap: 10px; margin: 12px 0 4px; padding: 6px 6px 6px 16px;
-  background: var(--surface); border: 1px solid var(--line); border-radius: 14px; max-width: 100%;
+  background: var(--glass); border: 1px solid var(--line); border-radius: 14px; max-width: 100%;
 }
 .copy code { flex: 1; min-width: 0; overflow-x: auto; white-space: nowrap; font: 500 14px/1.4 ui-monospace, "SF Mono", Menlo, monospace; color: #d9d7df; scrollbar-width: none; }
 .copy button {
   flex: none; height: 38px; padding: 0 16px; border-radius: 10px; border: 0; cursor: pointer;
-  background: var(--accent); color: var(--on-accent); font: 600 15px/1 var(--body); transition: background 0.4s, transform 0.15s;
+  background: var(--accent); color: var(--on-accent); font: 600 15px/1 var(--font); transition: background 0.4s, transform 0.15s;
 }
 .copy button:active { transform: scale(0.95); }
+@media (max-width: 640px) { .steps { padding-left: 60px; } .step .num { left: -60px; width: 40px; height: 40px; } .steps::before, .steps .fill { left: 18px; } }
 
 /* ---------- FAQ ---------- */
 .faq { padding: 10vh 0 18vh; }
-.faq h2 { font: 800 clamp(34px, 5vw, 64px)/1 var(--display); letter-spacing: -0.045em; margin: 0 0 40px; }
+.faq h2 { font-size: clamp(36px, 5vw, 64px); margin-bottom: 40px; }
 .faq details { border-top: 1px solid var(--line); max-width: 820px; }
 .faq details:last-of-type { border-bottom: 1px solid var(--line); }
-.faq summary {
-  list-style: none; cursor: pointer; padding: 24px 48px 24px 0; position: relative;
-  font: 600 20px/1.3 var(--body);
-}
+.faq summary { list-style: none; cursor: pointer; padding: 24px 48px 24px 0; position: relative; font: 600 20px/1.3 var(--font); letter-spacing: -0.01em; }
 .faq summary::-webkit-details-marker { display: none; }
 .faq summary::after {
   content: ""; position: absolute; right: 8px; top: 50%; width: 14px; height: 14px; margin-top: -10px;
@@ -241,7 +228,7 @@ a { color: inherit; }
 .faq .answer > div { overflow: hidden; color: var(--muted); padding-right: 48px; }
 .faq .answer p { margin: 0 0 24px; }
 
-footer { border-top: 1px solid var(--line); padding: 40px 0 130px; color: var(--faint); font-size: 15px; }
+footer { border-top: 1px solid var(--line); padding: 40px 0 130px; color: var(--faint); font-size: 15px; background: var(--ink); }
 footer .wrap { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 16px; }
 footer a { color: var(--muted); }
 
@@ -250,7 +237,7 @@ footer a { color: var(--muted); }
   position: fixed; left: 50%; bottom: 16px; z-index: 30; width: min(560px, calc(100% - 24px));
   translate: -50% 140%; transition: translate 0.6s var(--ease);
   display: flex; align-items: center; gap: 12px; padding: 10px 10px 14px;
-  background: rgba(36, 36, 45, 0.86); backdrop-filter: blur(18px); border: 1px solid var(--line); border-radius: 18px;
+  background: rgba(32, 32, 41, 0.82); backdrop-filter: blur(18px); border: 1px solid var(--line); border-radius: 18px;
 }
 .mini.show { translate: -50% 0; }
 .mini .art { width: 42px; height: 42px; border-radius: 9px; background: var(--accent); display: grid; place-items: center; transition: background 0.4s; flex: none; }
@@ -263,15 +250,14 @@ footer a { color: var(--muted); }
 .mini .bar { position: absolute; left: 14px; right: 14px; bottom: 5px; height: 3px; border-radius: 2px; background: rgba(244, 242, 239, 0.12); overflow: hidden; }
 .mini .bar i { display: block; height: 100%; width: 100%; background: var(--accent); transform-origin: left; transform: scaleX(var(--p, 0)); transition: background 0.4s; }
 
-/* ---------- Reduced motion ---------- */
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
-  *, *::before, *::after { animation-duration: 0.01ms !important; animation-delay: 0ms !important; transition-duration: 0.01ms !important; }
-  .word span, .fade-in, .hero .phone { opacity: 1; transform: none; }
+  .aurora i { animation: none; }
 }
 </style>
 </head>
 <body>
+<div class="aurora" aria-hidden="true"><i></i><i></i><i></i></div>
 
 <header class="top" id="top">
   <a class="brand" href="#">
@@ -279,97 +265,59 @@ footer a { color: var(--muted); }
   </a>
   <nav>
     <a href="#features">Features</a>
-    <a href="#faq">Questions</a>
-    <a class="go" href="#install">Install</a>
+    <a href="#install">Install</a>
   </nav>
 </header>
 
+<div class="device" aria-hidden="true">
+  <div class="phone"><div class="screen">
+    <iframe data-screen="home" class="on" src="screens/home.html" title="" tabindex="-1"></iframe>
+    <iframe data-screen="library" src="screens/library.html" title="" tabindex="-1"></iframe>
+    <iframe data-screen="player" src="screens/player.html" title="" tabindex="-1"></iframe>
+    <iframe data-screen="playlist" src="screens/playlist.html" title="" tabindex="-1"></iframe>
+    <iframe data-screen="download" src="screens/download.html" title="" tabindex="-1"></iframe>
+    <iframe data-screen="edit" src="screens/edit.html" title="" tabindex="-1"></iframe>
+    <iframe data-screen="stats" src="screens/stats.html" title="" tabindex="-1"></iframe>
+  </div></div>
+</div>
+
 <main>
   <section class="hero" data-track="owntune">
-    <div class="glow" aria-hidden="true"></div>
-    <div class="wrap hero-grid">
-      <div>
-        <h1 class="word" aria-label="owntune">
-          <span class="own" style="--i:0">o</span><span class="own" style="--i:1">w</span><span class="own" style="--i:2">n</span><span style="--i:3">t</span><span style="--i:4">u</span><span style="--i:5">n</span><span style="--i:6">e</span>
-        </h1>
-        <p class="claim fade-in">Your music. Your files. Your player.</p>
-        <p class="sub fade-in">A music player for iPhone and Android that plays the songs you own. No account, no subscription, no streaming.</p>
-        <div class="cta fade-in">
-          <a class="btn primary" href="#install" data-platform="ios">
+    <div class="stage">
+      <div class="head">
+        <a class="pill" href="https://github.com/shiraayuki/owntune/releases/latest" data-release><span class="dot" aria-hidden="true"></span><span>See the latest release</span></a>
+        <h1>Your music. Your files. Your player.</h1>
+        <p class="sub">A free music player for iPhone and Android that plays the songs you own. No account, no subscription, no streaming.</p>
+        <div class="cta">
+          <a class="btn light" href="#install" data-platform="ios">
             <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M16.4 12.6c0-2.4 2-3.6 2.1-3.7-1.1-1.7-2.9-1.9-3.5-1.9-1.5-.2-2.9.9-3.7.9-.8 0-1.9-.9-3.2-.8-1.6 0-3.1 1-4 2.4-1.7 3-.4 7.4 1.2 9.8.8 1.2 1.8 2.5 3 2.4 1.2 0 1.7-.8 3.1-.8 1.5 0 1.9.8 3.2.8 1.3 0 2.2-1.2 3-2.4.9-1.4 1.3-2.7 1.3-2.8 0 0-2.5-1-2.5-3.9zM14 5.5c.7-.8 1.1-1.9 1-3-1 0-2.1.7-2.8 1.5-.6.7-1.2 1.8-1 2.9 1 .1 2.1-.6 2.8-1.4z"/></svg>
             Install on iPhone
           </a>
-          <a class="btn secondary" href="#install" data-platform="android">
+          <a class="btn glass" href="#install" data-platform="android">
             <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M17.6 9.5l1.7-3a.4.4 0 00-.7-.4l-1.7 3a10.6 10.6 0 00-9.8 0l-1.7-3a.4.4 0 00-.7.4l1.7 3A9.6 9.6 0 002 17h20a9.6 9.6 0 00-4.4-7.5zM7.5 14.2a1 1 0 110-2 1 1 0 010 2zm9 0a1 1 0 110-2 1 1 0 010 2z"/></svg>
             Download for Android
           </a>
         </div>
-        <p class="fine fade-in" data-release>Free. <a href="https://github.com/shiraayuki/owntune/releases/latest">Latest release on GitHub</a></p>
-      </div>
-      <div class="phone" aria-hidden="true">
-        
-        <div class="screen"><iframe src="screens/home.html" title="The Home tab" tabindex="-1"></iframe></div>
       </div>
     </div>
+  </section>
+
+  <section class="features wrap" id="features" data-track="Features">
+    <div class="chapters">
+      <article class="chapter" data-screen="home"><h3>Start where you left off</h3><p>Home shows what you played lately, picks up the queue you paused and keeps rows for On Repeat, Recently Added, Rediscover and the songs you never played.</p><div class="inline"></div></article>
+      <article class="chapter" data-screen="library"><h3>A library that sorts itself</h3><p>Import MP3, M4A, FLAC and WAV files from the Files app, many at once. Songs, albums and artists are grouped from the song details, with covers, and duplicates are skipped.</p><div class="inline"></div></article>
+      <article class="chapter" data-screen="player"><h3>Keeps playing with the screen locked</h3><p>A full-screen player, a mini player on every screen, Up Next, repeat and a shuffle that spreads out the same artist. Swipe the cover to skip. The lock screen and Control Center show the song too.</p><div class="inline"></div></article>
+      <article class="chapter" data-screen="playlist"><h3>Playlists with your own cover</h3><p>Like a song with the heart, collect songs in playlists, give them a cover and drag them into the order you want.</p><div class="inline"></div></article>
+      <article class="chapter" data-screen="download"><h3>Find a song you don't have yet</h3><p>Search YouTube Music, YouTube or SoundCloud, or paste a link, and download the song into your library with title, artist and cover. Long DJ mixes too.</p><div class="inline"></div></article>
+      <article class="chapter" data-screen="edit"><h3>Fix what the files got wrong</h3><p>Change titles, artists, albums and covers, for one song or a whole album at once. The changes are written back into the files.</p><div class="inline"></div></article>
+      <article class="chapter" data-screen="stats"><h3>See what you actually listen to</h3><p>Listening time per week, month or year, your streak, top artists, songs and albums, your favourite hour and your genre mix. All of it stays on your phone.</p><div class="inline"></div></article>
+    </div>
+    <div class="slot" aria-hidden="true"></div>
   </section>
 
   <section class="promises wrap" data-track="What is owntune?">
     <p data-words>No account. No subscription. No streaming. No tracking. Just <em class="hot">your own music,</em> on your phone.</p>
     <small>owntune is for people who still keep their own music files: MP3s from a CD, a Bandcamp purchase, an old iTunes library. Put them in once, and from then on everything works offline, in airplane mode and in the subway.</small>
-  </section>
-
-  <section class="story wrap" id="features" data-track="Features">
-    <div class="pin" aria-hidden="true">
-      <div class="phone">
-        
-        <div class="screen">
-          <iframe data-screen="home" src="screens/home.html" title="" class="on" tabindex="-1" loading="lazy"></iframe>
-          <iframe data-screen="library" src="screens/library.html" title=""None tabindex="-1" loading="lazy"></iframe>
-          <iframe data-screen="player" src="screens/player.html" title=""None tabindex="-1" loading="lazy"></iframe>
-          <iframe data-screen="playlist" src="screens/playlist.html" title=""None tabindex="-1" loading="lazy"></iframe>
-          <iframe data-screen="download" src="screens/download.html" title=""None tabindex="-1" loading="lazy"></iframe>
-          <iframe data-screen="edit" src="screens/edit.html" title=""None tabindex="-1" loading="lazy"></iframe>
-          <iframe data-screen="stats" src="screens/stats.html" title=""None tabindex="-1" loading="lazy"></iframe>
-        </div>
-      </div>
-    </div>
-    <div class="chapters">
-      <article class="chapter" data-screen="home">
-        <h3>Start where you left off</h3>
-        <p>Home shows what you played lately, picks up the queue you paused and keeps rows for On Repeat, Recently Added, Rediscover and the songs you never played.</p>
-        <div class="inline"><div class="phone"><div class="screen"><iframe src="screens/home.html" title="The Home tab" tabindex="-1" loading="lazy"></iframe></div></div></div>
-      </article>
-      <article class="chapter" data-screen="library">
-        <h3>A library that sorts itself</h3>
-        <p>Import MP3, M4A, FLAC and WAV files from the Files app, many at once. Songs, albums and artists are grouped from the song details, with covers, and duplicates are skipped.</p>
-        <div class="inline"><div class="phone"><div class="screen"><iframe src="screens/library.html" title="The library" tabindex="-1" loading="lazy"></iframe></div></div></div>
-      </article>
-      <article class="chapter" data-screen="player">
-        <h3>Keeps playing with the screen locked</h3>
-        <p>A full-screen player, a mini player on every screen, Up Next, repeat and a shuffle that spreads out the same artist. Swipe the cover to skip. The lock screen and Control Center show the song too.</p>
-        <div class="inline"><div class="phone"><div class="screen"><iframe src="screens/player.html" title="Now Playing" tabindex="-1" loading="lazy"></iframe></div></div></div>
-      </article>
-      <article class="chapter" data-screen="playlist">
-        <h3>Playlists with your own cover</h3>
-        <p>Like a song with the heart, collect songs in playlists, give them a cover and drag them into the order you want.</p>
-        <div class="inline"><div class="phone"><div class="screen"><iframe src="screens/playlist.html" title="A playlist" tabindex="-1" loading="lazy"></iframe></div></div></div>
-      </article>
-      <article class="chapter" data-screen="download">
-        <h3>Find a song you don't have yet</h3>
-        <p>Search YouTube Music, YouTube or SoundCloud, or paste a link, and download the song into your library with title, artist and cover. Long DJ mixes too.</p>
-        <div class="inline"><div class="phone"><div class="screen"><iframe src="screens/download.html" title="Search Online" tabindex="-1" loading="lazy"></iframe></div></div></div>
-      </article>
-      <article class="chapter" data-screen="edit">
-        <h3>Fix what the files got wrong</h3>
-        <p>Change titles, artists, albums and covers, for one song or a whole album at once. The changes are written back into the files.</p>
-        <div class="inline"><div class="phone"><div class="screen"><iframe src="screens/edit.html" title="Edit Info" tabindex="-1" loading="lazy"></iframe></div></div></div>
-      </article>
-      <article class="chapter" data-screen="stats">
-        <h3>See what you actually listen to</h3>
-        <p>Listening time per week, month or year, your streak, top artists, songs and albums, your favourite hour and your genre mix. All of it stays on your phone.</p>
-        <div class="inline"><div class="phone"><div class="screen"><iframe src="screens/stats.html" title="Stats" tabindex="-1" loading="lazy"></iframe></div></div></div>
-      </article>
-    </div>
   </section>
 
   <section class="accent" data-track="Your colour">
@@ -523,17 +471,39 @@ footer a { color: var(--muted); }
 <script>
 (() => {
   const root = document.documentElement;
-  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
-  requestAnimationFrame(() => document.body.classList.add('loaded'));
+  const clamp = (v, a = 0, b = 1) => Math.min(b, Math.max(a, v));
+  const lerp = (a, b, t) => a + (b - a) * t;
+  const narrow = matchMedia('(max-width: 900px)');
+
+  const top = document.getElementById('top');
+  const hero = document.querySelector('.hero');
+  const head = hero.querySelector('.head');
+  const features = document.querySelector('.features');
+  const slot = features.querySelector('.slot');
+  const device = document.querySelector('.device');
+  const phone = device.querySelector('.phone');
+  const deviceScreens = [...device.querySelectorAll('iframe')];
+  const chapters = [...document.querySelectorAll('.chapter')];
+  const accentSection = document.querySelector('.accent');
+  const mini = document.querySelector('.mini');
+  const miniBar = mini.querySelector('.bar i');
+  const now = mini.querySelector('[data-now]');
+  const tracks = [...document.querySelectorAll('[data-track]')];
+  const stepLists = [...document.querySelectorAll('[data-steps]')];
+
+  // Narrow screens: each chapter gets its own small phone.
+  for (const c of chapters) {
+    c.querySelector('.inline').innerHTML =
+      `<div class="phone"><div class="screen"><iframe src="screens/${c.dataset.screen}.html" title="" tabindex="-1" loading="lazy"></iframe></div></div>`;
+  }
 
   // Split the promise sentence into words for scroll-linked lighting.
   const promise = document.querySelector('[data-words]');
   const words = [];
   for (const node of [...promise.childNodes]) {
     const hot = node.nodeType === 1;
-    const text = node.textContent;
     const frag = document.createDocumentFragment();
-    for (const part of text.split(/(\s+)/)) {
+    for (const part of node.textContent.split(/(\s+)/)) {
       if (!part.trim()) { frag.append(part); continue; }
       const s = document.createElement('span');
       s.className = 'w' + (hot ? ' hot' : '');
@@ -544,18 +514,7 @@ footer a { color: var(--muted); }
     node.replaceWith(frag);
   }
 
-  const top = document.getElementById('top');
-  const mini = document.querySelector('.mini');
-  const miniBar = mini.querySelector('.bar i');
-  const now = mini.querySelector('[data-now]');
-  const tracks = [...document.querySelectorAll('[data-track]')];
-  const chapters = [...document.querySelectorAll('.chapter')];
-  const screens = [...document.querySelectorAll('.pin [data-screen]')];
-  const stepLists = [...document.querySelectorAll('[data-steps]')];
-  const frames = [...document.querySelectorAll('.screen iframe')];
-
-  // The screens are 390x844 CSS px; scale each to fill its phone (the
-  // frame is a little taller than 390:844) and centre it.
+  // The screens are 390x844 CSS px; scale each to fill its phone and centre it.
   const fit = new ResizeObserver((entries) => {
     for (const e of entries) {
       const { width, height } = e.contentRect;
@@ -568,47 +527,76 @@ footer a { color: var(--muted); }
 
   // Every screen shows the page's accent, also those that load later.
   let accent = 'ff7a59';
+  const frames = () => document.querySelectorAll('.screen iframe');
   const tint = (f) => f.contentWindow?.postMessage({ mode: 'dark', accent }, '*');
-  frames.forEach((f) => f.addEventListener('load', () => tint(f)));
+  frames().forEach((f) => f.addEventListener('load', () => tint(f)));
 
   function frame() {
-    const vh = innerHeight;
-    const y = scrollY;
-    const max = document.documentElement.scrollHeight - vh;
+    const vw = root.clientWidth, vh = innerHeight, y = scrollY;
+    const heroRange = hero.offsetHeight - vh;
+    const p = clamp(y / heroRange);
+    hero.style.setProperty('--p', p.toFixed(4));
+    top.classList.toggle('scrolled', y > heroRange);
 
-    top.classList.toggle('scrolled', y > 20);
-    mini.classList.toggle('show', y > vh * 0.7);
-    miniBar.parentElement.style.setProperty('--p', Math.min(1, y / max));
-
-    // The section in the middle of the screen names the "song".
-    for (const t of tracks) {
-      const r = t.getBoundingClientRect();
-      if (r.top < vh * 0.5 && r.bottom > vh * 0.5) { now.textContent = t.dataset.track; break; }
+    // The phone: rises tilted from below the buttons, settles centred, then
+    // glides to the slot beside the chapters and follows it (wide screens)
+    // or scrolls away (narrow screens).
+    const W = phone.offsetWidth, H = phone.offsetHeight;
+    const centreY = (vh - H) / 2;
+    slot.style.top = `${centreY}px`;
+    const startY = Math.max(head.offsetTop + head.offsetHeight + 36, vh * 0.55);
+    let x = (vw - W) / 2;
+    let py = lerp(startY, centreY, p);
+    const fr = features.getBoundingClientRect();
+    const t = clamp((vh - fr.top) / (vh * 0.7));
+    if (p >= 1) {
+      if (narrow.matches) {
+        py = centreY - (y - heroRange);
+      } else {
+        const s = slot.getBoundingClientRect();
+        x = lerp((vw - W) / 2, s.left, t * t * (3 - 2 * t));
+        py = Math.min(centreY, s.top);
+      }
     }
-    mini.querySelector('.btn').hidden = now.textContent === 'Install';
+    device.style.transform = `translate(${x.toFixed(1)}px, ${py.toFixed(1)}px)`;
+    phone.style.transform = `rotateX(${((1 - p) * 38).toFixed(2)}deg) scale(${(1.35 - p * 0.35).toFixed(4)})`;
 
-    // Promise words light up as the sentence crosses the screen.
-    const pr = promise.getBoundingClientRect();
-    const progress = Math.min(1, Math.max(0, (vh * 0.85 - pr.top) / (pr.height + vh * 0.35)));
-    const lit = Math.round(progress * words.length);
-    words.forEach((w, i) => w.classList.toggle('lit', i < lit));
-
-    // The chapter nearest the middle drives the pinned phone.
-    let active = null, best = Infinity;
+    // The chapter nearest the middle is lit and drives the phone's screen.
+    let active = chapters[0], best = Infinity;
     for (const c of chapters) {
       const r = c.getBoundingClientRect();
       const d = Math.abs(r.top + r.height / 2 - vh / 2);
       if (d < best) { best = d; active = c; }
     }
-    chapters.forEach(c => c.classList.toggle('active', c === active));
-    if (active) screens.forEach(s => s.classList.toggle('on', s.dataset.screen === active.dataset.screen));
+    const inFeatures = t > 0.6 && !narrow.matches;
+    chapters.forEach((c) => c.classList.toggle('active', inFeatures && c === active));
+    const want = inFeatures ? active.dataset.screen : 'home';
+    deviceScreens.forEach((s) => s.classList.toggle('on', s.dataset.screen === want));
+
+    // Aurora: full in the hero, dim below, bright again around the colour picker.
+    const ar = accentSection.getBoundingClientRect();
+    const near = clamp(1 - Math.abs(ar.top + ar.height / 2 - vh / 2) / vh);
+    root.style.setProperty('--glow', Math.max(0.72 - 0.44 * t, 0.28 + 0.4 * near).toFixed(3));
+
+    // Mini player: shows after the hero; the section in the middle names the "song".
+    mini.classList.toggle('show', y > heroRange + vh * 0.3);
+    miniBar.parentElement.style.setProperty('--p', clamp(y / (root.scrollHeight - vh)));
+    for (const tr of tracks) {
+      const r = tr.getBoundingClientRect();
+      if (r.top < vh * 0.5 && r.bottom > vh * 0.5) { now.textContent = tr.dataset.track; break; }
+    }
+    mini.querySelector('.btn').hidden = now.textContent === 'Install';
+
+    // Promise words light up as the sentence crosses the screen.
+    const pr = promise.getBoundingClientRect();
+    const lit = Math.round(clamp((vh * 0.85 - pr.top) / (pr.height + vh * 0.35)) * words.length);
+    words.forEach((w, i) => w.classList.toggle('lit', i < lit));
 
     // Install steps: the line fills like a scrubber, numbers turn on.
     for (const list of stepLists) {
       if (list.offsetParent === null) continue;
       const r = list.getBoundingClientRect();
-      const p = Math.min(1, Math.max(0, (vh * 0.6 - r.top) / r.height));
-      list.querySelector('.fill').style.setProperty('--p', p);
+      list.querySelector('.fill').style.setProperty('--p', clamp((vh * 0.6 - r.top) / r.height));
       for (const step of list.querySelectorAll('.step')) {
         step.classList.toggle('done', step.getBoundingClientRect().top < vh * 0.6);
       }
@@ -618,18 +606,20 @@ footer a { color: var(--muted); }
   const onScroll = () => { if (!queued) { queued = true; requestAnimationFrame(() => { queued = false; frame(); }); } };
   addEventListener('scroll', onScroll, { passive: true });
   addEventListener('resize', onScroll);
+  narrow.addEventListener('change', onScroll);
   frame();
 
   // Accent picker recolours the page, like the app's own setting.
   const name = document.querySelector('.swatch-name');
-  for (const b of document.querySelectorAll('.swatches button')) {
+  const swatches = [...document.querySelectorAll('.swatches button')];
+  for (const b of swatches) {
     b.addEventListener('click', () => {
-      document.querySelectorAll('.swatches button').forEach(x => x.setAttribute('aria-pressed', x === b));
+      swatches.forEach((x) => x.setAttribute('aria-pressed', x === b));
       const c = getComputedStyle(b).getPropertyValue('--c').trim();
       root.style.setProperty('--accent', c);
       name.textContent = b.dataset.name;
       accent = c.replace('#', '');
-      frames.forEach(tint);
+      frames().forEach(tint);
     });
   }
 
@@ -643,13 +633,13 @@ footer a { color: var(--muted); }
     }
     frame();
   }
-  tabs.forEach(t => t.addEventListener('click', () => select(t)));
-  document.querySelectorAll('[data-platform]').forEach(a => a.addEventListener('click', () =>
+  tabs.forEach((t) => t.addEventListener('click', () => select(t)));
+  document.querySelectorAll('[data-platform]').forEach((a) => a.addEventListener('click', () =>
     select(document.getElementById('tab-' + a.dataset.platform))));
   if (/android/i.test(navigator.userAgent)) select(document.getElementById('tab-android'));
 
   // Version and date of the latest release, live from GitHub.
-  const release = document.querySelector('[data-release]');
+  const badge = document.querySelector('[data-release]');
   fetch('https://api.github.com/repos/shiraayuki/owntune/releases/latest')
     .then((r) => (r.ok ? r.json() : Promise.reject(r.status)))
     .then((r) => {
@@ -657,12 +647,13 @@ footer a { color: var(--muted); }
       const date = new Date(r.published_at);
       if (!version || isNaN(date)) return;
       const day = date.toLocaleDateString('en-US', { month: 'long', day: 'numeric' });
-      const link = release.querySelector('a');
-      link.href = r.html_url || link.href;
-      link.textContent = `Latest version ${version}`;
-      release.append(`, released ${day}.`);
+      const text = badge.lastElementChild;
+      const b = document.createElement('b');
+      b.textContent = `Version ${version}`;
+      text.replaceChildren(b, ` is out, released ${day}`);
+      if (r.html_url) badge.href = r.html_url;
     })
-    .catch(() => {}); // keeps "Latest release on GitHub"
+    .catch(() => {}); // keeps "See the latest release"
 
   // Copy the SideStore source address.
   document.querySelector('[data-copy]').addEventListener('click', async (e) => {

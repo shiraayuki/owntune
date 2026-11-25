@@ -1,0 +1,224 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>owntune · combined v3</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+/* v2: one phone carries the page. It rises tilted in the hero, settles in
+   the middle, then glides to the right and stays beside the feature
+   chapters, switching screens. The aurora is fixed behind everything and
+   dims instead of ending, so there is no hard cut to black. */
+:root {
+  --ink: #0b0b0f; --surface: #16161c; --surface-2: #202029;
+  --text: #f4f2ef; --muted: #9d9ba8; --faint: #5d5b68;
+  --line: rgba(244,242,239,.08);
+  --accent: #ff7a59; --on-accent: #170b06;
+  --font: "Geist", system-ui, sans-serif;
+  --gutter: clamp(16px, 4vw, 56px);
+  --ease: cubic-bezier(.2,.7,.1,1);
+  --phone-w: min(330px, 74vw);
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body { margin: 0; background: var(--ink); color: var(--text); font: 400 18px/1.55 var(--font); -webkit-font-smoothing: antialiased; overflow-x: clip; }
+a { color: inherit; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 6px; }
+
+/* ---------- Aurora: fixed, dims as you scroll ---------- */
+.aurora { position: fixed; inset: -20%; z-index: -1; pointer-events: none; filter: blur(80px) saturate(1.2); opacity: var(--glow, .72); }
+.aurora i { position: absolute; border-radius: 50%; mix-blend-mode: screen; animation: float 18s ease-in-out infinite alternate; }
+.aurora i:nth-child(1) { width: 50vw; height: 50vw; left: 15%; top: 30%; background: var(--accent); }
+.aurora i:nth-child(2) { width: 40vw; height: 40vw; left: 50%; top: 20%; background: color-mix(in oklch, var(--accent), #5a3cff 60%); animation-duration: 22s; }
+.aurora i:nth-child(3) { width: 35vw; height: 35vw; left: 35%; top: 55%; background: color-mix(in oklch, var(--accent), #ffd84d 45%); animation-duration: 26s; }
+@keyframes float { to { translate: 8vw -6vh; scale: 1.15; } }
+
+/* ---------- Top bar ---------- */
+.top { position: fixed; inset: 0 0 auto; z-index: 20; display: flex; justify-content: space-between; align-items: center; padding: 16px var(--gutter);
+  background: linear-gradient(rgba(11,11,15,.85) 20%, transparent); transition: background .3s, border-color .3s; border-bottom: 1px solid transparent; }
+.top.scrolled { background: rgba(11,11,15,.7); backdrop-filter: blur(16px); border-bottom-color: var(--line); }
+.brand { display: flex; align-items: center; gap: 10px; font: 700 20px/1 var(--font); letter-spacing: -.03em; text-decoration: none; }
+.mark { width: 28px; height: 28px; border-radius: 8px; background: var(--accent); display: grid; place-items: center; }
+.mark span { display: flex; gap: 2px; align-items: end; height: 13px; }
+.mark i { width: 3px; background: var(--on-accent); border-radius: 2px; }
+.mark i:nth-child(1) { height: 55%; } .mark i:nth-child(2) { height: 100%; } .mark i:nth-child(3) { height: 70%; }
+.top nav { display: flex; gap: 24px; font-weight: 500; font-size: 15px; }
+.top nav a { text-decoration: none; color: var(--muted); transition: color .2s; }
+.top nav a:hover { color: var(--text); }
+
+/* ---------- Hero ---------- */
+.hero { position: relative; height: 210vh; }
+.stage { position: sticky; top: 0; height: 100svh; }
+.head { position: absolute; top: clamp(90px, 14vh, 140px); left: 0; right: 0; text-align: center; padding: 0 var(--gutter);
+  opacity: calc(1 - var(--p, 0) * 2.2); translate: 0 calc(var(--p, 0) * -8vh); }
+.pill { display: inline-flex; align-items: center; gap: 10px; margin-bottom: 26px; padding: 8px 16px 8px 12px; border-radius: 999px;
+  background: rgba(255,255,255,.1); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,.14);
+  font: 500 15px/1.2 var(--font); text-decoration: none; transition: background .2s; }
+.pill:hover { background: rgba(255,255,255,.16); }
+.pill .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 4px color-mix(in oklch, var(--accent) 30%, transparent); }
+.pill b { font-weight: 650; }
+h1 { margin: 0 auto 20px; font: 700 clamp(44px, 7.4vw, 116px)/.95 var(--font); letter-spacing: -.055em; max-width: 12ch; }
+.sub { color: #d6d4dd; margin: 0 auto 30px; max-width: 40ch; font-size: 20px; }
+.cta { display: flex; justify-content: center; gap: 10px; flex-wrap: wrap; }
+.btn { display: inline-flex; align-items: center; height: 50px; padding: 0 22px; border-radius: 999px; font: 600 16px/1 var(--font); text-decoration: none; }
+.btn.primary { background: var(--text); color: #000; }
+.btn.secondary { background: rgba(255,255,255,.1); backdrop-filter: blur(10px); }
+
+/* ---------- The one phone ---------- */
+.device { position: fixed; left: 0; top: 0; z-index: 5; perspective: 1600px; pointer-events: none; will-change: transform; }
+.device .phone { transform-origin: 50% 0; }
+.phone { position: relative; width: var(--phone-w); aspect-ratio: 780/1688; border-radius: 52px; padding: 12px; background: #050507;
+  box-shadow: 0 0 0 1.5px #34343f, 0 60px 160px -30px rgba(0,0,0,.95); }
+.phone .screen { position: relative; width: 100%; height: 100%; border-radius: 40px; overflow: hidden; background: var(--ink); }
+.phone iframe { position: absolute; top: 0; left: 0; width: 390px; height: 844px; border: 0; transform-origin: 0 0; transform: translateX(var(--x,0px)) scale(var(--s,.8)); pointer-events: none; }
+.device iframe { opacity: 0; transition: opacity .5s var(--ease); }
+.device iframe.on { opacity: 1; }
+
+/* ---------- Feature chapters ---------- */
+.features { position: relative; width: min(1180px, 100% - 2 * var(--gutter)); margin: 0 auto; display: grid; grid-template-columns: 1fr var(--phone-w); gap: 6vw; padding-bottom: 10vh; }
+.slot { position: sticky; width: var(--phone-w); aspect-ratio: 780/1688; align-self: start; }
+.chapters { padding-block: 18vh 26vh; display: grid; gap: 22vh; }
+.feat { max-width: 640px; }
+.feat h3 { font: 700 clamp(32px, 4.6vw, 68px)/.98 var(--font); letter-spacing: -.055em; margin: 0 0 18px; max-width: 14ch; transition: color .4s; color: var(--faint); }
+.feat p { color: var(--muted); margin: 0; max-width: 42ch; font-size: 19px; transition: color .4s; }
+.feat.active h3 { color: var(--text); }
+.feat.active p { color: #cfcdd6; }
+.feat .inline { display: none; }
+
+@media (max-width: 900px) {
+  .features { grid-template-columns: 1fr; }
+  .slot { display: none; }
+  .chapters { padding-block: 10vh; gap: 12vh; }
+      .feat h3, .feat p { color: inherit; }
+  .feat .inline { display: block; margin-top: 28px; }
+  .feat .inline .phone { width: min(260px, 66vw); }
+}
+
+.note { text-align: center; color: var(--faint); padding: 0 var(--gutter) 12vh; font-size: 15px; }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } .aurora i { animation: none; } }
+</style>
+</head>
+<body>
+<div class="aurora" aria-hidden="true"><i></i><i></i><i></i></div>
+<header class="top" id="top"><a class="brand" href="#"><span class="mark" aria-hidden="true"><span><i></i><i></i><i></i></span></span>owntune</a><nav><a href="#features">Features</a><a href="#">Install</a></nav></header>
+
+<div class="device" aria-hidden="true"><div class="phone"><div class="screen">
+  <iframe data-screen="home" class="on" src="../../../site/screens/home.html" tabindex="-1"></iframe>
+  <iframe data-screen="library" src="../../../site/screens/library.html" tabindex="-1"></iframe>
+  <iframe data-screen="player" src="../../../site/screens/player.html" tabindex="-1"></iframe>
+  <iframe data-screen="playlist" src="../../../site/screens/playlist.html" tabindex="-1"></iframe>
+  <iframe data-screen="download" src="../../../site/screens/download.html" tabindex="-1"></iframe>
+  <iframe data-screen="edit" src="../../../site/screens/edit.html" tabindex="-1"></iframe>
+  <iframe data-screen="stats" src="../../../site/screens/stats.html" tabindex="-1"></iframe>
+</div></div></div>
+
+<main>
+  <section class="hero">
+    <div class="stage">
+      <div class="head">
+        <a class="pill" href="https://github.com/shiraayuki/owntune/releases/latest"><span class="dot"></span><span><b>Version 0.8.2</b> is out, released November 25</span></a>
+        <h1>Your music. Your files. Your player.</h1>
+        <p class="sub">A free music player for iPhone and Android that plays the songs you own. No account, no subscription, no streaming.</p>
+        <div class="cta"><a class="btn primary" href="#">Install on iPhone</a><a class="btn secondary" href="#">Download for Android</a></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="features" id="features">
+    <div class="chapters">
+      <article class="feat" data-screen="home"><div><h3>Start where you left off</h3><p>Home shows what you played lately, picks up the queue you paused and keeps rows for On Repeat, Recently Added, Rediscover and the songs you never played.</p><div class="inline"></div></div></article>
+      <article class="feat" data-screen="library"><div><h3>A library that sorts itself</h3><p>Import MP3, M4A, FLAC and WAV files, many at once. Songs, albums and artists are grouped from the song details, with covers, and duplicates are skipped.</p><div class="inline"></div></div></article>
+      <article class="feat" data-screen="player"><div><h3>Keeps playing with the screen locked</h3><p>A full-screen player, a mini player on every screen, Up Next, repeat and a shuffle that spreads out the same artist. Swipe the cover to skip. The lock screen and Control Center show the song too.</p><div class="inline"></div></div></article>
+      <article class="feat" data-screen="playlist"><div><h3>Playlists with your own cover</h3><p>Like a song with the heart, collect songs in playlists, give them a cover and drag them into the order you want.</p><div class="inline"></div></div></article>
+      <article class="feat" data-screen="download"><div><h3>Find a song you don't have yet</h3><p>Search YouTube Music, YouTube or SoundCloud, or paste a link, and download the song into your library with title, artist and cover. Long DJ mixes too.</p><div class="inline"></div></div></article>
+      <article class="feat" data-screen="edit"><div><h3>Fix what the files got wrong</h3><p>Change titles, artists, albums and covers, for one song or a whole album at once. The changes are written back into the files.</p><div class="inline"></div></div></article>
+      <article class="feat" data-screen="stats"><div><h3>See what you actually listen to</h3><p>Listening time per week, month or year, your streak, top artists, songs and albums, your favourite hour and your genre mix. All of it stays on your phone.</p><div class="inline"></div></div></article>
+    </div>
+    <div class="slot" aria-hidden="true"></div>
+  </section>
+  <p class="note">Sketch v3: top bar, start and features. Accent picker, install steps and FAQ come next, in the same style.</p>
+</main>
+
+<script>
+const root = document.documentElement;
+const topBar = document.getElementById('top');
+const hero = document.querySelector('.hero');
+const features = document.querySelector('.features');
+const slot = document.querySelector('.slot');
+const device = document.querySelector('.device');
+const phone = device.querySelector('.phone');
+const feats = [...document.querySelectorAll('.feat')];
+const head = document.querySelector('.head');
+const screens = [...device.querySelectorAll('iframe')];
+const narrow = matchMedia('(max-width: 900px)');
+const clamp = (v, a = 0, b = 1) => Math.min(b, Math.max(a, v));
+const lerp = (a, b, t) => a + (b - a) * t;
+
+// Mobile: each chapter gets its own small phone instead of the travelling one.
+for (const f of feats) {
+  f.querySelector('.inline').innerHTML = `<div class="phone"><div class="screen"><iframe src="../../../site/screens/${f.dataset.screen}.html" tabindex="-1" loading="lazy"></iframe></div></div>`;
+}
+
+function frame() {
+  const vw = root.clientWidth, vh = innerHeight;
+  const W = phone.offsetWidth, H = phone.offsetHeight;
+  const heroRange = hero.offsetHeight - vh;
+  const p = clamp(scrollY / heroRange);
+  hero.style.setProperty('--p', p.toFixed(4));
+  topBar.classList.toggle('scrolled', scrollY > heroRange);
+
+  // Slot sits sticky in the middle of the screen beside the chapters.
+  const centreY = (vh - H) / 2;
+  slot.style.top = `${centreY}px`;
+
+  // Hero: rises tilted from below, settles centred.
+  // Start just below the buttons (measured without the scroll offset of .head).
+  const headBottom = head.offsetTop + head.offsetHeight;
+  const startY = Math.max(headBottom + 36, vh * 0.55);
+  let x = (vw - W) / 2;
+  let y = lerp(startY, centreY, p);
+  const tilt = (1 - p) * 38, scale = 1.35 - p * 0.35;
+
+  // Features entering: glide from the centre to the slot, then follow it.
+  const fr = features.getBoundingClientRect();
+  const t = clamp((vh - fr.top) / (vh * 0.7));
+  let glow = 0.72 - 0.44 * t;
+  if (narrow.matches) {
+    if (p >= 1) y = centreY - (scrollY - heroRange); // just scrolls away
+  } else if (p >= 1) {
+    const s = slot.getBoundingClientRect();
+    const ease = t * t * (3 - 2 * t);
+    x = lerp((vw - W) / 2, s.left, ease);
+    y = Math.min(centreY, s.top);
+  }
+  device.style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px)`;
+  phone.style.transform = `rotateX(${tilt.toFixed(2)}deg) scale(${scale.toFixed(4)})`;
+  root.style.setProperty('--glow', glow.toFixed(3));
+
+  // Chapters: meters fill, the one nearest the middle drives the phone.
+  let active = null, best = Infinity;
+  for (const f of feats) {
+    const r = f.getBoundingClientRect();
+    const d = Math.abs(r.top + r.height / 2 - vh / 2);
+    if (d < best) { best = d; active = f; }
+  }
+  const inFeatures = t > 0.6 && !narrow.matches;
+  feats.forEach((f) => f.classList.toggle('active', f === active && inFeatures));
+  const want = inFeatures ? active.dataset.screen : 'home';
+  screens.forEach((s) => s.classList.toggle('on', s.dataset.screen === want));
+}
+let queued = false;
+addEventListener('scroll', () => { if (!queued) { queued = true; requestAnimationFrame(() => { queued = false; frame(); }); } }, { passive: true });
+addEventListener('resize', frame);
+frame();
+
+const fit = new ResizeObserver((es) => { for (const e of es) { const { width: w, height: h } = e.contentRect; const s = Math.max(w / 390, h / 844); e.target.style.setProperty('--s', s); e.target.style.setProperty('--x', `${(w - 390 * s) / 2}px`); } });
+document.querySelectorAll('.screen').forEach((el) => fit.observe(el));
+document.querySelectorAll('iframe').forEach((f) => f.addEventListener('load', () => f.contentWindow.postMessage({ mode: 'dark', accent: 'ff7a59' }, '*')));
+</script>
+</body>
+</html>
