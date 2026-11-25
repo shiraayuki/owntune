@@ -50,6 +50,7 @@ flutter test integration_test -d linux              # integration tests with the
 flutter_rust_bridge_codegen generate                # after EVERY change in rust/src/api/
 dart run build_runner build --delete-conflicting-outputs   # after changing the drift schema (lib/data/db/)
 tool/make_fixtures.sh                               # regenerate test/fixtures/audio (needs ffmpeg)
+tool/make_screenshots.sh                            # render site/screens/*.html to docs/images/readme/*.png (needs Chromium); ACCENT=5ab4ff tool/make_screenshots.sh <dir> for another accent
 tool/make_icons.sh                                  # regenerate the app icon (iOS default/dark/tinted, Android adaptive + themed, notification icon; needs ImageMagick with librsvg)
 dart run tool/embed_fixtures.dart                   # after changing fixtures: embed them for on-device integration tests
 tool/record_online_fixtures.sh                      # re-record test/fixtures/online (4 YouTube + 5 or more SoundCloud requests, scrubbed; --soundcloud-only, --scrub-only)
@@ -88,7 +89,11 @@ test/support/fakes.dart # shared fakes and pumpApp() for widget tests
 integration_test/      # tests against the real native library and a real database
   support/             # fixturesDir(): host folder on desktop, embedded copy (fixture_data.dart, GENERATED) on phones
 tool/                  # build/release scripts
+site/                  # the download page (GitHub Pages, deployed by .github/workflows/pages.yml); plain static files
+  screens/             # the phone screens as HTML (from the mockups, matched to the app by hand); the page embeds them in iframes and sends its accent via postMessage
 ```
+
+**Download page** (`site/`): when the UI of a shown screen changes (Home, Library, Now Playing, playlist page, Search Online, Edit Info, Stats, or the mini player on them), update `site/screens/*.html` (corrections live in `fixes.css`) and run `tool/make_screenshots.sh` so the README images follow. The page reads the latest release's version and date from the GitHub API at runtime; its copy must not promise what the app does not do.
 
 **Downloader** (`lib/data/sources/`, `lib/download/`): an own small innertube client, no package. Search: YouTube Music (`WEB_REMIX`, songs filter) and YouTube (`WEB`, videos filter); download: the player call as the **visionOS** client (`VISIONOS`), which gets direct audio URLs without PO token or JavaScript (yt-dlp's `_DEFAULT_JSLESS_CLIENTS`) but needs a `visitorData` from a search response (else "Sign in to confirm you're not a bot"). **Every client value lives in `lib/data/sources/youtube/innertube_clients.dart`**; when YouTube breaks it, compare with yt-dlp's current `INNERTUBE_CLIENTS`/`_DEFAULT_CLIENTS` and release. The file is fetched with `&range=` chunks of 10 MB (a plain GET is refused), is a DASH-fragmented MP4 (brand `dash`) that lofty and libmpv read and that plays on the iPhone (checked in v0.6.0). `DownloadController` runs one job at a time: resolve → `<temp>/owntune-download/<job>/audio.part.m4a` → cover (`prepareCover`, 16:9 thumbnails cropped square, in an isolate) → Rust `write_tags` with `cover` → rename to "Artist - Title.m4a" → `Importer.importFiles(sourceKeys:)` (the Importer queues calls, so a download waits for a running Import Music) → the job folder is deleted in every outcome; startup empties `<temp>/owntune-download`. Parser tests run against `test/fixtures/online/*.json` (recorded and scrubbed of IPs/visitorData by `tool/record_online_fixtures.sh`); the live test is opt-in.
 
