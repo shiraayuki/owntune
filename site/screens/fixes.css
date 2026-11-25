@@ -1,0 +1,24 @@
+/* Corrections on top of the copied mockup styles, so the screens match the
+   app (v0.8.2): song rows end in a "…" button, the mini player has a heart
+   left of play/pause. */
+.row .more { width: 44px; height: 44px; display: grid; place-items: center; color: var(--muted); flex: none; margin-right: -12px; }
+.row .more .ico { width: 20px; height: 20px; }
+.mini .mbtn.like .ico { width: 24px; height: 24px; }
+.mini .mbtn.like.on { color: var(--accent); }
+/* Now Playing: chevron-down and "…" in the top row, heart next to the title. */
+.p-top.row2 { height: 48px; justify-content: space-between; padding: 0 16px 0 12px; }
+.p-top .down { width: 44px; height: 44px; display: grid; place-items: center; color: var(--text); }
+.p-top .down .ico { width: 26px; height: 26px; stroke-width: 2.4; }
+.p-meta .heart { width: 44px; height: 44px; display: grid; place-items: center; color: var(--accent); flex: none; margin-right: -10px; }
+.p-meta .heart .ico { width: 26px; height: 26px; }
+/* "Continue listening" is sentence case in the app. */
+.cont .eyebrow { text-transform: none; letter-spacing: 0; }
+/* Search Online: downloads button with a badge, plain result titles, muted "In Library". */
+.navrow .dl { position: relative; width: 44px; height: 44px; display: grid; place-items: center; color: var(--accent); margin-right: -4px; }
+.navrow .dl .ico { width: 24px; height: 24px; }
+.navrow .dl b { position: absolute; top: 5px; right: 4px; min-width: 16px; height: 16px; border-radius: 8px; padding: 0 4px; background: var(--accent); color: var(--accent-text); font-size: 11px; font-weight: 700; display: grid; place-items: center; }
+.orow .t { font-weight: 400; }
+.orow .tag { font-weight: 600; color: var(--muted); }
+.orow .tag.busy { color: var(--accent); }
+.search-row { padding-right: 0; }
+.search-row .search { margin-right: 16px; }
