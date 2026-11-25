@@ -335,11 +335,17 @@ class PlayerController extends Notifier<PlayerState> {
     if (session != null && session.complete()) _markPlayed(session.trackId);
     _endSession();
     final next = _queue.following(auto: true, spread: _spread);
+    // just_audio still counts as playing after the end, so its play() would
+    // do nothing and the next song depended on the native player resuming
+    // on its own, which iOS did not do. Pausing first gives the next song a
+    // real play request once it is loaded.
+    final generation = _generation;
+    state = PlayerState(queue: _queue);
+    await _engine.pause();
+    if (generation != _generation) return;
     if (next == null) {
       // Played again from the start, the last song is a new listen.
       _beginSession(_queue);
-      state = PlayerState(queue: _queue);
-      await _engine.pause();
       await seek(Duration.zero);
       return;
     }

@@ -399,6 +399,11 @@ class FakeAudioEngine implements AudioEngine {
   /// Base names of the loaded files, in load order.
   final loaded = <String>[];
   var playing = false;
+
+  /// What the player asked for, in order: `load <name>`, and `play` / `pause`
+  /// only where they changed the play state (like just_audio, which ignores
+  /// a play() while it already plays).
+  final calls = <String>[];
   Duration? lastSeek;
   var unloads = 0;
 
@@ -419,6 +424,7 @@ class FakeAudioEngine implements AudioEngine {
   Future<void> load(File file) async {
     final name = p.basename(file.path);
     loaded.add(name);
+    calls.add('load $name');
     final hold = holdLoad;
     if (hold != null) await hold.future;
     if (failing.contains(name)) throw StateError('cannot decode $name');
@@ -436,6 +442,7 @@ class FakeAudioEngine implements AudioEngine {
   void _setPlaying(bool value) {
     if (playing == value) return;
     playing = value;
+    calls.add(value ? 'play' : 'pause');
     _playing.add(value);
   }
 

@@ -124,6 +124,18 @@ void main() {
     expect(state().playing, isFalse);
   });
 
+  test('a song that ends starts the next with its own play request', () async {
+    // just_audio stays "playing" after the end, so a play() without the
+    // pause would do nothing, and on iOS the next song stayed silent.
+    await playAt(0);
+    engine.calls.clear();
+    engine.complete();
+    await pumpEventQueue();
+    expect(engine.calls, ['pause', 'load hash2.mp3', 'play']);
+    expect(state().playing, isTrue);
+    expect(state().queue.current!.trackId, 2);
+  });
+
   test('end of queue pauses on the last song at zero', () async {
     await playAt(2);
     engine.complete();
