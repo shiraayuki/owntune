@@ -51,7 +51,7 @@ owntune is a music app for people who still keep **their own music files**, such
 |---|---|
 | 📥 **Import your music** | Add MP3, M4A/AAC, FLAC and WAV files from the Files app, many at once. Duplicates are recognised and skipped. |
 | 📚 **A tidy library** | Songs, albums and artists are sorted automatically from the song details, with covers. Every list has its own search. |
-| ▶️ **A real player** | Full-screen player that takes its colours from the cover, mini player on every screen (swipe the cover or the mini player to skip), Up Next queue, repeat and a smart shuffle that does not play the same artist twice in a row. |
+| ▶️ **A real player** | Full-screen player that takes its colours from the cover, mini player on every screen (swipe the cover or the mini player to skip), Up Next queue, repeat and a smart shuffle that does not play the same artist twice in a row. Songs play at a similar loudness, so you don't have to reach for the volume. |
 | 🔒 **Plays in the background** | Music keeps playing with the screen locked. Lock screen and Control Center show the song and let you pause or skip. |
 | 💜 **Liked Songs & playlists** | Tap the heart to like a song. Make playlists with your own cover, then reorder or remove songs any time. |
 | 🏠 **Home: For You** | Your recently played albums and playlists, On Repeat, Recently Added, Rediscover and Never Played. |
