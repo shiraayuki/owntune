@@ -1,3 +1,4 @@
+import 'package:cupertino_ui/cupertino_ui.dart' show CupertinoSwitch;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
@@ -55,6 +56,31 @@ void main() {
     expect(find.text('APPEARANCE'), findsOneWidget);
     expect(find.text('ACCENT COLOR · DARK MODE'), findsOneWidget);
     expect(find.text('Light mode stays monochrome.'), findsOneWidget);
+  });
+
+  testWidgets('Playback has Normalize Volume, on by default', (t) async {
+    await openSettings(t);
+    expect(find.text('PLAYBACK'), findsOneWidget);
+    expect(find.text('Normalize Volume'), findsOneWidget);
+    expect(find.text('Plays all songs at a similar loudness.'), findsOneWidget);
+    final toggle = t.widget<CupertinoSwitch>(
+      find.byKey(const Key('normalize-volume')),
+    );
+    expect(toggle.value, isTrue);
+  });
+
+  testWidgets('tapping Normalize Volume turns it off and saves it', (t) async {
+    await openSettings(t);
+    await t.ensureVisible(find.byKey(const Key('normalize-volume')));
+    await t.tap(find.byKey(const Key('normalize-volume')));
+    await t.pumpAndSettle();
+
+    expect(current(t).normalizeVolume, isFalse);
+    expect(settingsRepo.saved.last.normalizeVolume, isFalse);
+    final toggle = t.widget<CupertinoSwitch>(
+      find.byKey(const Key('normalize-volume')),
+    );
+    expect(toggle.value, isFalse);
   });
 
   testWidgets('Done closes the sheet', (t) async {

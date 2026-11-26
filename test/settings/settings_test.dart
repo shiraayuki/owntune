@@ -76,7 +76,14 @@ void main() {
   });
 
   test('an invalid stored accent falls back to Coral', () async {
-    for (final bad in ['nothex', '#ff6b4a', 'ff6b4', 'ff6b4a00', '', '123456']) {
+    for (final bad in [
+      'nothex',
+      '#ff6b4a',
+      'ff6b4',
+      'ff6b4a00',
+      '',
+      '123456',
+    ]) {
       await db
           .into(db.settingsEntries)
           .insertOnConflictUpdate(
@@ -230,5 +237,27 @@ void main() {
       await n.removeRecentSearch('numb');
       expect(recent(), ['lucky']);
     });
+  });
+
+  test('normalizeVolume defaults to true when nothing is stored', () async {
+    expect(AppSettings.defaults.normalizeVolume, isTrue);
+    expect((await repo.load()).normalizeVolume, isTrue);
+  });
+
+  test('normalizeVolume false survives save and load', () async {
+    await repo.save(AppSettings.defaults.copyWith(normalizeVolume: false));
+    expect((await repo.load()).normalizeVolume, isFalse);
+  });
+
+  test('a malformed normalize_volume value loads as true', () async {
+    await db
+        .into(db.settingsEntries)
+        .insertOnConflictUpdate(
+          SettingsEntriesCompanion(
+            key: const Value('normalize_volume'),
+            value: const Value('nope'),
+          ),
+        );
+    expect((await repo.load()).normalizeVolume, isTrue);
   });
 }

@@ -50,6 +50,7 @@ class AppSettings {
     this.songSortDescending = false,
     this.onlineSource = OnlineSourceId.ytmusic,
     this.recentSearches = const [],
+    this.normalizeVolume = true,
   });
 
   static const defaults = AppSettings(
@@ -72,6 +73,9 @@ class AppSettings {
 
   static const maxRecentSearches = 10;
 
+  /// Plays songs louder than the target level attenuated to it.
+  final bool normalizeVolume;
+
   AppSettings copyWith({
     AppearanceMode? mode,
     Color? accent,
@@ -79,6 +83,7 @@ class AppSettings {
     bool? songSortDescending,
     OnlineSourceId? onlineSource,
     List<String>? recentSearches,
+    bool? normalizeVolume,
   }) => AppSettings(
     mode: mode ?? this.mode,
     accent: accent ?? this.accent,
@@ -86,6 +91,7 @@ class AppSettings {
     songSortDescending: songSortDescending ?? this.songSortDescending,
     onlineSource: onlineSource ?? this.onlineSource,
     recentSearches: recentSearches ?? this.recentSearches,
+    normalizeVolume: normalizeVolume ?? this.normalizeVolume,
   );
 
   @override
@@ -96,7 +102,8 @@ class AppSettings {
       other.songSort == songSort &&
       other.songSortDescending == songSortDescending &&
       other.onlineSource == onlineSource &&
-      listEquals(other.recentSearches, recentSearches);
+      listEquals(other.recentSearches, recentSearches) &&
+      other.normalizeVolume == normalizeVolume;
 
   @override
   int get hashCode => Object.hash(
@@ -106,6 +113,7 @@ class AppSettings {
     songSortDescending,
     onlineSource,
     Object.hashAll(recentSearches),
+    normalizeVolume,
   );
 }
 
@@ -122,6 +130,7 @@ class SettingsRepository {
   static const _songSortDescKey = 'songs_sort_desc';
   static const _onlineSourceKey = 'online_source';
   static const _onlineRecentKey = 'online_recent';
+  static const _normalizeVolumeKey = 'normalize_volume';
   static final _hex6 = RegExp(r'^[0-9a-f]{6}$');
 
   Future<AppSettings> load() async {
@@ -140,6 +149,8 @@ class SettingsRepository {
         orElse: () => AppSettings.defaults.onlineSource,
       ),
       recentSearches: _parseRecent(values[_onlineRecentKey]),
+      // Only an explicit 'false' turns it off.
+      normalizeVolume: values[_normalizeVolumeKey] != 'false',
     );
   }
 
@@ -166,6 +177,10 @@ class SettingsRepository {
         SettingsEntriesCompanion.insert(
           key: _onlineRecentKey,
           value: jsonEncode(s.recentSearches),
+        ),
+        SettingsEntriesCompanion.insert(
+          key: _normalizeVolumeKey,
+          value: '${s.normalizeVolume}',
         ),
       ]);
     });

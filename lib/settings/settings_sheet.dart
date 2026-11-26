@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
-import 'package:cupertino_ui/cupertino_ui.dart' show CupertinoIcons;
+import 'package:cupertino_ui/cupertino_ui.dart'
+    show CupertinoIcons, CupertinoSwitch;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:owntune/app/format.dart';
@@ -93,6 +94,21 @@ class SettingsSheet extends ConsumerWidget {
               ],
             ),
             const _GroupFoot('Light mode stays monochrome.'),
+            const _GroupLabel('Playback'),
+            _Group(
+              children: [
+                _SwitchCell(
+                  key: const Key('normalize-volume'),
+                  icon: CupertinoIcons.speaker_2,
+                  label: 'Normalize Volume',
+                  value: settings.normalizeVolume,
+                  onChanged: (on) => notifier.set(
+                    ref.read(settingsProvider).copyWith(normalizeVolume: on),
+                  ),
+                ),
+              ],
+            ),
+            const _GroupFoot('Plays all songs at a similar loudness.'),
             const _GroupLabel('Library'),
             _Group(
               children: [
@@ -244,6 +260,61 @@ class _Cell extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = Theme.of(context).extension<OwntuneColors>()!;
+    return _CellRow(
+      icon: icon,
+      label: label,
+      trailing: Text(value, style: TextStyle(fontSize: 17, color: c.muted)),
+    );
+  }
+}
+
+/// A [_Cell] with a switch instead of a value. The [key] goes on the switch.
+class _SwitchCell extends StatelessWidget {
+  const _SwitchCell({
+    required Key key,
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.onChanged,
+  }) : _switchKey = key;
+
+  final Key _switchKey;
+  final IconData icon;
+  final String label;
+  final bool value;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = Theme.of(context).extension<OwntuneColors>()!;
+    return _CellRow(
+      icon: icon,
+      label: label,
+      trailing: CupertinoSwitch(
+        key: _switchKey,
+        value: value,
+        activeTrackColor: c.accent,
+        onChanged: onChanged,
+      ),
+    );
+  }
+}
+
+/// Gray badge, label and [trailing], 44pt high.
+class _CellRow extends StatelessWidget {
+  const _CellRow({
+    required this.icon,
+    required this.label,
+    required this.trailing,
+  });
+
+  final IconData icon;
+  final String label;
+  final Widget trailing;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = Theme.of(context).extension<OwntuneColors>()!;
     return ConstrainedBox(
       constraints: const BoxConstraints(minHeight: 44),
       child: Padding(
@@ -263,7 +334,7 @@ class _Cell extends StatelessWidget {
             Expanded(
               child: Text(label, style: TextStyle(fontSize: 17, color: c.text)),
             ),
-            Text(value, style: TextStyle(fontSize: 17, color: c.muted)),
+            trailing,
           ],
         ),
       ),
