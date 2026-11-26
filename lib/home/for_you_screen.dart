@@ -4,7 +4,6 @@ import 'package:material_ui/material_ui.dart';
 import 'package:owntune/app/buttons.dart';
 import 'package:owntune/app/providers.dart';
 import 'package:owntune/app/theme.dart';
-import 'package:owntune/data/db/database.dart';
 import 'package:owntune/download/search_online_screen.dart';
 import 'package:owntune/home/for_you.dart';
 import 'package:owntune/home/home_cards.dart';
@@ -40,8 +39,9 @@ class ForYouScreen extends ConsumerWidget {
   }
 }
 
-/// Tiles, the continue card, the shuffle buttons and the rows of cards
-/// (mockups 01 and 02). Sections without items are left out.
+/// Tiles and the rows of cards (mockups 01 and 02; the continue card and
+/// the shuffle buttons were dropped as clutter). Sections without items are
+/// left out.
 class _Sections extends ConsumerWidget {
   const _Sections({required this.forYou});
 
@@ -63,9 +63,6 @@ class _Sections extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final player = ref.read(playerProvider.notifier);
-    final anyLiked = ref.watch(
-      likedSongsProvider.select((l) => l.value?.isNotEmpty ?? false),
-    );
     final rowHeight = homeRowHeight(MediaQuery.textScalerOf(context));
 
     Widget songRow(String suffix, HomeList list, List<SongCard> cards) {
@@ -103,48 +100,6 @@ class _Sections extends ConsumerWidget {
               onTap: (tile) => _openTile(context, tile),
             ),
           ),
-        const ContinueCard(),
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
-          child: Row(
-            children: [
-              Expanded(
-                child: PillButton(
-                  key: const Key('home-shuffle-all'),
-                  icon: CupertinoIcons.shuffle,
-                  label: 'Shuffle All',
-                  expand: true,
-                  padding: 12,
-                  onPressed: () => player.playList(
-                    ref.read(tracksProvider).value ?? const <Track>[],
-                    start: 0,
-                    source: const QueueSource.songs(),
-                    shuffle: true,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: PillButton(
-                  key: const Key('home-shuffle-liked'),
-                  icon: CupertinoIcons.shuffle,
-                  label: 'Shuffle Liked',
-                  secondary: true,
-                  expand: true,
-                  padding: 12,
-                  onPressed: anyLiked
-                      ? () => player.playList(
-                          ref.read(likedSongsProvider).value ?? const <Track>[],
-                          start: 0,
-                          source: const QueueSource.liked(),
-                          shuffle: true,
-                        )
-                      : null,
-                ),
-              ),
-            ],
-          ),
-        ),
         if (forYou.onRepeat.isNotEmpty)
           songRow('on-repeat', HomeList.onRepeat, forYou.onRepeat),
         if (albums.isNotEmpty)

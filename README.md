@@ -15,7 +15,7 @@ A music player for iPhone and Android that plays the songs you own: no account, 
 
 <br>
 
-<img src="docs/images/readme/home.png" width="230" alt="Home tab with recently played tiles, Continue listening and On Repeat">&nbsp;
+<img src="docs/images/readme/home.png" width="230" alt="Home tab with recently played tiles, On Repeat and Recently Added">&nbsp;
 <img src="docs/images/readme/player.png" width="230" alt="Now Playing with cover, scrubber and controls">&nbsp;
 <img src="docs/images/readme/stats.png" width="230" alt="Stats tab with listening time and streak">
 
@@ -54,7 +54,7 @@ owntune is a music app for people who still keep **their own music files**, such
 | ▶️ **A real player** | Full-screen player that takes its colours from the cover, mini player on every screen (swipe the cover or the mini player to skip), Up Next queue, repeat and a smart shuffle that does not play the same artist twice in a row. |
 | 🔒 **Plays in the background** | Music keeps playing with the screen locked. Lock screen and Control Center show the song and let you pause or skip. |
 | 💜 **Liked Songs & playlists** | Tap the heart to like a song. Make playlists with your own cover, then reorder or remove songs any time. |
-| 🏠 **Home: For You** | Your recently played albums and playlists, "Continue listening", On Repeat, Recently Added, Rediscover and Never Played. |
+| 🏠 **Home: For You** | Your recently played albums and playlists, On Repeat, Recently Added, Rediscover and Never Played. |
 | 📊 **Stats** | Listening time per week, month or year, your listening streak, top artists, songs and albums, favourite time of day and your genre mix. |
 | ✏️ **Edit song info** | Fix titles, artists, albums and covers, for one song or a whole album at once. Changes are written back into the files. |
 | 🔎 **Search online** | Find a song on YouTube Music, YouTube or SoundCloud and download it straight into your library, with title, artist and cover. Long DJ mixes work too. |

@@ -11,8 +11,6 @@
 .p-top .down .ico { width: 26px; height: 26px; stroke-width: 2.4; }
 .p-meta .heart { width: 44px; height: 44px; display: grid; place-items: center; color: var(--accent); flex: none; margin-right: -10px; }
 .p-meta .heart .ico { width: 26px; height: 26px; }
-/* "Continue listening" is sentence case in the app. */
-.cont .eyebrow { text-transform: none; letter-spacing: 0; }
 /* Search Online: downloads button with a badge, plain result titles, muted "In Library". */
 .navrow .dl { position: relative; width: 44px; height: 44px; display: grid; place-items: center; color: var(--accent); margin-right: -4px; }
 .navrow .dl .ico { width: 24px; height: 24px; }
