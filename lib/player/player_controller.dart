@@ -8,6 +8,7 @@ import 'package:owntune/library/library.dart';
 import 'package:owntune/library/sort_key.dart';
 import 'package:owntune/player/audio_engine.dart';
 import 'package:owntune/player/listen_session.dart';
+import 'package:owntune/player/normalization.dart';
 import 'package:owntune/player/play_queue.dart';
 import 'package:owntune/player/queue_source.dart';
 import 'package:owntune/player/player_snapshot.dart';
@@ -120,6 +121,9 @@ class PlayerController extends Notifier<PlayerState> {
   /// insert that gives it its row id.
   Future<void> _writes = Future.value();
 
+  /// The loudness of the loaded song, read when it was loaded.
+  double? _currentLufs;
+
   Stream<String> get notices => _notices.stream;
 
   PlayQueue get _queue => state.queue;
@@ -152,6 +156,10 @@ class PlayerController extends Notifier<PlayerState> {
       final tracks = next.value;
       if (tracks != null) _onTracks(tracks);
     });
+    ref.listen(
+      settingsProvider.select((s) => s.normalizeVolume),
+      (_, _) => unawaited(_applyVolume()),
+    );
     return const PlayerState();
   }
 
@@ -326,6 +334,11 @@ class PlayerController extends Notifier<PlayerState> {
       await _onFailure(queue, play: play);
       return;
     }
+    if (generation != _generation) return;
+    final lufs = await _lufsOf(track.id);
+    if (generation != _generation) return;
+    _currentLufs = lufs;
+    await _applyVolume();
     if (generation != _generation) return;
     _failures = 0;
     _loaded = true;
@@ -654,8 +667,28 @@ class PlayerController extends Notifier<PlayerState> {
     }
   }
 
+  /// The measured loudness of [trackId]; null when unmeasured or on any
+  /// error, so a lookup can never stop a song.
+  Future<double?> _lufsOf(int trackId) async {
+    try {
+      return await ref.read(loudnessRepositoryProvider).lufsOf(trackId);
+    } on Object {
+      return null;
+    }
+  }
+
+  /// Sets the volume for the loaded song. A measurement that arrives while
+  /// it plays applies from the next load, so the level never jumps.
+  Future<void> _applyVolume() => _engine.setVolume(
+    normalizationGain(
+      _currentLufs,
+      enabled: ref.read(settingsProvider).normalizeVolume,
+    ),
+  );
+
   Future<void> _stop() async {
     ++_generation;
+    _currentLufs = null;
     _endSession();
     _loaded = false;
     state = PlayerState(queue: _emptyQueue);

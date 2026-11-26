@@ -38,6 +38,9 @@ void main() {
         tracksProvider.overrideWith((ref) => library.stream),
         playerStateStoreProvider.overrideWithValue(store),
         initialPlayerSnapshotProvider.overrideWithValue(saved),
+        loudnessRepositoryProvider.overrideWithValue(
+          FakeLoudnessRepository(lufs: {2: -8}),
+        ),
       ],
     );
     c.listen(playerProvider, (_, _) {});
@@ -83,6 +86,15 @@ void main() {
     expect(engine.current, 'hash2.mp3');
     expect(engine.playing, isFalse);
     expect(engine.lastSeek, const Duration(seconds: 84));
+  });
+
+  test('a restored queue sets the volume before the first play', () async {
+    container = make(saved);
+    library.add([a, b, c]);
+    await pumpEventQueue();
+
+    expect(engine.volumes.last, closeTo(0.5012, 1e-3));
+    expect(engine.calls, isNot(contains('play')));
   });
 
   test('queued entries are saved and restored', () async {

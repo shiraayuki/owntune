@@ -16,6 +16,9 @@ abstract interface class AudioEngine {
 
   Future<void> seek(Duration position);
 
+  /// Sets the playback volume, 0.0–1.0; it stays across loads.
+  Future<void> setVolume(double volume);
+
   /// Stops and releases the current file.
   Future<void> unload();
 
@@ -127,6 +130,9 @@ class JustAudioEngine implements AudioEngine {
 
   @override
   Future<void> seek(Duration position) => _player.seek(position);
+
+  @override
+  Future<void> setVolume(double volume) => _player.setVolume(volume);
 
   @override
   Future<void> unload() => _player.stop();

@@ -27,6 +27,7 @@ void main() {
   late StreamController<List<Track>> library;
   late ProviderContainer container;
   late List<String> notices;
+  late FakeLoudnessRepository loudness;
 
   PlayerController player() => container.read(playerProvider.notifier);
   PlayerState state() => container.read(playerProvider);
@@ -36,6 +37,7 @@ void main() {
     engine = FakeAudioEngine();
     repo = FakeTrackRepository();
     plays = FakePlayRepository();
+    loudness = FakeLoudnessRepository(lufs: {1: -8});
     now = DateTime(2026, 11, 24, 20);
     library = StreamController<List<Track>>();
     container = ProviderContainer(
@@ -50,6 +52,8 @@ void main() {
         tracksProvider.overrideWith((ref) => library.stream),
         playerStateStoreProvider.overrideWithValue(FakePlayerStateStore()),
         endStallWaitProvider.overrideWithValue(stallWait),
+        loudnessRepositoryProvider.overrideWithValue(loudness),
+        settingsRepositoryProvider.overrideWithValue(FakeSettingsRepository()),
       ],
     );
     container.listen(playerProvider, (_, _) {});
@@ -1039,6 +1043,69 @@ void main() {
       expect(notices, isEmpty);
       expect(repo.played, [1]);
       expect(plays.rows, isEmpty);
+    });
+  });
+
+  group('volume normalization', () {
+    void normalize(bool on) => container
+        .read(settingsProvider.notifier)
+        .set(container.read(settingsProvider).copyWith(normalizeVolume: on));
+
+    test('sets the volume from the loudness before playing', () async {
+      await playAt(0);
+      expect(engine.volumes.last, closeTo(0.5012, 1e-3));
+      expect(
+        engine.volumeSetAt.last,
+        lessThanOrEqualTo(engine.calls.lastIndexOf('play')),
+      );
+    });
+
+    test('an unmeasured song plays at full volume', () async {
+      await playAt(1);
+      expect(engine.volumes.last, 1.0);
+    });
+
+    test('with the switch off every song plays at full volume', () async {
+      normalize(false);
+      await playAt(0);
+      expect(engine.volumes.last, 1.0);
+    });
+
+    test(
+      "flipping the switch changes the current song's volume at once",
+      () async {
+        await playAt(0);
+        normalize(false);
+        await pumpEventQueue();
+        expect(engine.volumes.last, 1.0);
+        normalize(true);
+        await pumpEventQueue();
+        expect(engine.volumes.last, closeTo(0.5012, 1e-3));
+      },
+    );
+
+    test(
+      'a measurement that arrives mid-song applies from the next song',
+      () async {
+        await playAt(1);
+        final before = engine.volumes.length;
+        loudness.lufs[2] = -8;
+        loudness.lufs[3] = -2;
+        engine.emitPosition(const Duration(seconds: 5));
+        await pumpEventQueue();
+        expect(engine.volumes, hasLength(before));
+
+        await player().next();
+        await pumpEventQueue();
+        expect(engine.volumes.last, closeTo(0.2512, 1e-3));
+      },
+    );
+
+    test('a loudness lookup error plays at full volume', () async {
+      loudness.throwOnLufs = true;
+      await playAt(0);
+      expect(engine.volumes.last, 1.0);
+      expect(engine.playing, isTrue);
     });
   });
 }

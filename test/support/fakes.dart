@@ -494,6 +494,11 @@ class FakeAudioEngine implements AudioEngine {
   /// a play() while it already plays).
   final calls = <String>[];
   Duration? lastSeek;
+
+  /// Volumes set, in order; not part of [calls], so call-order tests stay
+  /// as they are. [volumeSetAt] holds `calls.length` at each set.
+  final volumes = <double>[];
+  final volumeSetAt = <int>[];
   var unloads = 0;
 
   /// Base names whose load throws.
@@ -511,6 +516,12 @@ class FakeAudioEngine implements AudioEngine {
   final _playing = StreamController<bool>.broadcast();
 
   String? get current => loaded.isEmpty ? null : loaded.last;
+
+  @override
+  Future<void> setVolume(double volume) async {
+    volumes.add(volume);
+    volumeSetAt.add(calls.length);
+  }
 
   @override
   Future<void> load(File file) async {
