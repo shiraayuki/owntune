@@ -82,6 +82,9 @@ class TrackRepository {
 
     await _db.transaction(() async {
       await (_db.delete(_db.tracks)..where((t) => t.id.equals(id))).go();
+      await (_db.delete(
+        _db.trackLoudness,
+      )..where((l) => l.trackId.equals(id))).go();
       await _removeFromPlaylists(id);
     });
     await _deleteIfExists(_storage.audioFile(track.fileName));

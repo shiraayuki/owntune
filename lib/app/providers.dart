@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:owntune/data/db/database.dart';
 import 'package:owntune/data/library_storage.dart';
+import 'package:owntune/data/loudness_repository.dart';
 import 'package:owntune/data/play_repository.dart';
 import 'package:owntune/data/playlist_repository.dart';
 import 'package:owntune/data/sources/http_transport.dart';
@@ -72,6 +73,10 @@ final playlistRepositoryProvider = Provider<PlaylistRepository>(
     ref.watch(storageProvider),
     hash: (data) => hashBytes(data: data),
   ),
+);
+
+final loudnessRepositoryProvider = Provider<LoudnessRepository>(
+  (ref) => LoudnessRepository(ref.watch(databaseProvider)),
 );
 
 final playRepositoryProvider = Provider<PlayRepository>(

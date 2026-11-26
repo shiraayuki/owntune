@@ -80,8 +80,28 @@ class Plays extends Table {
   TextColumn get sourceKey => text().nullable()();
 }
 
+/// The measured loudness of one track, in its own table so that measuring
+/// does not re-emit every `tracks` watcher. [lufs] null = not measured;
+/// [failedVersion] is the measurer version that last failed on the file.
+/// Deleted together with its track.
+class TrackLoudness extends Table {
+  IntColumn get trackId => integer()();
+  RealColumn get lufs => real().nullable()();
+  IntColumn get failedVersion => integer().nullable()();
+
+  @override
+  Set<Column<Object>> get primaryKey => {trackId};
+}
+
 @DriftDatabase(
-  tables: [Tracks, SettingsEntries, Playlists, PlaylistEntries, Plays],
+  tables: [
+    Tracks,
+    SettingsEntries,
+    Playlists,
+    PlaylistEntries,
+    Plays,
+    TrackLoudness,
+  ],
 )
 class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
@@ -100,7 +120,7 @@ class AppDatabase extends _$AppDatabase {
   );
 
   @override
-  int get schemaVersion => 4;
+  int get schemaVersion => 5;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -118,6 +138,9 @@ class AppDatabase extends _$AppDatabase {
         await m.addColumn(tracks, tracks.likedAt);
         await m.createTable(plays);
         await m.createIndex(playsStarted);
+      }
+      if (from < 5) {
+        await m.createTable(trackLoudness);
       }
     },
   );

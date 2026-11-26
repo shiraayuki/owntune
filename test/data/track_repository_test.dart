@@ -92,6 +92,24 @@ void main() {
     expect(storage.coverFile('c1.jpg').existsSync(), isFalse);
   });
 
+  test('delete removes the loudness row', () async {
+    writeAudio('h1.mp3');
+    await repo.insert(row('h1'));
+    final id = (await repo.watchAll().first).single.id;
+    await db
+        .into(db.trackLoudness)
+        .insert(
+          TrackLoudnessCompanion.insert(
+            trackId: Value(id),
+            lufs: const Value(-9),
+          ),
+        );
+
+    await repo.delete(id);
+
+    expect(await db.select(db.trackLoudness).get(), isEmpty);
+  });
+
   test('delete of a missing id and missing files does not throw', () async {
     await repo.insert(row('h1', cover: 'c1.jpg'));
     final id = (await repo.watchAll().first).single.id;

@@ -48,6 +48,19 @@ final _v3Schema = [
   'PRAGMA user_version = 3',
 ];
 
+/// The v3 schema plus what v0.7.1 added (schema version 4).
+final _v4Schema = [
+  ..._v3Schema.where((sql) => !sql.startsWith('PRAGMA')),
+  'ALTER TABLE "tracks" ADD COLUMN "liked_at" INTEGER NULL',
+  'CREATE TABLE "plays" ("id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT, '
+      '"track_id" INTEGER NOT NULL, "started_at" INTEGER NOT NULL, '
+      '"listened_ms" INTEGER NOT NULL, "counted" INTEGER NOT NULL '
+      'CHECK ("counted" IN (0, 1)), "source_kind" TEXT NULL, '
+      '"source_key" TEXT NULL)',
+  'CREATE INDEX "plays_started" ON "plays" ("started_at")',
+  'PRAGMA user_version = 4',
+];
+
 TracksCompanion _row(String hash, String? sourceKey) => TracksCompanion.insert(
   fileName: '$hash.m4a',
   originalName: '$hash.m4a',
@@ -151,5 +164,35 @@ void main() {
     expect(play.counted, isTrue);
     expect(play.sourceKind, isNull);
     expect(play.sourceKey, isNull);
+  });
+
+  test('v4 database gains track_loudness and keeps its rows', () async {
+    final db = AppDatabase(
+      NativeDatabase.memory(
+        setup: (raw) {
+          for (final sql in _v4Schema) {
+            raw.execute(sql);
+          }
+        },
+      ),
+    );
+    addTearDown(db.close);
+
+    final track = (await db.select(db.tracks).get()).single;
+    expect(track.title, 'Old Song');
+    expect(await db.select(db.trackLoudness).get(), isEmpty);
+
+    await db
+        .into(db.trackLoudness)
+        .insert(
+          TrackLoudnessCompanion.insert(
+            trackId: Value(track.id),
+            lufs: const Value(-11.5),
+          ),
+        );
+    final row = (await db.select(db.trackLoudness).get()).single;
+    expect(row.trackId, track.id);
+    expect(row.lufs, -11.5);
+    expect(row.failedVersion, isNull);
   });
 }

@@ -2343,6 +2343,268 @@ class PlaysCompanion extends UpdateCompanion<Play> {
   }
 }
 
+class $TrackLoudnessTable extends TrackLoudness
+    with TableInfo<$TrackLoudnessTable, TrackLoudnessData> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $TrackLoudnessTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _trackIdMeta = const VerificationMeta(
+    'trackId',
+  );
+  @override
+  late final GeneratedColumn<int> trackId = GeneratedColumn<int>(
+    'track_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _lufsMeta = const VerificationMeta('lufs');
+  @override
+  late final GeneratedColumn<double> lufs = GeneratedColumn<double>(
+    'lufs',
+    aliasedName,
+    true,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _failedVersionMeta = const VerificationMeta(
+    'failedVersion',
+  );
+  @override
+  late final GeneratedColumn<int> failedVersion = GeneratedColumn<int>(
+    'failed_version',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [trackId, lufs, failedVersion];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'track_loudness';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<TrackLoudnessData> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('track_id')) {
+      context.handle(
+        _trackIdMeta,
+        trackId.isAcceptableOrUnknown(data['track_id']!, _trackIdMeta),
+      );
+    }
+    if (data.containsKey('lufs')) {
+      context.handle(
+        _lufsMeta,
+        lufs.isAcceptableOrUnknown(data['lufs']!, _lufsMeta),
+      );
+    }
+    if (data.containsKey('failed_version')) {
+      context.handle(
+        _failedVersionMeta,
+        failedVersion.isAcceptableOrUnknown(
+          data['failed_version']!,
+          _failedVersionMeta,
+        ),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {trackId};
+  @override
+  TrackLoudnessData map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return TrackLoudnessData(
+      trackId: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}track_id'],
+      )!,
+      lufs: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}lufs'],
+      ),
+      failedVersion: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}failed_version'],
+      ),
+    );
+  }
+
+  @override
+  $TrackLoudnessTable createAlias(String alias) {
+    return $TrackLoudnessTable(attachedDatabase, alias);
+  }
+}
+
+class TrackLoudnessData extends DataClass
+    implements Insertable<TrackLoudnessData> {
+  final int trackId;
+  final double? lufs;
+  final int? failedVersion;
+  const TrackLoudnessData({
+    required this.trackId,
+    this.lufs,
+    this.failedVersion,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['track_id'] = Variable<int>(trackId);
+    if (!nullToAbsent || lufs != null) {
+      map['lufs'] = Variable<double>(lufs);
+    }
+    if (!nullToAbsent || failedVersion != null) {
+      map['failed_version'] = Variable<int>(failedVersion);
+    }
+    return map;
+  }
+
+  TrackLoudnessCompanion toCompanion(bool nullToAbsent) {
+    return TrackLoudnessCompanion(
+      trackId: Value(trackId),
+      lufs: lufs == null && nullToAbsent ? const Value.absent() : Value(lufs),
+      failedVersion: failedVersion == null && nullToAbsent
+          ? const Value.absent()
+          : Value(failedVersion),
+    );
+  }
+
+  factory TrackLoudnessData.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return TrackLoudnessData(
+      trackId: serializer.fromJson<int>(json['trackId']),
+      lufs: serializer.fromJson<double?>(json['lufs']),
+      failedVersion: serializer.fromJson<int?>(json['failedVersion']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'trackId': serializer.toJson<int>(trackId),
+      'lufs': serializer.toJson<double?>(lufs),
+      'failedVersion': serializer.toJson<int?>(failedVersion),
+    };
+  }
+
+  TrackLoudnessData copyWith({
+    int? trackId,
+    Value<double?> lufs = const Value.absent(),
+    Value<int?> failedVersion = const Value.absent(),
+  }) => TrackLoudnessData(
+    trackId: trackId ?? this.trackId,
+    lufs: lufs.present ? lufs.value : this.lufs,
+    failedVersion: failedVersion.present
+        ? failedVersion.value
+        : this.failedVersion,
+  );
+  TrackLoudnessData copyWithCompanion(TrackLoudnessCompanion data) {
+    return TrackLoudnessData(
+      trackId: data.trackId.present ? data.trackId.value : this.trackId,
+      lufs: data.lufs.present ? data.lufs.value : this.lufs,
+      failedVersion: data.failedVersion.present
+          ? data.failedVersion.value
+          : this.failedVersion,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('TrackLoudnessData(')
+          ..write('trackId: $trackId, ')
+          ..write('lufs: $lufs, ')
+          ..write('failedVersion: $failedVersion')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(trackId, lufs, failedVersion);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is TrackLoudnessData &&
+          other.trackId == this.trackId &&
+          other.lufs == this.lufs &&
+          other.failedVersion == this.failedVersion);
+}
+
+class TrackLoudnessCompanion extends UpdateCompanion<TrackLoudnessData> {
+  final Value<int> trackId;
+  final Value<double?> lufs;
+  final Value<int?> failedVersion;
+  const TrackLoudnessCompanion({
+    this.trackId = const Value.absent(),
+    this.lufs = const Value.absent(),
+    this.failedVersion = const Value.absent(),
+  });
+  TrackLoudnessCompanion.insert({
+    this.trackId = const Value.absent(),
+    this.lufs = const Value.absent(),
+    this.failedVersion = const Value.absent(),
+  });
+  static Insertable<TrackLoudnessData> custom({
+    Expression<int>? trackId,
+    Expression<double>? lufs,
+    Expression<int>? failedVersion,
+  }) {
+    return RawValuesInsertable({
+      if (trackId != null) 'track_id': trackId,
+      if (lufs != null) 'lufs': lufs,
+      if (failedVersion != null) 'failed_version': failedVersion,
+    });
+  }
+
+  TrackLoudnessCompanion copyWith({
+    Value<int>? trackId,
+    Value<double?>? lufs,
+    Value<int?>? failedVersion,
+  }) {
+    return TrackLoudnessCompanion(
+      trackId: trackId ?? this.trackId,
+      lufs: lufs ?? this.lufs,
+      failedVersion: failedVersion ?? this.failedVersion,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (trackId.present) {
+      map['track_id'] = Variable<int>(trackId.value);
+    }
+    if (lufs.present) {
+      map['lufs'] = Variable<double>(lufs.value);
+    }
+    if (failedVersion.present) {
+      map['failed_version'] = Variable<int>(failedVersion.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('TrackLoudnessCompanion(')
+          ..write('trackId: $trackId, ')
+          ..write('lufs: $lufs, ')
+          ..write('failedVersion: $failedVersion')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -2355,6 +2617,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     this,
   );
   late final $PlaysTable plays = $PlaysTable(this);
+  late final $TrackLoudnessTable trackLoudness = $TrackLoudnessTable(this);
   late final Index tracksSourceKey = Index(
     'tracks_source_key',
     'CREATE UNIQUE INDEX tracks_source_key ON tracks (source_key)',
@@ -2377,6 +2640,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     playlists,
     playlistEntries,
     plays,
+    trackLoudness,
     tracksSourceKey,
     playlistEntriesOrder,
     playsStarted,
@@ -4005,6 +4269,177 @@ typedef $$PlaysTableProcessedTableManager =
       Play,
       PrefetchHooks Function()
     >;
+typedef $$TrackLoudnessTableCreateCompanionBuilder =
+    TrackLoudnessCompanion Function({
+      Value<int> trackId,
+      Value<double?> lufs,
+      Value<int?> failedVersion,
+    });
+typedef $$TrackLoudnessTableUpdateCompanionBuilder =
+    TrackLoudnessCompanion Function({
+      Value<int> trackId,
+      Value<double?> lufs,
+      Value<int?> failedVersion,
+    });
+
+class $$TrackLoudnessTableFilterComposer
+    extends Composer<_$AppDatabase, $TrackLoudnessTable> {
+  $$TrackLoudnessTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get trackId => $composableBuilder(
+    column: $table.trackId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get lufs => $composableBuilder(
+    column: $table.lufs,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get failedVersion => $composableBuilder(
+    column: $table.failedVersion,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$TrackLoudnessTableOrderingComposer
+    extends Composer<_$AppDatabase, $TrackLoudnessTable> {
+  $$TrackLoudnessTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get trackId => $composableBuilder(
+    column: $table.trackId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get lufs => $composableBuilder(
+    column: $table.lufs,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get failedVersion => $composableBuilder(
+    column: $table.failedVersion,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$TrackLoudnessTableAnnotationComposer
+    extends Composer<_$AppDatabase, $TrackLoudnessTable> {
+  $$TrackLoudnessTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get trackId =>
+      $composableBuilder(column: $table.trackId, builder: (column) => column);
+
+  GeneratedColumn<double> get lufs =>
+      $composableBuilder(column: $table.lufs, builder: (column) => column);
+
+  GeneratedColumn<int> get failedVersion => $composableBuilder(
+    column: $table.failedVersion,
+    builder: (column) => column,
+  );
+}
+
+class $$TrackLoudnessTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $TrackLoudnessTable,
+          TrackLoudnessData,
+          $$TrackLoudnessTableFilterComposer,
+          $$TrackLoudnessTableOrderingComposer,
+          $$TrackLoudnessTableAnnotationComposer,
+          $$TrackLoudnessTableCreateCompanionBuilder,
+          $$TrackLoudnessTableUpdateCompanionBuilder,
+          (
+            TrackLoudnessData,
+            BaseReferences<
+              _$AppDatabase,
+              $TrackLoudnessTable,
+              TrackLoudnessData
+            >,
+          ),
+          TrackLoudnessData,
+          PrefetchHooks Function()
+        > {
+  $$TrackLoudnessTableTableManager(_$AppDatabase db, $TrackLoudnessTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$TrackLoudnessTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$TrackLoudnessTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$TrackLoudnessTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<int> trackId = const Value.absent(),
+                Value<double?> lufs = const Value.absent(),
+                Value<int?> failedVersion = const Value.absent(),
+              }) => TrackLoudnessCompanion(
+                trackId: trackId,
+                lufs: lufs,
+                failedVersion: failedVersion,
+              ),
+          createCompanionCallback:
+              ({
+                Value<int> trackId = const Value.absent(),
+                Value<double?> lufs = const Value.absent(),
+                Value<int?> failedVersion = const Value.absent(),
+              }) => TrackLoudnessCompanion.insert(
+                trackId: trackId,
+                lufs: lufs,
+                failedVersion: failedVersion,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<$TrackLoudnessTable, TrackLoudnessData>(table),
+                  BaseReferences<
+                    _$AppDatabase,
+                    $TrackLoudnessTable,
+                    TrackLoudnessData
+                  >(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$TrackLoudnessTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $TrackLoudnessTable,
+      TrackLoudnessData,
+      $$TrackLoudnessTableFilterComposer,
+      $$TrackLoudnessTableOrderingComposer,
+      $$TrackLoudnessTableAnnotationComposer,
+      $$TrackLoudnessTableCreateCompanionBuilder,
+      $$TrackLoudnessTableUpdateCompanionBuilder,
+      (
+        TrackLoudnessData,
+        BaseReferences<_$AppDatabase, $TrackLoudnessTable, TrackLoudnessData>,
+      ),
+      TrackLoudnessData,
+      PrefetchHooks Function()
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -4019,4 +4454,6 @@ class $AppDatabaseManager {
       $$PlaylistEntriesTableTableManager(_db, _db.playlistEntries);
   $$PlaysTableTableManager get plays =>
       $$PlaysTableTableManager(_db, _db.plays);
+  $$TrackLoudnessTableTableManager get trackLoudness =>
+      $$TrackLoudnessTableTableManager(_db, _db.trackLoudness);
 }
