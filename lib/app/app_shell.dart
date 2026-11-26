@@ -17,6 +17,7 @@ import 'package:owntune/library/library_tab.dart';
 import 'package:owntune/library/selection_bar.dart';
 import 'package:owntune/library/search_screen.dart';
 import 'package:owntune/library/song_sort.dart';
+import 'package:owntune/loudness/loudness_measurer.dart';
 import 'package:owntune/player/mini_player.dart';
 import 'package:owntune/player/player_controller.dart';
 import 'package:owntune/player/system_controls.dart';
@@ -39,6 +40,8 @@ class OwntuneApp extends ConsumerWidget {
     final settings = ref.watch(settingsProvider);
     // Lock screen / notification controls follow the player for the whole run.
     ref.watch(systemControlsSyncProvider);
+    // Measures the loudness of new and not yet measured songs.
+    ref.watch(loudnessMeasurerProvider);
     return MaterialApp(
       title: 'owntune',
       theme: buildTheme(Brightness.light, settings.accent),

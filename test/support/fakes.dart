@@ -14,6 +14,7 @@ import 'package:owntune/app/app_shell.dart';
 import 'package:owntune/app/providers.dart';
 import 'package:owntune/data/db/database.dart';
 import 'package:owntune/data/library_storage.dart';
+import 'package:owntune/data/loudness_repository.dart';
 import 'package:owntune/data/play_repository.dart';
 import 'package:owntune/data/playlist_repository.dart';
 import 'package:owntune/data/track_repository.dart';
@@ -25,6 +26,7 @@ import 'package:owntune/home/stats_repository.dart';
 import 'package:owntune/import/audio_file_picker.dart';
 import 'package:owntune/import/importer.dart';
 import 'package:owntune/library/navigation.dart';
+import 'package:owntune/loudness/loudness_meter.dart';
 import 'package:owntune/player/audio_engine.dart';
 import 'package:owntune/data/sources/http_transport.dart';
 import 'package:owntune/data/sources/online_link.dart';
@@ -34,6 +36,7 @@ import 'package:owntune/download/cover_image.dart';
 import 'package:owntune/download/download_controller.dart';
 import 'package:owntune/download/download_job.dart';
 import 'package:owntune/player/player_snapshot.dart';
+import 'package:owntune/src/rust/api/loudness.dart' show LoudnessResult;
 import 'package:owntune/player/system_controls.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:path/path.dart' as p;
@@ -395,6 +398,92 @@ class FakeSettingsRepository implements SettingsRepository {
 
 /// An audio engine without audio: records what it was told and lets the
 /// test emit positions, completion and errors.
+/// Loudness rows in memory. [pending] is the measuring order (newest first);
+/// a track counts as done once it is in [measured], or in [failed] with at
+/// least the asked version.
+class FakeLoudnessRepository implements LoudnessRepository {
+  FakeLoudnessRepository({
+    List<Track> pending = const [],
+    Map<int, double> lufs = const {},
+  }) : pending = [...pending],
+       lufs = {...lufs};
+
+  final List<Track> pending;
+
+  /// Measured values by track id; tests may change it at any time.
+  final Map<int, double> lufs;
+
+  /// Makes the next [nextUnmeasured] throw once.
+  bool throwOnNext = false;
+
+  /// Makes every [lufsOf] throw.
+  bool throwOnLufs = false;
+
+  final measured = <(int, double)>[];
+  final failed = <(int, int)>[];
+
+  @override
+  Future<Track?> nextUnmeasured(int version) async {
+    if (throwOnNext) {
+      throwOnNext = false;
+      throw StateError('database is gone');
+    }
+    for (final t in pending) {
+      final done =
+          measured.any((m) => m.$1 == t.id) ||
+          failed.any((f) => f.$1 == t.id && f.$2 >= version);
+      if (!done) return t;
+    }
+    return null;
+  }
+
+  @override
+  Future<void> saveMeasured(int trackId, double value) async {
+    measured.add((trackId, value));
+    lufs[trackId] = value;
+  }
+
+  @override
+  Future<void> saveFailed(int trackId, int version) async =>
+      failed.add((trackId, version));
+
+  @override
+  Future<double?> lufsOf(int trackId) async {
+    if (throwOnLufs) throw StateError('database is gone');
+    return lufs[trackId];
+  }
+}
+
+/// A meter whose measurements the test completes through [calls], unless
+/// [instant] answers them at once.
+class FakeLoudnessMeter implements LoudnessMeter {
+  var _job = 0;
+
+  /// Paths asked for, in order; [jobs] holds the matching job ids.
+  final measured = <String>[];
+  final jobs = <int>[];
+  final cancelled = <int>[];
+  final calls = <Completer<LoudnessResult>>[];
+  LoudnessResult? instant;
+
+  @override
+  int newJob() => ++_job;
+
+  @override
+  Future<LoudnessResult> measure(String path, int job) {
+    measured.add(path);
+    jobs.add(job);
+    final answer = instant;
+    if (answer != null) return Future.value(answer);
+    final c = Completer<LoudnessResult>();
+    calls.add(c);
+    return c.future;
+  }
+
+  @override
+  void cancel(int job) => cancelled.add(job);
+}
+
 class FakeAudioEngine implements AudioEngine {
   /// Base names of the loaded files, in load order.
   final loaded = <String>[];
@@ -575,6 +664,8 @@ Future<void> pumpApp(
   FakePlayRepository? plays,
   FakeHomeRepository? home,
   FakeStatsRepository? stats,
+  FakeLoudnessRepository? loudness,
+  FakeLoudnessMeter? meter,
   List<Override> overrides = const [],
   List<ProviderObserver>? observers,
 }) async {
@@ -602,6 +693,10 @@ Future<void> pumpApp(
       overrides: [
         playlistRepositoryProvider.overrideWithValue(playlistRepo),
         playRepositoryProvider.overrideWithValue(plays ?? FakePlayRepository()),
+        loudnessRepositoryProvider.overrideWithValue(
+          loudness ?? FakeLoudnessRepository(),
+        ),
+        loudnessMeterProvider.overrideWithValue(meter ?? FakeLoudnessMeter()),
         homeRepositoryProvider.overrideWithValue(home ?? FakeHomeRepository()),
         statsRepositoryProvider.overrideWithValue(
           stats ?? FakeStatsRepository(),
