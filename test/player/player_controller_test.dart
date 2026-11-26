@@ -1107,5 +1107,38 @@ void main() {
       expect(engine.volumes.last, 1.0);
       expect(engine.playing, isTrue);
     });
+
+    test(
+      'a song skipped to while playing gets its volume before it loads',
+      () async {
+        loudness.lufs[3] = -8;
+        await playAt(1);
+        await player().next();
+        await pumpEventQueue();
+        expect(engine.volumes.last, closeTo(0.5012, 1e-3));
+        expect(
+          engine.volumeSetAt.last,
+          lessThanOrEqualTo(engine.calls.lastIndexOf('load hash3.mp3')),
+        );
+      },
+    );
+
+    test('reloading the current song after an edit keeps its volume', () async {
+      await playAt(1);
+      expect(engine.volumes.last, 1.0);
+      loudness.lufs[2] = -8;
+      await player().reloadIfCurrent({2});
+      await pumpEventQueue();
+      expect(engine.volumes.last, 1.0);
+    });
+
+    test('a failing setVolume still plays the song', () async {
+      engine.failSetVolume = true;
+      await playAt(0);
+      expect(engine.playing, isTrue);
+      normalize(false);
+      await pumpEventQueue();
+      expect(engine.playing, isTrue);
+    });
   });
 }

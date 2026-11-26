@@ -499,6 +499,9 @@ class FakeAudioEngine implements AudioEngine {
   /// as they are. [volumeSetAt] holds `calls.length` at each set.
   final volumes = <double>[];
   final volumeSetAt = <int>[];
+
+  /// Makes [setVolume] throw.
+  var failSetVolume = false;
   var unloads = 0;
 
   /// Base names whose load throws.
@@ -519,6 +522,7 @@ class FakeAudioEngine implements AudioEngine {
 
   @override
   Future<void> setVolume(double volume) async {
+    if (failSetVolume) throw StateError('no volume');
     volumes.add(volume);
     volumeSetAt.add(calls.length);
   }

@@ -315,6 +315,10 @@ class PlayerController extends Notifier<PlayerState> {
     _loaded = false;
     _endStall?.cancel();
     _endStall = null;
+    // A reload of the same song (after Edit Info) keeps its volume, so a
+    // measurement that arrived meanwhile never changes it mid-song.
+    final sameSong =
+        keepSession && _session != null && _sessionKey == entry.key;
     if (!keepSession || _session == null || _sessionKey != entry.key) {
       _endSession();
       _beginSession(queue);
@@ -326,6 +330,15 @@ class PlayerController extends Notifier<PlayerState> {
     if (!play) await _engine.pause();
     if (generation != _generation) return;
     final track = _tracks[entry.trackId];
+    // The volume is set before the load: a playing engine starts the new
+    // file as soon as it is loaded, and it must not start at the old level.
+    if (!sameSong) {
+      final lufs = track == null ? null : await _lufsOf(track.id);
+      if (generation != _generation) return;
+      _currentLufs = lufs;
+    }
+    await _applyVolume();
+    if (generation != _generation) return;
     try {
       if (track == null) throw StateError('track ${entry.trackId} is gone');
       await _engine.load(ref.read(storageProvider).audioFile(track.fileName));
@@ -334,11 +347,6 @@ class PlayerController extends Notifier<PlayerState> {
       await _onFailure(queue, play: play);
       return;
     }
-    if (generation != _generation) return;
-    final lufs = await _lufsOf(track.id);
-    if (generation != _generation) return;
-    _currentLufs = lufs;
-    await _applyVolume();
     if (generation != _generation) return;
     _failures = 0;
     _loaded = true;
@@ -679,12 +687,19 @@ class PlayerController extends Notifier<PlayerState> {
 
   /// Sets the volume for the loaded song. A measurement that arrives while
   /// it plays applies from the next load, so the level never jumps.
-  Future<void> _applyVolume() => _engine.setVolume(
-    normalizationGain(
-      _currentLufs,
-      enabled: ref.read(settingsProvider).normalizeVolume,
-    ),
-  );
+  /// Best effort: an engine error here must not keep a song from playing.
+  Future<void> _applyVolume() async {
+    try {
+      await _engine.setVolume(
+        normalizationGain(
+          _currentLufs,
+          enabled: ref.read(settingsProvider).normalizeVolume,
+        ),
+      );
+    } on Object {
+      // Keeps the previous volume.
+    }
+  }
 
   Future<void> _stop() async {
     ++_generation;

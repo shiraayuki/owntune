@@ -254,6 +254,30 @@ mod tests {
         }
     }
 
+    /// tagged.mp3 with its ID3v2 tag replaced by one padded past 1 MB, like
+    /// an MP3 with a big embedded cover.
+    fn mp3_with_big_tag() -> String {
+        let mp3 = std::fs::read(fixture("tagged.mp3")).unwrap();
+        assert_eq!(&mp3[..3], b"ID3");
+        let syncsafe = |b: &[u8]| b.iter().fold(0usize, |acc, &x| (acc << 7) | x as usize);
+        let audio = &mp3[10 + syncsafe(&mp3[6..10])..];
+        let padding = 1_500_000usize;
+        let mut out = b"ID3\x03\x00\x00".to_vec();
+        out.extend((0..4).rev().map(|i| ((padding >> (7 * i)) & 0x7f) as u8));
+        out.extend(std::iter::repeat_n(0u8, padding));
+        out.extend(audio);
+        let path = temp_path("big-tag.mp3");
+        std::fs::write(&path, out).unwrap();
+        path.to_string_lossy().into_owned()
+    }
+
+    #[test]
+    fn measures_an_mp3_with_a_tag_over_one_megabyte() {
+        let r = measure_loudness(mp3_with_big_tag(), new_loudness_job());
+        let lufs = r.lufs.unwrap_or_else(|| panic!("{:?}", r.message));
+        assert!((lufs + 22.0).abs() < 1.0, "{lufs}");
+    }
+
     #[test]
     fn fails_on_garbage() {
         let r = measure_loudness(fixture("broken.mp3"), new_loudness_job());
