@@ -16,15 +16,31 @@ class AccentPreset {
   final Color color;
 }
 
+/// The Midnight accents (since v0.9.1): calmer, deeper colours than the
+/// first set, plus grey and white. The site's colour picker
+/// (site/index.html) and site/screens follow the same values.
 const List<AccentPreset> kAccentPresets = [
-  AccentPreset('Coral', Color(0xffff7a59)),
-  AccentPreset('Amber', Color(0xffffb340)),
-  AccentPreset('Lime', Color(0xffc6f432)),
-  AccentPreset('Teal', Color(0xff3ee0c4)),
-  AccentPreset('Sky', Color(0xff5ab4ff)),
-  AccentPreset('Violet', Color(0xffb38cff)),
-  AccentPreset('Pink', Color(0xffff6fb5)),
+  AccentPreset('Coral', Color(0xffff6b4a)),
+  AccentPreset('Amber', Color(0xfff0a020)),
+  AccentPreset('Green', Color(0xff1ed760)),
+  AccentPreset('Blue', Color(0xff4d8dff)),
+  AccentPreset('Violet', Color(0xff9b6bff)),
+  AccentPreset('Pink', Color(0xfff0509a)),
+  AccentPreset('Grey', Color(0xffa1a1aa)),
+  AccentPreset('White', Color(0xfff4f2ef)),
 ];
+
+/// The accents before v0.9.1, as stored hex, mapped to their successors so
+/// an update keeps the user's choice (Teal was dropped; Green is nearest).
+const Map<String, Color> kLegacyAccents = {
+  'ff7a59': Color(0xffff6b4a), // Coral
+  'ffb340': Color(0xfff0a020), // Amber
+  'c6f432': Color(0xff1ed760), // Lime -> Green
+  '3ee0c4': Color(0xff1ed760), // Teal -> Green
+  '5ab4ff': Color(0xff4d8dff), // Sky -> Blue
+  'b38cff': Color(0xff9b6bff), // Violet
+  'ff6fb5': Color(0xfff0509a), // Pink
+};
 
 class AppSettings {
   const AppSettings({
@@ -38,7 +54,7 @@ class AppSettings {
 
   static const defaults = AppSettings(
     mode: AppearanceMode.system,
-    accent: Color(0xffff7a59), // Coral
+    accent: Color(0xffff6b4a), // Coral
   );
 
   final AppearanceMode mode;
@@ -168,9 +184,16 @@ class SettingsRepository {
   static AppearanceMode _parseMode(String? v) => AppearanceMode.values
       .firstWhere((m) => m.name == v, orElse: () => AppSettings.defaults.mode);
 
+  /// A stored accent that is no preset (any more) falls back to Coral,
+  /// except the pre-v0.9.1 presets, which map to their successors.
   static Color _parseAccent(String? v) {
     if (v == null || !_hex6.hasMatch(v)) return AppSettings.defaults.accent;
-    return Color(0xff000000 | int.parse(v, radix: 16));
+    final legacy = kLegacyAccents[v];
+    if (legacy != null) return legacy;
+    final color = Color(0xff000000 | int.parse(v, radix: 16));
+    return kAccentPresets.any((p) => p.color == color)
+        ? color
+        : AppSettings.defaults.accent;
   }
 
   static String _hex(Color c) =>

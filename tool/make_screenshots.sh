@@ -11,7 +11,7 @@ set -euo pipefail
 
 cd "$(dirname "$0")/.."
 out="${1:-docs/images/readme}"
-accent="${ACCENT:-ff7a59}"
+accent="${ACCENT:-ff6b4a}"
 screens=(home library player playlist download edit stats)
 
 browser=""

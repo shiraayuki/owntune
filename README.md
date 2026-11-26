@@ -6,7 +6,7 @@
 
 A music player for iPhone and Android that plays the songs you own: no account, no subscription, no streaming.
 
-[![Latest release](https://img.shields.io/github/v/release/shiraayuki/owntune?label=latest&color=ff7a59)](https://github.com/shiraayuki/owntune/releases/latest)
+[![Latest release](https://img.shields.io/github/v/release/shiraayuki/owntune?label=latest&color=ff6b4a)](https://github.com/shiraayuki/owntune/releases/latest)
 [![CI](https://github.com/shiraayuki/owntune/actions/workflows/ci.yml/badge.svg)](https://github.com/shiraayuki/owntune/actions/workflows/ci.yml)
 ![Platform](https://img.shields.io/badge/platform-iOS%20%7C%20Android-lightgrey)
 ![Built with Flutter](https://img.shields.io/badge/built%20with-Flutter-02569B?logo=flutter)

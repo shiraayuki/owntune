@@ -4,7 +4,7 @@ import 'package:owntune/app/theme.dart';
 import 'package:owntune/settings/settings.dart';
 
 void main() {
-  final sky = kAccentPresets.firstWhere((p) => p.name == 'Sky').color;
+  final sky = kAccentPresets.firstWhere((p) => p.name == 'Blue').color;
 
   OwntuneColors colors(ThemeData t) => t.extension<OwntuneColors>()!;
 

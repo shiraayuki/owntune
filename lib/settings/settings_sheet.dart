@@ -271,8 +271,8 @@ class _Cell extends StatelessWidget {
   }
 }
 
-/// The seven accent presets as 44pt circles; the selected one has a ring.
-/// On screens narrower than 7 × 44pt (e.g. 360dp Android phones) the
+/// The eight accent presets as 44pt circles; the selected one has a ring.
+/// On screens narrower than 8 × 44pt (e.g. 360dp Android phones) the
 /// circles shrink to fit instead of overflowing.
 class _Swatches extends StatelessWidget {
   const _Swatches({required this.selected, required this.onSelect});

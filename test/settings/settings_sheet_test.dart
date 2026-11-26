@@ -75,13 +75,13 @@ void main() {
     expect(app.themeMode, ThemeMode.light);
   });
 
-  testWidgets('tapping the Sky swatch sets accent Sky', (t) async {
+  testWidgets('tapping the Blue swatch sets accent Blue', (t) async {
     await openSettings(t);
-    await t.tap(find.bySemanticsLabel('Sky'));
+    await t.tap(find.bySemanticsLabel('Blue'));
     await t.pumpAndSettle();
 
-    expect(current(t).accent, const Color(0xff5ab4ff));
-    expect(settingsRepo.saved.last.accent, const Color(0xff5ab4ff));
+    expect(current(t).accent, const Color(0xff4d8dff));
+    expect(settingsRepo.saved.last.accent, const Color(0xff4d8dff));
   });
 
   testWidgets('appearance and accent changes within one frame both stick', (
@@ -89,12 +89,12 @@ void main() {
   ) async {
     await openSettings(t);
     await t.tap(find.text('Dark'));
-    await t.tap(find.bySemanticsLabel('Sky'));
+    await t.tap(find.bySemanticsLabel('Blue'));
     await t.pumpAndSettle();
 
     const expected = AppSettings(
       mode: AppearanceMode.dark,
-      accent: Color(0xff5ab4ff),
+      accent: Color(0xff4d8dff),
     );
     expect(current(t), expected);
     expect(settingsRepo.saved.last, expected);
@@ -107,7 +107,7 @@ void main() {
       isSemantics(isSelected: true, isButton: true, hasTapAction: true),
     );
     expect(
-      t.getSemantics(find.bySemanticsLabel('Sky')),
+      t.getSemantics(find.bySemanticsLabel('Blue')),
       isSemantics(isSelected: false),
     );
   });

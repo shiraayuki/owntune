@@ -170,14 +170,14 @@ void main() {
     expect(find.textContaining(RegExp(r'^\d+ MB$')), findsOneWidget);
 
     await t.tap(find.text('Dark'));
-    await t.tap(find.bySemanticsLabel('Teal'));
+    await t.tap(find.bySemanticsLabel('Green'));
     await t.pumpAndSettle();
 
     // A fresh load from the database is what the next start sees.
     final stored = await t.runAsync(() => SettingsRepository(ready.db).load());
     expect(
       stored,
-      const AppSettings(mode: AppearanceMode.dark, accent: Color(0xff3ee0c4)),
+      const AppSettings(mode: AppearanceMode.dark, accent: Color(0xff1ed760)),
     );
 
     await t.pumpWidget(const SizedBox());

@@ -1,5 +1,5 @@
 // Shared helper for the M1 v3 mockups.
-// ?mode=dark|light (default dark), ?accent=ff7a59 (dark mode only; light mode is
+// ?mode=dark|light (default dark), ?accent=ff6b4a (dark mode only; light mode is
 // always monochrome "Paper"). index.html can also switch both via postMessage.
 (function () {
   const root = document.documentElement;
@@ -7,7 +7,7 @@
 
   function syncControls(mode, accent) {
     document.querySelectorAll('[data-accent]').forEach((el) =>
-      el.classList.toggle('on', el.dataset.accent === (accent || 'ff7a59')));
+      el.classList.toggle('on', el.dataset.accent === (accent || 'ff6b4a')));
     document.querySelectorAll('[data-seg]').forEach((el) =>
       el.classList.toggle('on', el.dataset.seg === mode));
   }

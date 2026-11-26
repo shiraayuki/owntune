@@ -22,17 +22,18 @@ void main() {
   AccentPreset preset(String name) =>
       kAccentPresets.firstWhere((p) => p.name == name);
 
-  test('presets are the seven accents in order', () {
+  test('presets are the eight accents in order', () {
     expect(kAccentPresets.map((p) => p.name), [
       'Coral',
       'Amber',
-      'Lime',
-      'Teal',
-      'Sky',
+      'Green',
+      'Blue',
       'Violet',
       'Pink',
+      'Grey',
+      'White',
     ]);
-    expect(kAccentPresets.first.color, const Color(0xffff7a59));
+    expect(kAccentPresets.first.color, const Color(0xffff6b4a));
   });
 
   test('load on an empty database returns the defaults', () async {
@@ -45,12 +46,12 @@ void main() {
   test('save then load round-trips', () async {
     final saved = AppSettings(
       mode: AppearanceMode.dark,
-      accent: preset('Sky').color,
+      accent: preset('Blue').color,
     );
     await repo.save(saved);
     final loaded = await repo.load();
     expect(loaded.mode, AppearanceMode.dark);
-    expect(loaded.accent, preset('Sky').color);
+    expect(loaded.accent, preset('Blue').color);
 
     await repo.save(
       AppSettings(mode: AppearanceMode.light, accent: preset('Pink').color),
@@ -62,12 +63,12 @@ void main() {
 
   test('stores accent as lowercase hex without #', () async {
     await repo.save(
-      AppSettings(mode: AppearanceMode.system, accent: preset('Lime').color),
+      AppSettings(mode: AppearanceMode.system, accent: preset('Green').color),
     );
     final row = await (db.select(
       db.settingsEntries,
     )..where((t) => t.key.equals('accent'))).getSingle();
-    expect(row.value, 'c6f432');
+    expect(row.value, '1ed760');
     final mode = await (db.select(
       db.settingsEntries,
     )..where((t) => t.key.equals('appearance'))).getSingle();
@@ -75,7 +76,7 @@ void main() {
   });
 
   test('an invalid stored accent falls back to Coral', () async {
-    for (final bad in ['nothex', '#ff7a59', 'ff7a5', 'ff7a5900', '']) {
+    for (final bad in ['nothex', '#ff6b4a', 'ff6b4', 'ff6b4a00', '', '123456']) {
       await db
           .into(db.settingsEntries)
           .insertOnConflictUpdate(
@@ -85,6 +86,29 @@ void main() {
             ),
           );
       expect((await repo.load()).accent, preset('Coral').color, reason: bad);
+    }
+  });
+
+  test('a stored pre-v0.9.1 accent maps to its successor', () async {
+    const cases = {
+      'ff7a59': 'Coral',
+      'ffb340': 'Amber',
+      'c6f432': 'Green',
+      '3ee0c4': 'Green',
+      '5ab4ff': 'Blue',
+      'b38cff': 'Violet',
+      'ff6fb5': 'Pink',
+    };
+    for (final MapEntry(key: old, value: name) in cases.entries) {
+      await db
+          .into(db.settingsEntries)
+          .insertOnConflictUpdate(
+            SettingsEntriesCompanion(
+              key: const Value('accent'),
+              value: Value(old),
+            ),
+          );
+      expect((await repo.load()).accent, preset(name).color, reason: old);
     }
   });
 
