@@ -30,7 +30,7 @@ owntune is a music app for people who still keep **their own music files**, such
 - **No account.** Nobody needs your email address.
 - **No subscription.** Nothing is rented, and the songs stay yours.
 - **No streaming.** The music lives on your phone, so it also plays in airplane mode or in the subway.
-- **No tracking.** The app sends nothing anywhere. The internet is only used when *you* search for a song to download.
+- **No tracking.** No account, no analytics. Once a day the app asks GitHub whether there is a new version (you can turn this off in Settings); otherwise the internet is only used when *you* search for a song to download.
 
 > owntune is a hobby project and is not in the App Store or on Google Play. On the iPhone you install it with a free tool called **SideStore**, on Android straight from the download. The guides below explain every step.
 
@@ -112,7 +112,7 @@ Apps installed with a free Apple ID **stop opening after 7 days** unless they ar
 
 ### Updating owntune
 
-When a new version comes out, SideStore shows an **Update** button next to owntune in *My Apps*. Tap it. Your library stays as it is.
+When a new version comes out, owntune shows a banner on its Home tab, and SideStore shows an **Update** button next to owntune in *My Apps*. Tap it. Your library stays as it is.
 
 ---
 
@@ -124,7 +124,7 @@ You need an **Android phone** with Android 8 or newer. It takes about two minute
 2. Open the downloaded file. Android asks whether your browser may install apps: tap **Settings**, turn on **Allow from this source** and go back.
 3. Tap **Install**. owntune appears in your apps.
 
-**Updating:** download the new `owntune.apk` the same way and install it over the old one. Your library stays as it is.
+**Updating:** when a new version comes out, owntune shows a banner on its Home tab. Tap **Update**, download the new `owntune.apk` and install it over the old one. Your library stays as it is.
 
 ---
 
