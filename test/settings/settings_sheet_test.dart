@@ -6,6 +6,8 @@ import 'package:owntune/app/app_shell.dart';
 import 'package:owntune/app/providers.dart';
 import 'package:owntune/settings/settings.dart';
 import 'package:owntune/settings/settings_sheet.dart';
+import 'package:owntune/update/app_version.dart';
+import 'package:owntune/update/update_controller.dart';
 
 import '../support/fakes.dart';
 
@@ -23,16 +25,24 @@ void main() {
   });
 
   late FakeSettingsRepository settingsRepo;
+  late FakeUpdateLauncher launcher;
 
   Future<void> openSettings(
     WidgetTester t, {
     int songs = 47,
     int bytes = 431000000,
+    UpdateInfo? update,
   }) async {
     settingsRepo = FakeSettingsRepository();
+    launcher = FakeUpdateLauncher();
     await pumpApp(
       t,
+      updateLauncher: launcher,
       overrides: [
+        if (update != null)
+          updateControllerProvider.overrideWith(
+            () => FakeUpdateController(update),
+          ),
         settingsRepositoryProvider.overrideWithValue(settingsRepo),
         trackRepositoryProvider.overrideWithValue(
           FakeTrackRepository(songCount: songs, bytes: bytes),
@@ -170,5 +180,59 @@ void main() {
     await openSettings(t);
     expect(find.text('Version'), findsOneWidget);
     expect(find.text('9.8.7'), findsOneWidget);
+  });
+
+  testWidgets('About has Check for Updates, on by default', (t) async {
+    await openSettings(t);
+    await t.ensureVisible(find.byKey(const Key('check-updates')));
+    expect(find.text('Check for Updates'), findsOneWidget);
+    expect(
+      find.text('Asks GitHub once a day for a new version.'),
+      findsOneWidget,
+    );
+    final toggle = t.widget<CupertinoSwitch>(
+      find.byKey(const Key('check-updates')),
+    );
+    expect(toggle.value, isTrue);
+  });
+
+  testWidgets('tapping Check for Updates turns it off and saves it', (
+    t,
+  ) async {
+    await openSettings(t);
+    await t.ensureVisible(find.byKey(const Key('check-updates')));
+    await t.tap(find.byKey(const Key('check-updates')));
+    await t.pumpAndSettle();
+    expect(current(t).checkForUpdates, isFalse);
+    expect(settingsRepo.saved.last.checkForUpdates, isFalse);
+  });
+
+  for (final dismissed in [null, const AppVersion(0, 11, 0)]) {
+    testWidgets('Version shows an available update and opens it '
+        '(dismissed: $dismissed)', (t) async {
+      await openSettings(
+        t,
+        update: UpdateInfo(
+          current: const AppVersion(0, 10, 0),
+          latest: const AppVersion(0, 11, 0),
+          dismissed: dismissed,
+          enabled: true,
+        ),
+      );
+      final row = find.text('9.8.7 · 0.11.0 available');
+      await t.ensureVisible(row);
+      expect(row, findsOneWidget);
+      await t.tap(row);
+      await t.pump();
+      expect(launcher.opened, 1);
+    });
+  }
+
+  testWidgets('Version without an update is a plain row', (t) async {
+    await openSettings(t);
+    await t.ensureVisible(find.text('9.8.7'));
+    await t.tap(find.text('9.8.7'));
+    await t.pump();
+    expect(launcher.opened, 0);
   });
 }

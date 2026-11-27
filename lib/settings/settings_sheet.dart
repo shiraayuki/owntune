@@ -9,6 +9,8 @@ import 'package:owntune/app/providers.dart';
 import 'package:owntune/app/segmented.dart';
 import 'package:owntune/app/theme.dart';
 import 'package:owntune/settings/settings.dart';
+import 'package:owntune/update/update_controller.dart';
+import 'package:owntune/update/update_launcher.dart';
 
 export 'package:owntune/app/format.dart' show formatBytes;
 
@@ -41,6 +43,7 @@ class SettingsSheet extends ConsumerWidget {
     final notifier = ref.read(settingsProvider.notifier);
     final stats = ref.watch(libraryStatsProvider).value;
     final version = ref.watch(appVersionProvider).value;
+    final update = ref.watch(updateControllerProvider).available;
     final bottom = MediaQuery.viewPaddingOf(context).bottom;
 
     return Material(
@@ -124,10 +127,25 @@ class SettingsSheet extends ConsumerWidget {
                 _Cell(
                   icon: CupertinoIcons.info,
                   label: 'Version',
-                  value: version ?? '',
+                  value: update == null
+                      ? version ?? ''
+                      : '${version ?? ''} · $update available',
+                  onTap: update == null
+                      ? null
+                      : () => ref.read(updateLauncherProvider).open(),
+                ),
+                _SwitchCell(
+                  key: const Key('check-updates'),
+                  icon: CupertinoIcons.arrow_2_circlepath,
+                  label: 'Check for Updates',
+                  value: settings.checkForUpdates,
+                  onChanged: (on) => notifier.set(
+                    ref.read(settingsProvider).copyWith(checkForUpdates: on),
+                  ),
                 ),
               ],
             ),
+            const _GroupFoot('Asks GitHub once a day for a new version.'),
           ],
         ),
       ),
@@ -245,20 +263,41 @@ class _Group extends StatelessWidget {
 
 /// `.cell`: gray badge, label and a muted value on the right.
 class _Cell extends StatelessWidget {
-  const _Cell({required this.icon, required this.label, required this.value});
+  const _Cell({
+    required this.icon,
+    required this.label,
+    required this.value,
+    this.onTap,
+  });
 
   final IconData icon;
   final String label;
   final String value;
 
+  /// Makes the row tappable; null leaves it a plain row.
+  final VoidCallback? onTap;
+
   @override
   Widget build(BuildContext context) {
     final c = Theme.of(context).extension<OwntuneColors>()!;
-    return _CellRow(
+    final row = _CellRow(
       icon: icon,
       label: label,
-      trailing: Text(value, style: TextStyle(fontSize: 17, color: c.muted)),
+      trailing: Text(
+        value,
+        style: TextStyle(
+          fontSize: 17,
+          color: onTap == null ? c.muted : c.accent,
+        ),
+      ),
     );
+    return onTap == null
+        ? row
+        : GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: onTap,
+            child: row,
+          );
   }
 }
 
