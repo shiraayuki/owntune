@@ -260,4 +260,20 @@ void main() {
         );
     expect((await repo.load()).normalizeVolume, isTrue);
   });
+
+  test('checkForUpdates round-trips and defaults to on', () async {
+    expect(AppSettings.defaults.checkForUpdates, isTrue);
+    expect((await repo.load()).checkForUpdates, isTrue);
+    await repo.save(AppSettings.defaults.copyWith(checkForUpdates: false));
+    expect((await repo.load()).checkForUpdates, isFalse);
+    await db
+        .into(db.settingsEntries)
+        .insertOnConflictUpdate(
+          const SettingsEntriesCompanion(
+            key: Value('check_updates'),
+            value: Value('garbage'),
+          ),
+        );
+    expect((await repo.load()).checkForUpdates, isTrue);
+  });
 }

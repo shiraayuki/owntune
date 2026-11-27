@@ -51,6 +51,7 @@ class AppSettings {
     this.onlineSource = OnlineSourceId.ytmusic,
     this.recentSearches = const [],
     this.normalizeVolume = true,
+    this.checkForUpdates = true,
   });
 
   static const defaults = AppSettings(
@@ -76,6 +77,9 @@ class AppSettings {
   /// Plays songs louder than the target level attenuated to it.
   final bool normalizeVolume;
 
+  /// Asks GitHub once a day whether a newer release exists.
+  final bool checkForUpdates;
+
   AppSettings copyWith({
     AppearanceMode? mode,
     Color? accent,
@@ -84,6 +88,7 @@ class AppSettings {
     OnlineSourceId? onlineSource,
     List<String>? recentSearches,
     bool? normalizeVolume,
+    bool? checkForUpdates,
   }) => AppSettings(
     mode: mode ?? this.mode,
     accent: accent ?? this.accent,
@@ -92,6 +97,7 @@ class AppSettings {
     onlineSource: onlineSource ?? this.onlineSource,
     recentSearches: recentSearches ?? this.recentSearches,
     normalizeVolume: normalizeVolume ?? this.normalizeVolume,
+    checkForUpdates: checkForUpdates ?? this.checkForUpdates,
   );
 
   @override
@@ -103,7 +109,8 @@ class AppSettings {
       other.songSortDescending == songSortDescending &&
       other.onlineSource == onlineSource &&
       listEquals(other.recentSearches, recentSearches) &&
-      other.normalizeVolume == normalizeVolume;
+      other.normalizeVolume == normalizeVolume &&
+      other.checkForUpdates == checkForUpdates;
 
   @override
   int get hashCode => Object.hash(
@@ -114,6 +121,7 @@ class AppSettings {
     onlineSource,
     Object.hashAll(recentSearches),
     normalizeVolume,
+    checkForUpdates,
   );
 }
 
@@ -131,6 +139,7 @@ class SettingsRepository {
   static const _onlineSourceKey = 'online_source';
   static const _onlineRecentKey = 'online_recent';
   static const _normalizeVolumeKey = 'normalize_volume';
+  static const _checkForUpdatesKey = 'check_updates';
   static final _hex6 = RegExp(r'^[0-9a-f]{6}$');
 
   Future<AppSettings> load() async {
@@ -151,6 +160,7 @@ class SettingsRepository {
       recentSearches: _parseRecent(values[_onlineRecentKey]),
       // Only an explicit 'false' turns it off.
       normalizeVolume: values[_normalizeVolumeKey] != 'false',
+      checkForUpdates: values[_checkForUpdatesKey] != 'false',
     );
   }
 
@@ -181,6 +191,10 @@ class SettingsRepository {
         SettingsEntriesCompanion.insert(
           key: _normalizeVolumeKey,
           value: '${s.normalizeVolume}',
+        ),
+        SettingsEntriesCompanion.insert(
+          key: _checkForUpdatesKey,
+          value: '${s.checkForUpdates}',
         ),
       ]);
     });

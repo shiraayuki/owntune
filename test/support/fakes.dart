@@ -41,6 +41,7 @@ import 'package:owntune/player/system_controls.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:path/path.dart' as p;
 import 'package:owntune/settings/settings.dart';
+import 'package:owntune/update/update_store.dart';
 
 Track track(
   int id, {
@@ -841,6 +842,23 @@ class FakeHttpTransport implements HttpTransport {
   Future<Uri> finalUrl(Uri url) async {
     finalUrls.add(url);
     return onFinalUrl == null ? url : onFinalUrl!(url);
+  }
+}
+
+/// [UpdateStore] in memory; counts the writes.
+class MemoryUpdateStore implements UpdateStore {
+  MemoryUpdateStore([this.record = const UpdateRecord()]);
+
+  UpdateRecord record;
+  int writes = 0;
+
+  @override
+  Future<UpdateRecord> read() async => record;
+
+  @override
+  Future<void> write(UpdateRecord record) async {
+    writes++;
+    this.record = record;
   }
 }
 
