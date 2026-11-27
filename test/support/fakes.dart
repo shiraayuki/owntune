@@ -801,6 +801,9 @@ class FakeHttpTransport implements HttpTransport {
   Future<Uri> Function(Uri url)? onFinalUrl;
   final posts = <PostCall>[];
   final gets = <Uri>[];
+
+  /// The `getJson` calls with their headers (also listed in [gets]).
+  final jsonGets = <({Uri url, Map<String, String> headers})>[];
   final finalUrls = <Uri>[];
 
   @override
@@ -821,6 +824,7 @@ class FakeHttpTransport implements HttpTransport {
     required String service,
   }) async {
     gets.add(url);
+    jsonGets.add((url: url, headers: headers));
     final res = await onGet!(url, headers);
     final text = await utf8.decoder.bind(res.stream).join();
     if (res.statusCode != 200) throw HttpStatusError(service, res.statusCode);
