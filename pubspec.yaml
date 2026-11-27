@@ -53,6 +53,7 @@ dependencies:
   audio_service: ^0.18.19
   image: ^4.13.1
   collection: ^1.19.1
+  url_launcher: ^6.3.3
 
 dev_dependencies:
   flutter_test:

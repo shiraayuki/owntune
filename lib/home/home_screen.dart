@@ -3,13 +3,15 @@ import 'package:material_ui/material_ui.dart';
 import 'package:owntune/app/text_tabs.dart';
 import 'package:owntune/home/for_you_screen.dart';
 import 'package:owntune/home/stats_screen.dart';
+import 'package:owntune/update/update_banner.dart';
 
 /// The sub-tabs of the Home tab, in display order.
 enum HomeSection { forYou, stats }
 
 const _labels = {HomeSection.forYou: 'For You', HomeSection.stats: 'Stats'};
 
-/// For You | Stats under one tab. Both stay mounted, so For You keeps its
+/// For You | Stats under one tab, below the update banner when a newer
+/// release is offered. Both stay mounted, so For You keeps its
 /// scroll position. Unlike the Library tab, the text tabs stay visible with an
 /// empty library.
 ///
@@ -28,6 +30,7 @@ class HomeScreen extends ConsumerWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        const UpdateBanner(),
         TextTabs<HomeSection>(
           key: const Key('home-segments'),
           segments: _labels,

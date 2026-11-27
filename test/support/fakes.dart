@@ -42,6 +42,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:path/path.dart' as p;
 import 'package:owntune/settings/settings.dart';
 import 'package:owntune/update/update_controller.dart';
+import 'package:owntune/update/update_launcher.dart';
 import 'package:owntune/update/update_store.dart';
 
 Track track(
@@ -683,6 +684,7 @@ Future<void> pumpApp(
   FakeStatsRepository? stats,
   FakeLoudnessRepository? loudness,
   FakeLoudnessMeter? meter,
+  FakeUpdateLauncher? updateLauncher,
   List<Override> overrides = const [],
   List<ProviderObserver>? observers,
 }) async {
@@ -747,6 +749,9 @@ Future<void> pumpApp(
         ),
         updateCheckSupportedProvider.overrideWithValue(false),
         updateStoreProvider.overrideWithValue(MemoryUpdateStore()),
+        updateLauncherProvider.overrideWithValue(
+          updateLauncher ?? FakeUpdateLauncher(),
+        ),
         ...overrides,
       ],
       child: OwntuneApp(onOpenSettings: onOpenSettings),
@@ -845,6 +850,40 @@ class FakeHttpTransport implements HttpTransport {
   Future<Uri> finalUrl(Uri url) async {
     finalUrls.add(url);
     return onFinalUrl == null ? url : onFinalUrl!(url);
+  }
+}
+
+/// Records how often the update target was opened.
+class FakeUpdateLauncher implements UpdateLauncher {
+  int opened = 0;
+
+  @override
+  Future<void> open() async => opened++;
+}
+
+/// An [UpdateController] that starts from [initial] and makes no request;
+/// [dismiss] records the call and hides the banner like the real one.
+class FakeUpdateController extends UpdateController {
+  FakeUpdateController(this.initial);
+
+  final UpdateInfo initial;
+  int dismissCalls = 0;
+
+  @override
+  UpdateInfo build() => initial;
+
+  @override
+  Future<void> check({bool force = false}) async {}
+
+  @override
+  Future<void> dismiss() async {
+    dismissCalls++;
+    state = UpdateInfo(
+      current: state.current,
+      latest: state.latest,
+      dismissed: state.available,
+      enabled: state.enabled,
+    );
   }
 }
 
