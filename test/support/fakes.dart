@@ -41,6 +41,7 @@ import 'package:owntune/player/system_controls.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:path/path.dart' as p;
 import 'package:owntune/settings/settings.dart';
+import 'package:owntune/update/update_controller.dart';
 import 'package:owntune/update/update_store.dart';
 
 Track track(
@@ -744,6 +745,8 @@ Future<void> pumpApp(
         downloadControllerProvider.overrideWith(
           () => downloads ?? FakeDownloadController(),
         ),
+        updateCheckSupportedProvider.overrideWithValue(false),
+        updateStoreProvider.overrideWithValue(MemoryUpdateStore()),
         ...overrides,
       ],
       child: OwntuneApp(onOpenSettings: onOpenSettings),

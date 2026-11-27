@@ -32,6 +32,7 @@ import 'package:owntune/playlists/playlist_view.dart';
 import 'package:owntune/settings/settings.dart';
 import 'package:owntune/src/rust/api/library.dart';
 import 'package:owntune/src/rust/api/metadata.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 
 /// Opened by `startUp()`; `main` overrides it with the real instance.
 final databaseProvider = Provider<AppDatabase>(
@@ -85,6 +86,11 @@ final playRepositoryProvider = Provider<PlayRepository>(
 
 /// The current time; tests override it.
 final clockProvider = Provider<DateTime Function()>((ref) => DateTime.now);
+
+/// The app version from the platform; tests override it.
+final appVersionProvider = FutureProvider<String>(
+  (ref) async => (await PackageInfo.fromPlatform()).version,
+);
 
 /// How long the position may stand still at the end of a playing song before
 /// the player moves on by itself; tests shorten it.

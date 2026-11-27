@@ -25,6 +25,7 @@ import 'package:owntune/playlists/new_playlist_sheet.dart';
 import 'package:owntune/playlists/playlists_tab.dart';
 import 'package:owntune/settings/settings.dart';
 import 'package:owntune/settings/settings_sheet.dart';
+import 'package:owntune/update/update_controller.dart';
 
 /// Opens the settings; gets a context below the app's navigator. Defaults to
 /// [showSettingsSheet].
@@ -42,6 +43,8 @@ class OwntuneApp extends ConsumerWidget {
     ref.watch(systemControlsSyncProvider);
     // Measures the loudness of new and not yet measured songs.
     ref.watch(loudnessMeasurerProvider);
+    // Asks GitHub once a day for a newer release (phones only).
+    ref.watch(updateControllerProvider);
     return MaterialApp(
       title: 'owntune',
       theme: buildTheme(Brightness.light, settings.accent),

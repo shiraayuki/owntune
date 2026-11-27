@@ -9,14 +9,8 @@ import 'package:owntune/app/providers.dart';
 import 'package:owntune/app/segmented.dart';
 import 'package:owntune/app/theme.dart';
 import 'package:owntune/settings/settings.dart';
-import 'package:package_info_plus/package_info_plus.dart';
 
 export 'package:owntune/app/format.dart' show formatBytes;
-
-/// The app version from the platform; tests override it.
-final appVersionProvider = FutureProvider<String>(
-  (ref) async => (await PackageInfo.fromPlatform()).version,
-);
 
 /// Song count and storage used, read fresh each time the sheet opens.
 final libraryStatsProvider =
