@@ -52,14 +52,19 @@ void main() {
     WidgetTester t, {
     bool supported = true,
     String version = '0.10.0',
+    String? buildNumber,
     bool checkForUpdates = true,
   }) async {
+    // A release build's number follows its version (tool/release_version.sh).
+    final v = AppVersion.parse(version)!;
+    final build = buildNumber ?? '${v.major * 10000 + v.minor * 100 + v.patch}';
     final container = ProviderContainer(
       overrides: [
         updateCheckSupportedProvider.overrideWithValue(supported),
         updateStoreProvider.overrideWithValue(store),
         httpTransportProvider.overrideWithValue(http),
         appVersionProvider.overrideWith((ref) async => version),
+        appBuildNumberProvider.overrideWith((ref) async => build),
         clockProvider.overrideWithValue(() => now),
         initialSettingsProvider.overrideWithValue(
           AppSettings.defaults.copyWith(checkForUpdates: checkForUpdates),
@@ -129,7 +134,7 @@ void main() {
   testWidgets('a running version newer than the release shows nothing', (
     t,
   ) async {
-    final c = await start(t, version: '0.12.0+1200');
+    final c = await start(t, version: '0.12.0');
     expect(info(c).available, isNull);
   });
 
@@ -146,9 +151,7 @@ void main() {
     expect(info(c).available, v0_11_0);
   });
 
-  testWidgets('a failed check stores nothing and retries on resume', (
-    t,
-  ) async {
+  testWidgets('a failed check stores nothing and retries on resume', (t) async {
     failWith = const OnlineError('No connection');
     final c = await start(t);
     expect(http.jsonGets, hasLength(1));
@@ -183,9 +186,7 @@ void main() {
     expect(info(c).showBanner, isTrue);
   });
 
-  testWidgets('a dismissed version stays dismissed after a restart', (
-    t,
-  ) async {
+  testWidgets('a dismissed version stays dismissed after a restart', (t) async {
     store.record = UpdateRecord(
       lastCheck: now,
       latest: v0_11_0,
@@ -220,6 +221,14 @@ void main() {
 
   testWidgets('switched off at start makes no request', (t) async {
     final c = await start(t, checkForUpdates: false);
+    await resume(t);
+    expect(http.jsonGets, isEmpty);
+    expect(info(c).available, isNull);
+  });
+
+  testWidgets('a build that is not a release build never asks', (t) async {
+    // `flutter run` and manual workflow builds keep the pubspec's 0.7.0+1.
+    final c = await start(t, version: '0.7.0', buildNumber: '1');
     await resume(t);
     expect(http.jsonGets, isEmpty);
     expect(info(c).available, isNull);

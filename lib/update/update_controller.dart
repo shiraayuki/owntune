@@ -54,7 +54,8 @@ const _checkInterval = Duration(hours: 24);
 
 /// Asks GitHub for the latest release on start and whenever the app returns
 /// to the foreground, at most once per [_checkInterval] after a successful
-/// check. Failures stay silent and store nothing.
+/// check. Failures stay silent and store nothing. Only release builds (build
+/// number = [AppVersion.releaseBuildNumber]) check at all.
 class UpdateController extends Notifier<UpdateInfo> {
   UpdateRecord _record = const UpdateRecord();
   AppVersion? _current;
@@ -80,12 +81,18 @@ class UpdateController extends Notifier<UpdateInfo> {
     } catch (_) {
       // A broken store only means no known state.
     }
+    var release = false;
     try {
       _current = AppVersion.parse(await ref.read(appVersionProvider.future));
+      final build = await ref.read(appBuildNumberProvider.future);
+      // Only a release build carries its version's build number; `flutter
+      // run` and manual workflow builds keep the pubspec's 0.7.0+1 and would
+      // be offered a "newer" release that is really a downgrade.
+      release = _current != null && build == '${_current!.releaseBuildNumber}';
     } catch (_) {
       // Without the running version nothing can be offered.
     }
-    if (!ref.mounted) return;
+    if (!ref.mounted || !release) return;
     _ready = true;
     _publish();
     await check();

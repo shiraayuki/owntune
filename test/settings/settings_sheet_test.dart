@@ -196,9 +196,7 @@ void main() {
     expect(toggle.value, isTrue);
   });
 
-  testWidgets('tapping Check for Updates turns it off and saves it', (
-    t,
-  ) async {
+  testWidgets('tapping Check for Updates turns it off and saves it', (t) async {
     await openSettings(t);
     await t.ensureVisible(find.byKey(const Key('check-updates')));
     await t.tap(find.byKey(const Key('check-updates')));

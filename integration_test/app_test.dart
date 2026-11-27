@@ -13,6 +13,7 @@ import 'package:owntune/data/library_storage.dart';
 import 'package:owntune/import/audio_file_picker.dart';
 import 'package:owntune/settings/settings.dart';
 import 'package:owntune/src/rust/api/metadata.dart';
+import 'package:owntune/update/update_controller.dart';
 
 import 'support/fixtures.dart';
 
@@ -105,6 +106,8 @@ void main() {
           databaseProvider.overrideWithValue(ready.db),
           storageProvider.overrideWithValue(ready.storage),
           initialSettingsProvider.overrideWithValue(ready.settings),
+          // No GitHub request from a test, also on a phone.
+          updateCheckSupportedProvider.overrideWithValue(false),
           filePickerProvider.overrideWithValue(_FixturePicker(picked)),
         ],
         child: const OwntuneApp(),
@@ -154,6 +157,8 @@ void main() {
           databaseProvider.overrideWithValue(ready.db),
           storageProvider.overrideWithValue(ready.storage),
           initialSettingsProvider.overrideWithValue(ready.settings),
+          // No GitHub request from a test, also on a phone.
+          updateCheckSupportedProvider.overrideWithValue(false),
         ],
         child: const OwntuneApp(),
       ),

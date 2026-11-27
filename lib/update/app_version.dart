@@ -30,6 +30,10 @@ class AppVersion implements Comparable<AppVersion> {
 
   bool operator >(AppVersion other) => compareTo(other) > 0;
 
+  /// The build number a release of this version carries
+  /// (`tool/release_version.sh`: 0.8.2 → 802).
+  int get releaseBuildNumber => major * 10000 + minor * 100 + patch;
+
   @override
   bool operator ==(Object other) =>
       other is AppVersion &&

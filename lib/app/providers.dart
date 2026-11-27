@@ -92,6 +92,11 @@ final appVersionProvider = FutureProvider<String>(
   (ref) async => (await PackageInfo.fromPlatform()).version,
 );
 
+/// The app's build number from the platform; tests override it.
+final appBuildNumberProvider = FutureProvider<String>(
+  (ref) async => (await PackageInfo.fromPlatform()).buildNumber,
+);
+
 /// How long the position may stand still at the end of a playing song before
 /// the player moves on by itself; tests shorten it.
 final endStallWaitProvider = Provider<Duration>(

@@ -15,6 +15,11 @@ void main() {
     }
   });
 
+  test('a release build number follows the version', () {
+    expect(const AppVersion(0, 8, 2).releaseBuildNumber, 802);
+    expect(const AppVersion(1, 2, 3).releaseBuildNumber, 10203);
+  });
+
   test('compares numerically, not as text', () {
     expect(const AppVersion(0, 10, 0) > const AppVersion(0, 9, 2), isTrue);
     expect(const AppVersion(1, 0, 0) > const AppVersion(0, 99, 99), isTrue);
